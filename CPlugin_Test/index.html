@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CPlugin_Test · MdCRndr 渲染引擎插件测试</title>
+
+    <!-- 被测插件：单文件、零依赖（本页除它之外不引入任何脚本/样式表） -->
+    <script type="text/javascript" src="../js/plugin/MdCRndr.js"></script>
+
+    <style>
+        :root {
+            --line: #d8d8d8;
+            --ink: #333;
+            --accent: #3b6fd4;
+        }
+
+        body {
+            margin: 0;
+            padding: 18px;
+            background: #f5f5f5;
+            color: var(--ink);
+            font-family: system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+        }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: 20px;
+        }
+
+        h2 {
+            margin: 26px 0 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--line);
+            font-size: 15.5px;
+            color: #444;
+        }
+
+        .hint {
+            margin: 0 0 6px;
+            color: #666;
+            line-height: 1.75;
+        }
+
+        code {
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: #eaeaea;
+            font-family: Consolas, "Courier New", monospace;
+        }
+
+        /* ================= 行内嵌入示例 ================= */
+        .Prose {
+            margin: 0;
+            padding: 4px 0;
+            font-size: 17px;
+            line-height: 2.5;       /* 行高放大，容纳行内象形文字 */
+            text-align: justify;
+        }
+
+        .Prose + .Prose {
+            margin-top: 6px;
+        }
+
+        /* 行内 MdC 片段：占位元素在渲染前显示 MdC 原文 */
+        .mdc {
+            display: inline;
+            white-space: nowrap;
+        }
+
+        /* 行内象形文字：随正文基线排列 */
+        .mdc .hie,
+        .mdc .vrg,
+        .mdc .lig {
+            margin: 0 1px;
+        }
+
+        .mdc .hie,
+        .mdc .lig {
+            vertical-align: baseline;
+        }
+
+        /* 「基线对齐」模式：去掉引擎在 1em 轨道内的居中位移，
+           让墨迹直接坐在正文基线上（更适合行内嵌排）。 */
+        .Prose.align-baseline .mdc .hie {
+            transform: none !important;
+        }
+
+        /* 渲染失败/非法时的高亮 */
+        .mdc.bad {
+            border-bottom: 2px solid #e63946;
+            background: #fff5f5;
+        }
+
+        /* 行内随注：发音 / 释义 */
+        .mdc .pron {
+            margin-left: 2px;
+            color: #8a6d00;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.62em;
+            vertical-align: 0.55em;
+        }
+
+        .mdc .gloss {
+            margin-left: 2px;
+            color: #777;
+            font-size: 0.62em;
+            vertical-align: 0.55em;
+        }
+
+        /* 「显示 MdC 源码」模式：直接以等宽字显示原始渲染串 */
+        .Prose.show-src .mdc {
+            padding: 0 3px;
+            border-radius: 3px;
+            background: #eef4ff;
+            color: #2a4d8f;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.82em;
+        }
+
+        /* ================= 控制条 / 测试台 ================= */
+        .bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px 16px;
+            margin: 10px 0;
+        }
+
+        .bar label {
+            color: #555;
+        }
+
+        .bar input[type="range"] {
+            vertical-align: middle;
+            width: 140px;
+        }
+
+        .samples {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .samples button {
+            padding: 3px 9px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: #fff;
+            color: #444;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .samples button:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: #eef4ff;
+        }
+
+        #mdc {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 72px;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #fff;
+            color: #111;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 15px;
+            line-height: 1.5;
+            resize: vertical;
+        }
+
+        #mdc:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 111, 212, 0.15);
+        }
+
+        #warn {
+            margin: 8px 0;
+            padding: 6px 10px;
+            border: 1px solid #e63946;
+            border-radius: 6px;
+            background: #fff5f5;
+            color: #b52b36;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            word-break: break-all;
+        }
+
+        #warn[hidden] {
+            display: none;
+        }
+
+        #out {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 120px;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fff;
+            font-size: 40px;        /* 供 .br / 行内 em 规则使用；字形字号由引擎写入绝对 px */
+        }
+
+        #out:empty::before {
+            content: "（在上方文本框输入 MdC 渲染串，此处显示渲染结果）";
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        .RenderLine {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 0.125em;
+            min-height: 40px;
+        }
+
+        footer {
+            margin-top: 18px;
+            padding-top: 10px;
+            border-top: 1px solid var(--line);
+            color: #777;
+            font-size: 12.5px;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>CPlugin_Test · MdCRndr 渲染引擎插件测试</h1>
+    <p class="hint">
+        本页分为两部分：<b>① 行内嵌入</b>（把象形文字混排进正文，观察基线与字号）与
+        <b>② 纯 MdC 测试台</b>（输入任意 MdC 渲染串即时查看结果）。
+    </p>
+
+    <!-- ============================================================ -->
+    <h2>① 行内嵌入示例</h2>
+    <p class="hint">
+        下列段落中的象形文字均由插件现场渲染：空格悬停可看到「释义 · 发音 · MdC 渲染串」。
+        勾选「显示 MdC 源码」即可对照原文；切换「对齐方式」可比较两种垂直定位：
+        <code>基线对齐</code>（去掉引擎在 1em 轨道内的居中位移，墨迹直接坐在正文基线上，适合行内）
+        与 <code>em 框居中</code>（引擎默认，适合独立成块的渲染区）。
+        <br>
+        <b>说明</b>：本区是<b>排版演示</b>，文中每个象形文字都是<b>被引用的单词</b>，
+        其写法取自项目词库（<code>js/database/vocabulary.js</code>），释义为词库释义的简写，
+        <b>不构成埃及语语句</b>——词与词之间并未按埃及语词序连缀。
+    </p>
+
+    <div class="bar">
+        <label>象形文字大小 <input type="range" id="inlineScale" min="90" max="170" step="5" value="115"><span
+                id="inlineScaleVal">1.15×</span></label>
+        <label>对齐方式
+            <select id="alignMode">
+                <option value="baseline" selected>基线对齐</option>
+                <option value="center">em 框居中</option>
+            </select>
+        </label>
+        <label><input type="checkbox" id="showGloss"> 显示释义</label>
+        <label><input type="checkbox" id="showSrc"> 显示 MdC 源码</label>
+    </div>
+
+    <div id="ProseBox">
+        <p class="Prose align-baseline">
+            在圣书体里，同一个符号往往既作<b>声符</b>又作<b>义符</b>，读者要凭上下文判断它这一次担任何种职务。
+            因此下面这些词虽然都只由两三个符号组成，独立书写时却各自是完整的单词：
+            <span class="mdc" data-mdc="S34-N35:AA1" data-pron="anx" data-gloss="生命">S34-N35:AA1</span>
+            「生命」、<span class="mdc" data-mdc="F35" data-pron="nfr" data-gloss="美丽">F35</span>「美丽」、
+            <span class="mdc" data-mdc="D21:N35" data-pron="rn" data-gloss="名字">D21:N35</span>「名字」、
+            <span class="mdc" data-mdc="D28:Z1" data-pron="kA" data-gloss="灵魂">D28:Z1</span>「灵魂」。
+        </p>
+
+        <p class="Prose align-baseline">
+            神名常带神祇限定符：<span class="mdc" data-mdc="G5-A40" data-pron="Hr" data-gloss="荷鲁斯">G5-A40</span>
+            「荷鲁斯」作猎鹰立于旗杆之形再加端坐神像，<span class="mdc" data-mdc="N6:Z1" data-pron="ra"
+                data-gloss="拉">N6:Z1</span>「拉」则以太阳加笔画表意。王衔中常见
+            <span class="mdc" data-mdc="M23-X1:N35" data-pron="nsw" data-gloss="国王">M23-X1:N35</span>「国王」；
+            王权叙事里反复出现的两件东西是
+            <span class="mdc" data-mdc="F12" data-pron="wsr" data-gloss="强大">F12</span>「强大」与
+            <span class="mdc" data-mdc="U5:D36-X1-H6-Y1:Z2" data-pron="mAat"
+                data-gloss="真理、秩序">U5:D36-X1-H6-Y1:Z2</span>「真理、秩序」，前者说力量，后者说正当性。
+        </p>
+
+        <p class="Prose align-baseline">
+            写法并不整齐划一。亲属称谓与身体部位里，有的直接拼出词形：<span class="mdc" data-mdc="G14-X1-B1"
+                data-pron="mwt" data-gloss="母亲">G14-X1-B1</span>「母亲」、<span class="mdc" data-mdc="G39-A1"
+                data-pron="sA" data-gloss="儿子">G39-A1</span>「儿子」、<span class="mdc" data-mdc="F21:Z1"
+                data-pron="msDr" data-gloss="耳朵">F21:Z1</span>「耳朵」；
+            有的则是声符加限定符：<span class="mdc" data-mdc="F31-A17" data-pron="ms"
+                data-gloss="孩子">F31-A17</span>「孩子」。
+        </p>
+
+        <p class="Prose align-baseline">
+            动词的取象也各不相同：<span class="mdc" data-mdc="{I10-D46}" data-pron="Dd"
+                data-gloss="说">{I10-D46}</span>「说」是眼镜蛇加手（连字），
+            <span class="mdc" data-mdc="D4" data-pron="iri" data-gloss="做">D4</span>「做」直接用眼睛表意；
+            <span class="mdc" data-mdc="U7:D21-A2" data-pron="mri"
+                data-gloss="爱">U7:D21-A2</span>「爱」以锄、口作声符，再加人形限定符。
+            代词则常把两个辅音并进一个方块，如 <span class="mdc" data-mdc="{X1-G43}" data-pron="tw"
+                data-gloss="你">{X1-G43}</span>「你」（依附代词）。
+        </p>
+
+        <p class="Prose align-baseline">
+            混排同样可行：<span class="mdc" data-mdc="D4-<do>-D4" data-pron="iri…iri"
+                data-gloss="做〈do〉做">D4-&lt;do&gt;-D4</span>——其中 <code>&lt;do&gt;</code>
+            是插入文本（0.4 倍基准字号、上下居中），与字形同处一行；此处只为演示排版，
+            两个「做」之间的中缀纯属虚构。
+        </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <h2>② 纯 MdC 测试台</h2>
+    <p class="hint">
+        语法（JSesh 风格）：<code>*</code> 同层并列 · <code>:</code> 下移一层（竖叠）· <code>-</code> 分隔方块 ·
+        <code>{连字名}</code> 连字 · <code>&lt;文本&gt;</code> 插入文本 · <code>$</code> 强制换行 ·
+        十六进制码点如 <code>1313F</code>。无法识别的片段列在警戒框中（渲染区仍显示可解析部分）。
+    </p>
+
+    <textarea id="mdc" spellcheck="false"
+        placeholder="例如：S34-N35:AA1 或 F35-{I10-D46}-G43 或 A1*A1*A1*A1*A1*A1"></textarea>
+
+    <div class="bar">
+        <label>字号 <input type="range" id="size" min="20" max="96" step="2" value="40"><span
+                id="sizeVal">40px</span></label>
+        <label><input type="checkbox" id="ligDebug"> 连字调试边框</label>
+        <span class="samples">
+            <button type="button" data-mdc="S34-N35:AA1">S34-N35:AA1</button>
+            <button type="button" data-mdc="G20-M17-Z4a:D54-D21:G43">G20-M17-Z4a:D54-D21:G43</button>
+            <button type="button" data-mdc="W24:X1*W24:N1">W24:X1*W24:N1</button>
+            <button type="button" data-mdc="A1*A1*A1*A1*A1*A1">A1*A1*A1*A1*A1*A1</button>
+            <button type="button" data-mdc="F35-{I10-D46}-G43">F35-{I10-D46}-G43</button>
+            <button type="button" data-mdc="{Q3-G43}-{X1-G43}-{X1-G43-X1}">{Q3-G43}-{X1-G43}-{X1-G43-X1}</button>
+            <button type="button" data-mdc="D21-$-D46">D21-$-D46（换行）</button>
+            <button type="button" data-mdc="F35-<good>">F35-&lt;good&gt;</button>
+            <button type="button" data-mdc="1313F-A45a">1313F-A45a（hex + 变体码）</button>
+            <button type="button" data-mdc="bAw-[D21:G43}">bAw-[D21:G43}（非法示例）</button>
+        </span>
+    </div>
+
+    <div id="warn" hidden></div>
+    <div id="out"></div>
+
+    <footer>
+        <div>插件：<code>../js/plugin/MdCRndr.js</code>（单文件零依赖，可原样拷入任意前端项目）</div>
+        <div>字体：本页经 <code>MdCRndr.init({ fontUrl: "../fonts/NewGardiner.ttf" })</code> 指定；嵌入他站时改成自己的字体路径即可。</div>
+        <div>渲染引擎只接受<b>纯 MdC 渲染串</b>。本页不使用 CHEAV 的任何其它脚本或样式。</div>
+    </footer>
+
+    <script>
+        // ============================================================
+        // 初始化插件：注入 @font-face 与 .hie/.vrg/.lig/.txt/.br 样式
+        // ============================================================
+        const INLINE_SCALE_DEFAULT = 1.15;   // 行内象形文字相对正文字号的倍率
+
+        MdCRndr.init({
+            fontUrl: "../fonts/NewGardiner.ttf",
+            fontSize: 40,
+        });
+
+        const out = document.getElementById("out");
+        const warn = document.getElementById("warn");
+        const sizeEl = document.getElementById("size");
+        const sizeVal = document.getElementById("sizeVal");
+        const ligDebug = document.getElementById("ligDebug");
+        const proseBox = document.getElementById("ProseBox");
+        const inlineScale = document.getElementById("inlineScale");
+        const inlineScaleVal = document.getElementById("inlineScaleVal");
+        const alignMode = document.getElementById("alignMode");
+        const showGloss = document.getElementById("showGloss");
+        const showSrc = document.getElementById("showSrc");
+
+        // ============================================================
+        // ① 行内嵌入：把 .mdc 占位元素渲染成象形文字
+        //    MdC 原文始终取自 data-mdc（不依赖已渲染的内容，保证幂等）
+        // ============================================================
+        function renderInline() {
+            const scale = Number(inlineScale.value) / 100;
+            inlineScaleVal.textContent = scale.toFixed(2).replace(/0$/, "") + "×";
+            proseBox.classList.toggle("align-baseline", alignMode.value === "baseline");
+            proseBox.classList.toggle("show-src", showSrc.checked);
+
+            for (const el of proseBox.querySelectorAll(".mdc")) {
+                const mdC = el.getAttribute("data-mdc") || "";
+                const pron = el.getAttribute("data-pron") || "";
+                const gloss = el.getAttribute("data-gloss") || "";
+                el.title = (gloss ? gloss + " · " : "") + (pron ? pron + " · " : "") + mdC;
+                el.classList.remove("bad");
+
+                if (showSrc.checked) {          // 源码模式：只显示原始 MdC
+                    el.textContent = mdC;
+                    continue;
+                }
+
+                // 字号：取所在段落的实际字号 × 倍率，写成绝对 px 交给引擎
+                const base = parseFloat(getComputedStyle(el).fontSize) || 17;
+                const px = Math.round(base * scale);
+
+                el.textContent = "";
+                const result = MdCRndr.renderText(el, mdC, px);
+                if (result.invalid.length) el.classList.add("bad");
+
+                if (pron) {
+                    const s = document.createElement("span");
+                    s.className = "pron";
+                    s.textContent = pron;
+                    el.appendChild(s);
+                }
+                if (showGloss.checked && gloss) {
+                    const s = document.createElement("span");
+                    s.className = "gloss";
+                    s.textContent = gloss;
+                    el.appendChild(s);
+                }
+            }
+        }
+
+        // ============================================================
+        // ② 纯 MdC 测试台
+        // ============================================================
+        function draw() {
+            const size = Number(sizeEl.value) || 40;
+            const text = document.getElementById("mdc").value;
+
+            const result = MdCRndr.parse(text);            // { tree, invalid }
+            out.innerHTML = "";
+            for (const line of MdCRndr.splitLines(result.tree)) {
+                const row = document.createElement("div");
+                row.className = "RenderLine";
+                MdCRndr.render(row, line, size);           // 渲染单位树到行容器
+                out.appendChild(row);
+            }
+
+            if (result.invalid.length) {
+                warn.hidden = false;
+                warn.textContent = "无法识别（" + result.invalid.length + "）：" + result.invalid.join("   ");
+            } else {
+                warn.hidden = true;
+                warn.textContent = "";
+            }
+            sizeVal.textContent = size + "px";
+        }
+
+        // ---- 事件 ----
+        const ta = document.getElementById("mdc");
+        ta.addEventListener("input", draw);
+        sizeEl.addEventListener("input", draw);
+        ligDebug.addEventListener("change", function () {
+            MdCRndr.set({ ligatureDebug: ligDebug.checked });
+            draw();
+        });
+        inlineScale.addEventListener("input", renderInline);
+        alignMode.addEventListener("change", renderInline);
+        showGloss.addEventListener("change", renderInline);
+        showSrc.addEventListener("change", renderInline);
+
+        // 测试台示例按钮
+        for (const btn of document.querySelectorAll(".samples button[data-mdc]")) {
+            btn.addEventListener("click", function () {
+                ta.value = btn.getAttribute("data-mdc");
+                draw();
+            });
+        }
+
+        // ---- 首屏 ----
+        renderInline();
+        ta.value = "S34-N35:AA1";
+        draw();
+    </script>
+</body>
+
+</html>

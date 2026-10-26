@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CHEAV 开发者文档 · MdCRndr 渲染引擎</title>
+
+    <!-- 本文档中所有接口清单、示例结果与象形文字均由插件现场生成 -->
+    <script type="text/javascript" src="js/plugin/MdCRndr.js"></script>
+
+    <style>
+        :root {
+            --line: #e0e0e0;
+            --ink: #2f2f2f;
+            --dim: #6b6b6b;
+            --accent: #3b6fd4;
+            --bg: #f6f6f4;
+            --card: #fff;
+            --code-bg: #f4f6fa;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font-family: system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+            font-size: 15px;
+            line-height: 1.85;
+        }
+
+        header {
+            padding: 26px 28px 18px;
+            background: #fff;
+            border-bottom: 1px solid var(--line);
+        }
+
+        header h1 { margin: 0 0 4px; font-size: 24px; }
+
+        header p { margin: 0; color: var(--dim); font-size: 14px; }
+
+        header .links { margin-top: 10px; font-size: 13.5px; }
+
+        header .links a { margin-right: 14px; }
+
+        .wrap {
+            display: flex;
+            align-items: flex-start;
+            gap: 26px;
+            max-width: 1220px;
+            margin: 0 auto;
+            padding: 22px 28px 60px;
+        }
+
+        nav {
+            position: sticky;
+            top: 18px;
+            flex: 0 0 220px;
+            padding: 14px 16px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            font-size: 13.5px;
+        }
+
+        nav b { display: block; margin: 10px 0 6px; color: var(--dim); font-weight: 600; }
+
+        nav b:first-child { margin-top: 0; }
+
+        nav a { display: block; padding: 2.5px 0; color: #40506b; text-decoration: none; }
+
+        nav a:hover { color: var(--accent); }
+
+        main { flex: 1 1 auto; min-width: 0; }
+
+        section {
+            margin-bottom: 26px;
+            padding: 18px 22px 22px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+        }
+
+        h2 { margin: 0 0 12px; font-size: 19px; }
+
+        h3 { margin: 22px 0 8px; font-size: 16px; }
+
+        h4 { margin: 16px 0 6px; font-size: 14.5px; color: #40506b; }
+
+        p { margin: 10px 0; }
+
+        a { color: var(--accent); }
+
+        code {
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: #eee;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.92em;
+        }
+
+        pre {
+            margin: 10px 0;
+            padding: 11px 14px;
+            overflow: auto;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--code-bg);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.65;
+        }
+
+        pre.out { background: #f7fbf7; border-color: #d6e6d6; }
+
+        table {
+            width: 100%;
+            margin: 12px 0;
+            border-collapse: collapse;
+            font-size: 13.5px;
+        }
+
+        th, td {
+            padding: 6px 10px;
+            border: 1px solid var(--line);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th { background: #f2f4f8; font-weight: 600; }
+
+        td.k {
+            white-space: nowrap;
+            font-family: Consolas, "Courier New", monospace;
+        }
+
+        .demo {
+            margin: 12px 0;
+            padding: 10px 14px;
+            border: 1px dashed #cfd6e4;
+            border-radius: 8px;
+            background: #fbfcff;
+            font-size: 17px;
+            line-height: 2.6;
+        }
+
+        .demo .label {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--dim);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .mdc { display: inline; white-space: nowrap; }
+
+        .mdc .hie, .mdc .lig { vertical-align: baseline; }
+
+        .mdc .hie, .mdc .vrg, .mdc .lig { margin: 0 1px; }
+
+        .mdc .pron {
+            margin-left: 2px;
+            color: #8a6d00;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.6em;
+            vertical-align: 0.6em;
+        }
+
+        .note {
+            margin: 12px 0;
+            padding: 10px 14px;
+            border-left: 4px solid var(--accent);
+            background: #f2f6ff;
+            border-radius: 0 8px 8px 0;
+            font-size: 14.5px;
+        }
+
+        .note.warn { border-left-color: #e63946; background: #fff5f5; }
+
+        .note b { color: #20437a; }
+
+        .note.warn b { color: #b52b36; }
+
+        footer {
+            max-width: 1220px;
+            margin: 0 auto;
+            padding: 0 28px 40px;
+            color: var(--dim);
+            font-size: 13px;
+        }
+
+        @media (max-width: 900px) {
+            .wrap { flex-direction: column; }
+            nav { position: static; width: 100%; flex: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>CHEAV 开发者文档</h1>
+        <p>围绕 <code>js/plugin/MdCRndr.js</code> 的外部接口 —— 渲染引擎的嵌入、扩展与集成</p>
+        <div class="links">
+            <a href="index.html" target="_top">← 返回编辑器</a>
+            <a href="https://quartzquincy2019.github.io/CHEAV/" target="_blank" rel="noopener">在线使用（GitHub Pages）</a>
+            <a href="instructions.html">使用者文档</a>
+            <a href="CPlugin_Test/index.html">插件测试台</a>
+        </div>
+    </header>
+
+    <div class="wrap">
+        <nav>
+            <b>开始</b>
+            <a href="#overview">1 项目结构与加载顺序</a>
+            <a href="#embed">2 三步接入</a>
+            <b>接口</b>
+            <a href="#api">3 API 一览（运行时生成）</a>
+            <a href="#life">4 生命周期与配置</a>
+            <a href="#render">5 渲染</a>
+            <a href="#parse">6 解析</a>
+            <a href="#codes">7 码与字符</a>
+            <a href="#data">8 数据表</a>
+            <a href="#lig">9 连字注册</a>
+            <a href="#internals">10 internals</a>
+            <b>规范</b>
+            <a href="#syntax">11 MdC 语法规范</a>
+            <a href="#geometry">12 渲染几何</a>
+            <a href="#style">13 样式与类名</a>
+            <b>集成</b>
+            <a href="#app">14 CHEAV 应用集成</a>
+            <a href="#extend">15 扩展指南</a>
+            <a href="#debug">16 调试与陷阱</a>
+        </nav>
+
+        <main>
+            <!-- ============================================ -->
+            <section id="overview">
+                <h2>1 项目结构与加载顺序</h2>
+                <p>CHEAV 是纯静态项目：无打包器、无模块系统，全部以传统 <code>&lt;script&gt;</code> 顺序加载，全局共享一个脚本作用域。</p>
+                <pre>CHEAV/
+├─ index.html               编辑器主页面
+├─ instructions.html        使用者文档
+├─ for_developers.html      本文档
+├─ CPlugin_Test/index.html  渲染插件测试台（只依赖插件）
+├─ css/general.css          页面与编辑器 UI 样式（渲染样式由插件注入）
+├─ fonts/NewGardiner.ttf    圣书体字体
+├─ lib/visumetrics.js       ← 兼容层：绑定插件的数据表
+├─ js/plugin/MdCRndr.js     渲染引擎插件（单文件零依赖，205 KB）
+├─ js/plugin/keycast.js     按键展示插件（单文件零依赖；可选，不随仓库分发）
+├─ js/database/             数据与语义层
+│   ├─ GardinerCode.js      ← 兼容层：码表
+│   ├─ maps.js              音素表 PHONEME_TABLE（单点注册）
+│   ├─ semantics.js         Semantics / Vocabulary / Ligature / Phoneme 类
+│   ├─ ligatures.js         连字语义包装（几何在插件内）
+│   ├─ determinatives.js    定符表
+│   ├─ vocabulary.js        词库（词条第二参数为 MdC 渲染串）
+│   ├─ lang.js              界面文案（en / chs）
+│   └─ settings.js          SETTINGS 与持久化
+├─ js/engine/               引擎与逻辑层
+│   ├─ core.js              ← 兼容层：detectInputMode
+│   ├─ rendering.js         ← 兼容层：渲染函数绑定
+│   ├─ parser.js            ← 兼容层：parseInput / splitLines
+│   ├─ pic.js               PIC 主字符隐式转换（独立模块）
+│   └─ matcher.js           匹配与候选排序
+└─ js/ui/apply.js           UI 集成：五模块 / 四区域 / 出流-入流状态机</pre>
+                <p>脚本加载顺序（<code>index.html</code> 中的实际顺序）：</p>
+                <pre>js/plugin/MdCRndr.js      ← 引擎插件（最先，其余模块都依赖它）
+lib/visumetrics.js        ┐
+js/database/GardinerCode.js│ 兼容层：把插件导出绑回旧全局名
+js/database/maps.js       │ 音素表（用 revGardiner）
+js/database/semantics.js  │ 语义类（不依赖渲染）
+js/database/ligatures.js  │ 由插件 LIGATURES 建立语义实例
+js/database/determinatives.js
+js/database/lang.js
+js/database/settings.js
+js/engine/core.js         ┘
+js/engine/rendering.js    渲染函数绑定 + 注入样式
+js/engine/pic.js
+js/database/vocabulary.js 词库（MdC 串，不再依赖渲染标记）
+js/engine/parser.js       parseInput / splitLines 绑定
+js/engine/matcher.js
+js/plugin/keycast.js      （可选：缺失时自动跳过）
+js/ui/apply.js            ← 最后（需 DOM 就绪）</pre>
+                <div class="note">
+                    <b>「兼容层」是什么：</b>这些文件只是把插件的导出绑定回本项目沿用的全局名（例如
+                    <code>const GARDINER = MdCRndr.GARDINER;</code>），以便既有模块不改动地继续工作。
+                    引擎实现与数据都在插件里，**这是唯一来源**；兼容层本身不含逻辑。
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="embed">
+                <h2>2 三步接入</h2>
+                <h4>① 放入文件</h4>
+                <p>把 <code>MdCRndr.js</code> 与字体 <code>NewGardiner.ttf</code> 拷进你的项目（插件自带一套默认视觉度量与 Gardiner 码表，无需其它数据文件）。</p>
+                <h4>② 引入并初始化</h4>
+                <pre>&lt;script src="MdCRndr.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  MdCRndr.init({
+    fontUrl: "fonts/NewGardiner.ttf",   // ← 相对**页面**的字体路径
+    fontSize: 40,                        // 默认字号（px）
+  });
+
+  const host = document.getElementById("out");
+  MdCRndr.renderText(host, "S34-N35:AA1");   // 解析纯 MdC 并渲染
+&lt;/script&gt;</pre>
+                <h4>③ 得到 DOM</h4>
+                <pre>&lt;div id="out"&gt;
+  &lt;span class="hie" style="font-size:40px;transform:translateY(-0.04px)"&gt;𓋹&lt;/span&gt;
+  &lt;span class="vrg" style="width:18.16px;height:40px;justify-content:space-between;vertical-align:27.8px"&gt;
+    &lt;span class="vrg-layer" style="height:12.2px;justify-content:center"&gt;
+      &lt;span class="hie" style="font-size:40px"&gt;𓂋&lt;/span&gt;
+    &lt;/span&gt;
+    …
+  &lt;/span&gt;
+&lt;/div&gt;</pre>
+                <p>插件会向 <code>&lt;head&gt;</code> 注入一个 <code>&lt;style id="mdcrndr-style"&gt;</code>，内容含 <code>@font-face</code> 与下列类名规则 —— 因此接入方<b>不需要</b>另写 CSS。</p>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="api">
+                <h2>3 API 一览（运行时生成）</h2>
+                <p>下表由页面加载后直接枚举插件对象生成，因此永远与实现一致：</p>
+                <h4><code>MdCRndr</code> 顶层成员</h4>
+                <table id="apiTable">
+                    <tr><th style="width:26%">成员</th><th style="width:14%">类型</th><th>说明</th></tr>
+                </table>
+                <h4><code>MdCRndr.internals</code>（高级用法）</h4>
+                <table id="internalsTable">
+                    <tr><th style="width:30%">成员</th><th style="width:14%">类型</th><th>说明</th></tr>
+                </table>
+                <h4>实时求值</h4>
+                <table id="evalTable">
+                    <tr><th style="width:46%">表达式</th><th>结果</th></tr>
+                </table>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="life">
+                <h2>4 生命周期与配置</h2>
+
+                <h3><code>MdCRndr.init(options?) → MdCRndr</code></h3>
+                <p>应用配置并注入样式表。<b>幂等</b>：可重复调用，样式表按 <code>styleId</code> 复用（不会叠加多个 <code>&lt;style&gt;</code>）。未调用 <code>init</code> 时渲染仍可工作，但只有内联样式、缺少 <code>@font-face</code> 与类规则。</p>
+
+                <h3><code>MdCRndr.set(options) → MdCRndr</code></h3>
+                <p>运行期修改配置（部分覆盖），随后<b>重建</b>样式表。适合做「实时调参」面板：</p>
+                <pre>MdCRndr.set({ fontSize: 64, vrgItemGap: 0.16, textScale: 0.5 });
+MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
+
+                <h3><code>MdCRndr.config() → Object</code></h3>
+                <p>返回生效配置的<b>副本</b>（改它不会影响插件）。</p>
+                <pre>MdCRndr.config().fontUrl      // =&gt; "fonts/NewGardiner.ttf"</pre>
+
+                <h3><code>MdCRndr.DEFAULTS</code> 全表（运行时读取）</h3>
+                <table id="defaultsTable">
+                    <tr><th style="width:26%">键</th><th style="width:20%">默认值</th><th>说明</th></tr>
+                </table>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="render">
+                <h2>5 渲染</h2>
+
+                <h3><code>MdCRndr.renderText(el, mdC, fontSize?) → { tree, invalid }</code></h3>
+                <p><b>本引擎唯一的文本入口</b>：解析纯 MdC 渲染串并渲染到 <code>el</code>。多个段（<code>$</code> 分隔）会依次追加为同级元素。即使存在非法片段，也会把可解析部分渲染出来，非法片段列在返回值的 <code>invalid</code> 中。</p>
+                <pre>const r = MdCRndr.renderText(document.getElementById("out"), "F35-{I10-D46}-G43");
+console.log(r.invalid);      // =&gt; []（无非法片段）</pre>
+                <div class="demo">
+                    <span class="label">上面这行的渲染结果：</span>
+                    <span class="mdc" data-mdc="F35-{I10-D46}-G43">F35-{I10-D46}-G43</span>
+                </div>
+
+                <h3><code>MdCRndr.render(el, tree, fontSize?)</code></h3>
+                <p>渲染一个<b>单位树</b>（<a href="#parse">parse</a> 或 <a href="#parse">splitLines</a> 的产物），用于自行控制分段与容器：</p>
+                <pre>const { tree } = MdCRndr.parse("D21-$-D46");
+for (const line of MdCRndr.splitLines(tree)) {
+  const row = document.createElement("div");
+  row.className = "RenderLine";           // 你自己的行容器（可自定样式）
+  MdCRndr.render(row, line, 40);
+  out.appendChild(row);
+}</pre>
+                <div class="note">
+                    <b>返回 undefined</b> —— 渲染结果直接写入 <code>el</code>，不做任何包装。
+                    行容器由调用方提供：想用 flex 自动换行就给它 <code>display:flex; flex-wrap:wrap</code>；
+                    想行内嵌排就直接渲染进段落元素（见 <a href="#geometry">§12 行内基线</a>）。
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="parse">
+                <h2>6 解析</h2>
+
+                <h3><code>MdCRndr.parse(mdC) → { tree, invalid }</code></h3>
+                <p>纯逻辑、无 DOM 依赖。无法识别的片段以字符串数组形式放在 <code>invalid</code>（可用于警戒提示）。</p>
+                <h4>单位树结构</h4>
+                <table>
+                    <tr><th style="width:34%">节点</th><th>含义</th></tr>
+                    <tr><td class="k">{ type: "seq", units: [...] }</td><td>序列（顶层与每段都是它）</td></tr>
+                    <tr><td class="k">{ type: "char", code }</td><td>单字符</td></tr>
+                    <tr><td class="k">{ type: "vrg", layers: [[...], ...] }</td><td>堆叠组，<code>layers</code> 自上而下</td></tr>
+                    <tr><td class="k">{ type: "lig", name }</td><td>连字引用</td></tr>
+                    <tr><td class="k">{ type: "text", text }</td><td>插入文本</td></tr>
+                    <tr><td class="k">{ type: "unsup", code }</td><td>语法合法但<b>字体不含该字形</b>的码（渲染为方块占位 + 码名）</td></tr>
+                    <tr><td class="k">{ type: "newline" }</td><td><code>$</code> 换行标记</td></tr>
+                </table>
+
+                <h3><code>MdCRndr.splitLines(tree) → Array</code></h3>
+                <p>按 <code>$</code> 把顶层序列切成若干段，每段可独立渲染到一个行容器（空段会被丢弃）。</p>
+
+                <h4>试试看：解析结果检视器</h4>
+                <pre><input id="parseInput" value="S34-N35:AA1" style="width:60%;font-family:Consolas,monospace;font-size:13px;padding:5px 8px;border:1px solid #ccc;border-radius:6px">
+  <button type="button" id="parseBtn" style="padding:5px 12px;cursor:pointer">解析</button></pre>
+                <pre class="out" id="parseOut"></pre>
+                <div class="demo">
+                    <span class="label">同一串的渲染结果：</span>
+                    <span class="mdc" data-mdc="S34-N35:AA1">S34-N35:AA1</span>
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="codes">
+                <h2>7 码与字符</h2>
+                <table>
+                    <tr><th style="width:30%">方法</th><th>说明</th></tr>
+                    <tr>
+                        <td class="k">detectInputMode(code)</td>
+                        <td>判断码形式：<code>"Gardiner"</code>（如 <code>A45a</code>、<code>AA1</code>）/
+                            <code>"Hex"</code>（仅圣书体区 <code>13xxx</code>，5 位十六进制）/
+                            <code>"Default"</code>（其它，如发音 <code>bAw</code>）。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">decodeCode(code)</td>
+                        <td>码 → 字符（Gardiner 或十六进制；无法解析返回 <code>null</code>）。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">charOf(code)</td>
+                        <td>Gardiner 码 → 字符。大小写宽容：除开头字母外不敏感，并按
+                            <code>P001A → P1a</code> 等变体回退查找。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">codeOf(char)</td>
+                        <td>字符 → Gardiner 码（反查表，同形多码时取表中最后一个登记者）。</td>
+                    </tr>
+                </table>
+                <pre>MdCRndr.detectInputMode("A45a")   // =&gt; "Gardiner"
+MdCRndr.detectInputMode("1313F")  // =&gt; "Hex"
+MdCRndr.detectInputMode("bAw")    // =&gt; "Default"
+
+MdCRndr.charOf("D58")             // =&gt; "𓃀"
+MdCRndr.codeOf("𓃀")              // =&gt; "D58"</pre>
+                <div class="demo">
+                    <span class="label">D58 · 1313F · A45a 的渲染：</span>
+                    <span class="mdc" data-mdc="D58">D58</span>
+                    <span class="mdc" data-mdc="1313F">1313F</span>
+                    <span class="mdc" data-mdc="A45a">A45a</span>
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="data">
+                <h2>8 数据表</h2>
+                <table>
+                    <tr><th style="width:30%">成员</th><th>内容</th></tr>
+                    <tr><td class="k">GARDINER</td><td>Gardiner 码 → 字符（只读引用，插入顺序即码位顺序）</td></tr>
+                    <tr><td class="k">revGardiner</td><td>字符 → 码</td></tr>
+                    <tr><td class="k">LIGATURES</td><td>连字名 → <code>{ name, parts, pron }</code>，<code>parts</code> 为部件几何</td></tr>
+                    <tr><td class="k">visuHeight / visuWidth</td><td>每个码位的墨迹高 / 宽（字体设计单位，EM = 1000）</td></tr>
+                    <tr><td class="k">EM_SQUARE</td><td>字体设计单位基准，<code>1000</code></td></tr>
+                </table>
+                <pre>Object.keys(MdCRndr.GARDINER).length    // =&gt; <span id="cntG">…</span>
+Object.keys(MdCRndr.visuHeight).length  // =&gt; <span id="cntV">…</span>
+Object.keys(MdCRndr.LIGATURES).length   // =&gt; <span id="cntL">…</span>（含项目后加的连字）</pre>
+                <div class="note">
+                    度量表的键格式为 <code>"x" + 小写十六进制码点</code>，例如 <code>visuHeight["x13000"]</code>。
+                    引擎渲染时据此计算墨迹尺寸，用于堆叠缩放与上下居中。
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="lig">
+                <h2>9 连字注册</h2>
+                <h3><code>MdCRndr.defineLigature(name, parts, pron?) → { name, parts, pron }</code></h3>
+                <p>注册或覆盖一个连字。名字是码序列（用 <code>-</code> 连接 1–3 个字符，<code>:</code> 会被规范化为 <code>-</code>），随后即可在 MdC 中用 <code>{名字}</code> 引用。</p>
+                <table>
+                    <tr><th style="width:16%">part 字段</th><th style="width:16%">单位</th><th>含义</th></tr>
+                    <tr><td class="k">code</td><td>—</td><td>部件字符码（Gardiner 或十六进制）</td></tr>
+                    <tr><td class="k">dx</td><td>em</td><td>相对连字方块<b>左下角</b>的水平偏移（向右为正）</td></tr>
+                    <tr><td class="k">dy</td><td>em</td><td>垂直偏移（向上为正）</td></tr>
+                    <tr><td class="k">scale</td><td>倍率</td><td>相对 1 em 的缩放（1 = 原始大小）</td></tr>
+                </table>
+                <p><code>parts[0]</code> 习惯上作为基准部件（<code>dx=0, dy=0, scale=1</code>），渲染时按「独立字」处理（在 1 em 轨道内上下居中）；其余部件贴基线定位。连字盒<b>宽度取各部件墨迹右端的最大值</b>，而不是固定 1 em —— 这样连字与前后字形之间不会留空档。</p>
+                <pre>// 例：鹌鹑雏 + t（tw）
+MdCRndr.defineLigature("Q3-G43", [
+  { code: "G43", dx: 0.0, dy: 0.0,  scale: 1.0 },
+  { code: "Q3",  dx: 0.0, dy: 0.15, scale: 0.45 },
+], "pw");
+
+MdCRndr.set({ ligatureDebug: true });   // 调试：显示每个部件的红色边框
+MdCRndr.renderText(out, "{Q3-G43}");</pre>
+                <div class="demo">
+                    <span class="label">已注册的内置连字（各取一例）：</span>
+                    <span class="mdc" data-mdc="{I10-D46}" data-pron="Dd">…</span>
+                    <span class="mdc" data-mdc="{G39-X1}" data-pron="sAt">…</span>
+                    <span class="mdc" data-mdc="{Q3-G43}" data-pron="pw">…</span>
+                    <span class="mdc" data-mdc="{X1-G43-X1}" data-pron="twt">…</span>
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="internals">
+                <h2>10 internals（高级用法）</h2>
+                <p>用于自定义排版或做兼容层。它们不经任何封装，直接操作 DOM 与设计单位：</p>
+                <ul id="internalsList"></ul>
+                <pre>// 例：取某码的墨迹度量（设计单位，EM = 1000）
+MdCRndr.internals.getMetrics("N35")     // =&gt; { height: …, width: … }
+
+// 例：自己渲染一个字形（可指定在 1em 轨道内居中）
+const row = document.createElement("div");
+MdCRndr.internals.renderGlyph(row, "D58", 40, "center");
+
+// 例：算连字的墨迹宽度（用于自定盒宽）
+MdCRndr.internals.ligatureWidth("X1-G43");</pre>
+                <div class="note">
+                    <b>稳定性约定：</b>顶层 API（§3 上半表）视为稳定接口；<code>internals</code> 属于内部实现，
+                    升级时可能调整签名 —— 需要长期稳定请优先使用顶层 API 或自行封装。
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="syntax">
+                <h2>11 MdC 语法规范</h2>
+                <table>
+                    <tr><th style="width:16%">记号</th><th style="width:44%">规则</th><th>示例</th></tr>
+                    <tr><td class="k">码</td><td>Gardiner 码（首字母大写，<code>A45a</code> 式变体）或 5 位十六进制（<code>1313F</code>）</td><td><span class="mdc" data-mdc="D58-G43">D58-G43</span></td></tr>
+                    <tr><td class="k">-</td><td>四开组之间的横排（组间是普通序列关系；<b>堆叠组内部不允许 <code>-</code></b>）</td><td>同上</td></tr>
+                    <tr><td class="k">*</td><td>同一四开组内并列（横排）。与 <code>:</code> 相邻使用即构成一个堆叠组</td><td><span class="mdc" data-mdc="W24*X1:N1">W24*X1:N1</span></td></tr>
+                    <tr><td class="k">:</td><td>下移一层（竖叠）；相邻的 <code>*</code> / <code>:</code> 串构成一个堆叠组（VRG），层自上而下</td><td><span class="mdc" data-mdc="D21:N35">D21:N35</span></td></tr>
+                    <tr><td class="k">{ }</td><td>连字引用；名字内 <code>:</code> 与 <code>*</code> 归一化为 <code>-</code>；整块占 1 em 方格</td><td><span class="mdc" data-mdc="{I10-D46}">{I10-D46}</span></td></tr>
+                    <tr><td class="k">&lt; &gt;</td><td>插入文本；内部空白原样保留，<code>\&lt;</code>、<code>\&gt;</code> 转义；不参与「非法」判定</td><td><span class="mdc" data-mdc="F35-&lt;good&gt;">F35-&lt;good&gt;</span></td></tr>
+                    <tr><td class="k">( )</td><td>词（lexis）—— 目前按普通序列展开，保留语法位</td><td><span class="mdc" data-mdc="(D58-G43)">(D58-G43)</span></td></tr>
+                    <tr><td class="k">$</td><td>手动换行；<code>splitLines</code> 据此分段</td><td><code>D21-$-D46</code></td></tr>
+                    <tr><td class="k">空格</td><td>组外空白一律忽略（宽容）；<code>&lt; &gt;</code> 内保留</td><td>—</td></tr>
+                </table>
+                <div class="note warn">
+                    <b>严格配对：</b><code>{ }</code>、<code>( )</code>、<code>&lt; &gt;</code> 必须同种闭合。
+                    写成 <code>{D21:G43)</code> 或缺闭合符时，该片段计入 <code>parse().invalid</code>；顶层若残留多余字符同样计入。
+                </div>
+                <div class="note">
+                    <b>引擎不认识的输入：</b>发音（<code>nfr</code>）、定符名（<code>;eye</code>）、词条名一律判为非法 ——
+                    渲染引擎只吃「纯 MdC 渲染串」。CHEAV 在送入正文<b>之前</b>用 PIC 模块把发音换成码，因此正文里永远是合法的。
+                </div>
+                <div class="note">
+                    <b>字体缺失的码不是非法输入：</b>语法合法（Gardiner 形状的码或圣书体区十六进制）但字体没有对应字形的，
+                    解析为 <code>{ type: "unsup", code }</code> —— 计入 <code>invalid</code> <b>不再发生</b>，
+                    渲染为一个 1 em 方块占位、框内写码名（<code>.unsup</code>，可经
+                    <code>unsupportedClass</code> 改名），并按 1 em 方块参与度量与堆叠组缩放，
+                    因此在序列、堆叠组层内、插入文本旁边都能落在正确位置。
+                    真正非法的仍然只有「不是码的串」（发音 <code>nfr</code>、定符名 <code>;eye</code>）与括号错误。
+                </div>
+                <div class="note">
+                    <b>码名别名：</b>规范名是 <code>AA…</code>／<code>Aa…</code>（Unicode AA 组）；
+                    <code>J…</code> 是等价的<b>非规范简写</b>（Gardiner 表无 J 组），<code>Y1v ≡ Y1a</code>。
+                    引擎查表两种写法都接受，但<b>写入正文前一律换成正式名</b>：
+                    <code>canonicalCode("J1") → "AA1"</code>、<code>canonicalize("J1-A1") → "AA1-A1"</code>、
+                    <code>canonicalize("J80") → "Aa80"</code>。<code>&lt;…&gt;</code> 文本区内不改写；
+                    连字名 <code>{J1-D52-X1}</code> 会先规范化再查连字表。
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="geometry">
+                <h2>12 渲染几何</h2>
+                <p>一切以「方块（quadrat）」为基准：<b>1 quadrat = 1 em = fontSize px</b>。</p>
+                <h4>堆叠组（VRG）</h4>
+                <p>层高取该层最大墨迹高，层间保留 <code>vrgLayerGap</code>（默认 0.05 em），层内元素间保留 <code>vrgItemGap</code>（默认 0.125 em，计入层宽）。统一缩放系数：</p>
+                <pre>s = min(1, EM_SQUARE / 总层高, EM_SQUARE / 最大层宽)</pre>
+                <p>即<b>只缩不放大</b>：符号保持原比例，仅当整组超出 1 em 方块时才等比缩小（Faulkner 词典观感）。组宽 = 最大层宽 × s，层内元素两端对齐（<code>space-between</code>；单元素层居中）。</p>
+                <h4>独立字符（IS）</h4>
+                <p>在 1 em 轨道内垂直居中：<code>transform: translateY(-(fontSize − 墨迹高)/2)</code>。若你要把字形<b>行内嵌排</b>进正文，去掉该位移即可让墨迹直接坐在正文基线上：</p>
+                <pre>.Prose .hie { transform: none !important; }</pre>
+                <h4>行内基线（<code>inlineBaseline</code>，默认 true）</h4>
+                <p>堆叠组是 <code>inline-flex</code>，其基线取<b>首层</b>基线；若不补偿，整盒会沉到正文基线以下。引擎按 <code>fontSize − 首层高</code> 写入 <code>vertical-align</code>，使盒底（= 末层基线）落在正文基线上。在 flex 排版中 <code>vertical-align</code> 被忽略，因此对块级渲染区无影响。</p>
+                <h4>插入文本</h4>
+                <p>字号为 <code>textScale × 基准字号</code>（默认 0.4），引擎写成<b>绝对 px</b> 内联样式，因而不依赖宿主容器的 <code>font-size</code>；上下居中由 <code>align-self: center</code> 提供。</p>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="style">
+                <h2>13 样式与类名</h2>
+                <p>注入样式表（默认 id <code>mdcrndr-style</code>）包含下列规则，所有类名都可在配置中改名：</p>
+                <table id="classTable">
+                    <tr><th style="width:22%">类名（默认）</th><th style="width:20%">配置键</th><th>作用</th></tr>
+                </table>
+                <pre>.hie        { display:inline-block; line-height:1; font-family:"MdCRndr","NewGardiner",sans-serif }
+.vrg        { display:inline-flex; flex-direction:column }
+.vrg-layer  { display:flex; align-items:flex-end; overflow:visible; white-space:nowrap }
+.lig        { position:relative; display:inline-block; vertical-align:bottom; line-height:1 }
+.lig .hie   { position:absolute; margin:0 }
+.br         { flex-basis:100%; height:0 }                 /* $ 换行 */
+.txt        { font-family:sans-serif; font-size:0.4em; line-height:1;
+              align-self:center; color:#333; white-space:pre }  /* <文本> */
+.lig-debug  { outline:1px solid red; background:rgba(255,0,0,.08) }</pre>
+                <div class="note">
+                    <b>想自定义外观：</b>在插件样式之后引入你自己的 CSS 覆盖同名类即可
+                    （或用配置改名后自行书写规则）。行容器的换行/间距由调用方决定 ——
+                    插件只负责把每个「单位」渲染成一个整体元素。
+                </div>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="app">
+                <h2>14 CHEAV 应用集成</h2>
+                <h3>数据流</h3>
+                <pre>键盘/鼠标
+   ↓
+IB（输入缓冲区）───updateMatch()──→ 匹配引擎 matcher.js
+   │                                   ├─ VM：词汇 + 连字（SEMANTICS）
+   │                                   ├─ PM：音素单元池（PHONEME_UNITS）
+   │                                   ├─ DM：定符单元池（DETERMINATIVES）
+   │                                   └─ GM：Gardiner 单元池（GARDINER）
+   ↓ Tab 确认（replaceForBox）
+IB 内容被替换为码串 ──入流（enterInflow）──→ PIC 就地转换（engine/pic.js）
+   ↓ Enter 确认（commitAll）
+正文文本框 ──parseInput()──→ 单位树 ──render()──→ 渲染区 DOM</pre>
+                <h3>模块职责</h3>
+                <table>
+                    <tr><th style="width:28%">模块</th><th>职责</th></tr>
+                    <tr><td class="k">plugin/MdCRndr.js</td><td>解析、渲染、码表、度量、连字几何、样式注入</td></tr>
+                    <tr><td class="k">plugin/keycast.js</td><td>按键展示浮层（录屏用，可单独嵌入；<b>可选</b>，不随仓库分发，缺失时静默跳过）</td></tr>
+                    <tr><td class="k">database/maps.js</td><td><code>PHONEME_TABLE</code>：音素的<b>单点注册处</b>（<b>发音 → Gardiner 码</b>，多对多；行内首个码为主码）</td></tr>
+                    <tr><td class="k">database/semantics.js</td><td><code>Semantics</code> 基类 + <code>Vocabulary</code> / <code>Ligature</code>；<code>Phoneme</code> 为独立类（只服务 PDMBox）</td></tr>
+                    <tr><td class="k">database/vocabulary.js</td><td>词库 <code>VOCABULARY</code>（第二参数为 MdC 渲染串）、音素实例、<code>SEMANTICS</code> 集合</td></tr>
+                    <tr><td class="k">database/determinatives.js</td><td>定符表（码 + 英文名称，可一名多码）</td></tr>
+                    <tr><td class="k">engine/matcher.js</td><td>四类匹配 + 候选排序 + 单元池构建</td></tr>
+                    <tr><td class="k">engine/pic.js</td><td>PIC：仅按音素表把发音片段换成主字符码，跳过 <code>&lt; &gt;</code> 文本区</td></tr>
+                    <tr><td class="k">engine/*.js（兼容层）</td><td>绑定插件导出，保持既有全局名可用</td></tr>
+                    <tr><td class="k">ui/apply.js</td><td>DOM 构建、事件、出流/入流状态机、分页与选择、设置面板、按键展示桥接</td></tr>
+                </table>
+                <h3>核心对象</h3>
+                <h4><code>Semantics</code> 类层次</h4>
+                <pre>Semantics                      基类：pron / meaning / kind / code / renderInput
+├─ Vocabulary(pron, mdC, meaning)   词汇：第二参数是 **MdC 渲染串**
+└─ Ligature(mdC, pron)              连字：mdC 形如 "{I10-D46}"，部件几何在插件内
+
+Phoneme(pron, char)            独立类（不继承 Semantics）：只服务 PDMBox</pre>
+                <p>统一多态接口：<code>kind</code>、<code>pron</code>、<code>code</code>（MdC 串）、<code>renderInput</code>（同 <code>code</code>）、<code>insert</code>（Tab 写入 IB 的串）、<code>matchesCode(p)</code>、<code>matchesPron(p)</code>、<code>meanText</code>、<code>toCandidate(flags)</code>。</p>
+                <h4><code>SETTINGS</code>（settings.js，持久化于 localStorage 键 <code>CHEAV_SETTINGS</code>）</h4>
+                <pre>{
+  boxSwitchKey: "Alt",  confirmKey: "Tab",  ibConfirmKey: "Enter",
+  vmPageSize: 5,                                  // 1–9
+  pageKeys:   { VM: { prev: "ArrowLeft",  next: "ArrowRight" } },
+  optionKeys: { VM:  { prev: "ArrowUp",    next: "ArrowDown" },
+                PDM: { prev: "ArrowLeft",  next: "ArrowRight" },
+                GM:  { prev: "ArrowLeft",  next: "ArrowRight" } },
+  picEnabled: true,        // 主字符隐式转换
+  keyCastEnabled: false,   // 按键展示（录屏；插件缺失时设置面板不显示该项）
+}</pre>
+                <h4>控制台入口</h4>
+                <table>
+                    <tr><th style="width:30%">调用</th><th>作用</th></tr>
+                    <tr><td class="k">CHEAV.refresh()</td><td>重新渲染正文文本框内容</td></tr>
+                    <tr><td class="k">CHEAV.setLang("en" | "chs")</td><td>切换界面语言并重绘</td></tr>
+                    <tr><td class="k">CHEAV.state()</td><td>当前焦点框 / 匹配模式 / 出流入流 / 分页状态</td></tr>
+                    <tr><td class="k">CHEAV.units</td><td>三个单元池（<code>phon</code> / <code>det</code> / <code>code</code>），可查 key 与显示</td></tr>
+                    <tr><td class="k">CHEAV.keyCast()</td><td>按键展示插件的当前状态与历史；插件缺失时返回 <code>null</code></td></tr>
+                    <tr><td class="k">LIGATURE_DEBUG = true</td><td>连字部件调试边框（转发到插件配置）</td></tr>
+                </table>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="extend">
+                <h2>15 扩展指南</h2>
+
+                <h3>加词条（database/vocabulary.js）</h3>
+                <pre>new Vocabulary("pron", "MdC 渲染串", { en: "meaning", chs: "释义" }),
+
+// 例：
+new Vocabulary("nfr",  "F35",              { en: "beauty", chs: "美丽" }),
+new Vocabulary("anx",  "S34-N35:AA1",    { en: "live, life", chs: "生命" }),
+new Vocabulary("tw",   "{X1-G43}",         { en: "you", chs: "你" }),</pre>
+                <div class="note warn">
+                    第二参数是 <b>MdC 渲染串</b>（不是数组）。释义对象必须作为<b>第三参数</b> —— 若误写进数组会被判为非法数据。
+                </div>
+
+                <h3>加音素（database/maps.js 的 PHONEME_TABLE）</h3>
+                <p>音素是<b>单点注册</b>：只在这里登记「发音 → Gardiner 码」，<code>vocabulary.js</code> 会自动生成音素实例。
+                    注意表中写的是 <b>码</b>而不是字符（字符由码经 <code>hg()</code> 得到），行内第 1 个码即该发音的<b>主码</b>（PIC 与 <code>hm()</code> 取它）。</p>
+                <pre>const PHONEME_TABLE = [
+  ["A", "G1"],                       // 一音一码
+  ["nw", "W24", "U19"],              // 同音异形（W24 为主码）
+  ["smA", "F36"],                    // 一形多音：另一行再登记 ["zmA", "F36"]
+];</pre>
+
+                <h3>加定符（database/determinatives.js）</h3>
+                <pre>{ code: "D4", names: ["eye", "see"] },     // 多个名称指向同一码；反查不限</pre>
+
+                <h3>加连字</h3>
+                <p>几何写在插件（<code>MdCRndr.defineLigature</code>），语义实例由 <code>database/ligatures.js</code> 建立。内置连字定义随插件分发；项目内新增可调用：</p>
+                <pre>// 浏览器控制台
+defineLigature("Y1-Z2", [
+  { code: "Y1", dx: 0,    dy: 0,    scale: 1 },
+  { code: "Z2", dx: 0.45, dy: 0.55, scale: 0.7 },
+], "pron");
+LIGATURE_DEBUG = true;    // 打开部件边框，反复调 dx/dy/scale
+CHEAV.refresh();          // 或在 IB 中输入 {Y1-Z2} 直接看预览</pre>
+
+                <h3>词条维护脚本（tools/entries.js）</h3>
+                <p>查询与增补 Vocabulary / Determinative / PHONEME 的命令行工具，
+                    自动处理排序、备份与写后复核（写盘后会重新载入并校验全部词条 MdC）：</p>
+                <pre>node tools/entries.js "/s -v /p anx"       # 查询：词汇中发音含 anx
+node tools/entries.js "/s -d -a"          # 查询：列出全部定符
+node tools/entries.js                     # 交互模式（:h 帮助，:q 退出）
+node tools/entries.js --dry-run "/a …"    # 只预览不写盘
+
+# 查询：/s [-a] [-s] [(-v|-d|-p)] [-e] [/p [-e] 发音] [/g [-e] 码] [/r [-e] MdC] [/m [-e] 释义|定符名]
+#   (-v|-d|-p) 后的 -e = 全局一致匹配；筛选器后的 -e 只作用于该筛选器
+/s -v -e /p anx /g S34        # 发音确切为 anx，且码含 S34
+/s -v /p anx /g -e S34        # 发音含 anx，且码恰为 S34
+
+# 添加：/a (-v|-d|-p) [-prim] [/p 发音] [/g 码] [/r MdC] [/m …] [/h 象形字]
+/a -v /p whn /r "G43-O4:N35-O118" /m -en "throw down" -chs "推倒"
+/a -p -prim /p a /g D36       # 音素：a 的主码设为 D36
+/a -d -prim /g C1 /m Ra       # 定符：C1 的名称 Ra 排到第 1 位</pre>
+                <p>排序规则：词汇按 <b>MdC 自然序</b>（忽略 <code>- : *</code> 等结构符、数字按数值比较）；
+                    定符按 <b>Gardiner 码自然序</b>；音素按<b>首字母分组</b>（同组内不强制次序）。
+                    发音匹配区分大小写（<code>S</code> 与 <code>s</code> 是不同音素），码 / MdC / 释义不区分大小写。
+                    <code>/h</code> 只用于把给出的象形字与 MdC 渲染结果比对校验，不写入数据。</p>
+
+                <h4>词汇变体</h4>
+                <p><b>互为变体的词汇，释义一定相同</b> —— 实现上是让变体的 <code>meaning</code> 指向母词汇的
+                    <b>同一个对象</b>（装配期在 <code>vocabulary.js</code> 里完成链接），因此改母词汇的释义即全族同步，
+                    结构上不可能不一致。变体在文件里写成第 3 参数为 <code>null</code>、第 4 参数为母词汇 MdC：</p>
+                <pre>new Vocabulary("pr", "O1",   { en: "house", chs: "房屋" }),   // 母词汇：携带释义
+new Vocabulary("pr", "O1-Z1", null, "O1"),                      // 变体：同音、共享释义
+new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可另给发音</pre>
+                <p>应用侧接口：<code>Vocabulary#variantOf</code>（母词汇 MdC）、<code>#parent</code>（母词汇实例）、
+                    <code>#isVariant</code>；<code>variantsOf(mdC)</code> 取某母词汇的全部变体、
+                    <code>variantFamily(mdC)</code> 由任一成员反查 <code>{ parent, members }</code>。
+                    变体是独立词条，照常参与 VMBox 匹配，只是释义取自母词汇。</p>
+                <pre># [A] 为已存在的词汇添加变体（母词汇必须恰好 1 个匹配）
+/a -v -v /bf &lt;搜索条件&gt; /ef [/p 发音] /r &lt;MdC&gt;
+/a -v -v /bf /p anx /r -e "S34-N35:AA1" /ef /r "S34-N35:AA1-Z1"   # 省略 /p → 与母词汇同音
+
+# [B] 添加新词汇与它的变体（第 1 项为母词汇；第 2 项起可省略 /p，则与前一项同音）
+/a -v -V /m &lt;释义&gt; /bli # /r &lt;MdC&gt; /p &lt;发音&gt; # /r &lt;MdC&gt; # … /eli
+/a -v -V /m -en "house" -chs "房屋" /bli # /r "O1" /p pr # /r "O1-Z1" # /r "O1*Z1" /p pr2 /eli
+
+# 修改（目标必须恰好 1 个匹配；未指明项维持原样）
+/m (-v|-d|-p) [-V] /bf &lt;搜索条件&gt; /ef &lt;修改项…&gt;
+/m -v -V /bf /r -e "O1" /ef /m -en "house" -chs "房屋"   # -v -V：母词汇与全部变体一起改释义
+/m -v    /bf /p pr /r -e "O1-Z1" /ef /p pr9             # 改某一变体的发音
+/m -d    /bf /g -e C1 /ef /m -add sun_god               # 定符：增加名称（-set/-del 亦可）
+/m -p    /bf /p a /g -e D36 /ef -prim                   # 音素：设为主码</pre>
+            </section>
+
+            <!-- ============================================ -->
+            <section id="debug">
+                <h2>16 调试与陷阱</h2>
+                <table>
+                    <tr><th style="width:34%">陷阱</th><th>说明</th></tr>
+                    <tr>
+                        <td class="k">改了 JS/CSS 没生效</td>
+                        <td>浏览器缓存。硬刷新：<kbd>Ctrl</kbd>+<kbd>F5</kbd>。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">字体显示为方框</td>
+                        <td><code>fontUrl</code> 相对<b>页面文档</b>解析，不是相对 JS 文件。跨目录引用时写对路径。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">兼容层绑到 undefined</td>
+                        <td>兼容层从插件取名字，若插件已删除该导出（如 <code>internals.parseRenderingCode</code>），绑定即为 <code>undefined</code> 且<b>不报错</b>。改动插件导出后请一并检查兼容层绑定表。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">加载顺序</td>
+                        <td>插件必须在所有模块之前；<code>ui/apply.js</code> 必须在 <code>&lt;body&gt;</code> 末尾（需 DOM 就绪）。兼容层之间不要重复声明同名 <code>const</code>（同一脚本作用域会抛错）。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">单例</td>
+                        <td>插件是<b>单例</b>：<code>set()</code> 改的是全局配置，会影响同一页面上所有渲染。需要多套外观时请在容器上用 CSS 覆盖，而不是切换配置。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">连字宽度</td>
+                        <td>盒宽 = 部件墨迹右端最大值（非固定 1 em）。若连字与前后字形紧贴得不理想，先检查 <code>parts</code> 的 <code>dx</code>/<code>scale</code>。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">行内嵌排</td>
+                        <td>独立字符默认在 1 em 轨道内居中，直排进段落会显得「浮起」。用 <code>transform: none</code> 覆盖即可贴正文基线；堆叠组由 <code>inlineBaseline</code> 自动补偿。</td>
+                    </tr>
+                </table>
+            </section>
+        </main>
+    </div>
+
+    <footer>
+        CHEAV 开发者文档 · 接口清单、默认值表与示例结果均由页面运行时从 <code>MdCRndr</code> 读取生成，故不会与实现脱节。
+        使用者请看 <a href="instructions.html">instructions.html</a>。
+    </footer>
+
+    <script>
+        // ============================================================
+        // 文档自身使用插件：初始化 + 渲染所有 .mdc 示例
+        // ============================================================
+        MdCRndr.init({ fontUrl: "./fonts/NewGardiner.ttf" });
+
+        function renderExamples() {
+            for (const el of document.querySelectorAll(".mdc")) {
+                const mdC = el.getAttribute("data-mdc");
+                if (!mdC) continue;
+                const base = parseFloat(getComputedStyle(el).fontSize) || 17;
+                el.textContent = "";
+                const r = MdCRndr.renderText(el, mdC, Math.round(base * 1.15));
+                if (r.invalid.length) {
+                    el.style.borderBottom = "2px solid #e63946";
+                    el.title = "非法片段：" + r.invalid.join("，");
+                }
+                const pron = el.getAttribute("data-pron");
+                if (pron) {
+                    const s = document.createElement("span");
+                    s.className = "pron";
+                    s.textContent = pron;
+                    el.appendChild(s);
+                }
+                if (!el.title) el.title = (pron ? pron + " · " : "") + mdC;
+            }
+        }
+
+        // ============================================================
+        // §3 API 一览：全部由运行时枚举生成
+        // ============================================================
+        const API_DOC = {
+            DEFAULTS: "默认配置对象（只读参考）",
+            init: "初始化：应用配置并注入样式（幂等）",
+            set: "运行期修改配置并重建样式",
+            config: "返回生效配置的副本",
+            render: "把单位树渲染到元素",
+            renderText: "解析纯 MdC 并渲染（唯一文本入口）",
+            parse: "解析 MdC → { tree, invalid }",
+            splitLines: "按 $ 把顶层序列切分为多段",
+            detectInputMode: "判断码形式：Gardiner / Hex / Default",
+            decodeCode: "码 → 字符（无法解析返回 null）",
+            charOf: "Gardiner 码 → 字符（大小写宽容）",
+            codeOf: "字符 → Gardiner 码",
+            canonicalCode: "别名码 → 正式名（J1 → AA1、J80 → Aa80、Y1v → Y1a）",
+            canonicalize: "整串别名规范化（跳过 &lt;…&gt; 文本区）",
+            GARDINER: "码表：Gardiner 码 → 字符",
+            revGardiner: "反查表：字符 → Gardiner 码",
+            LIGATURES: "连字表：name → { name, parts, pron }",
+            EM_SQUARE: "字体设计单位基准（1000）",
+            visuHeight: "各码位墨迹高（设计单位）",
+            visuWidth: "各码位墨迹宽（设计单位）",
+            defineLigature: "注册 / 覆盖连字",
+            internals: "内部实现（高级用法，签名可能变动）",
+        };
+        const INTERNALS_DOC = {
+            px: "数值四舍五入到 2 位小数",
+            getMetrics: "码 → { height, width }（设计单位）",
+            renderGlyph: "渲染单个字形（可指定在 1em 轨道内居中）",
+            ligatureWidth: "连字墨迹宽度（设计单位）",
+            makeUnsupported: "字体缺失码的方块占位元素（1em 方块 + 码名）",
+            unitMetrics: "单位 → { h, w }",
+            layerMetrics: "一层 → { h, w }",
+            vrgBoxWidth: "堆叠组盒宽（含缩放）",
+            renderVRG: "渲染堆叠组",
+            renderLayerUnit: "渲染层内单位（字符 / 嵌套组 / 连字 / 文本）",
+            renderLigature: "渲染连字",
+            buildCss: "生成注入的样式文本",
+            injectStyle: "注入 / 重建样式表",
+        };
+        const DEFAULTS_DOC = {
+            fontFamily: "注入 @font-face 的族名",
+            fontUrl: "字体地址（相对页面文档）",
+            fontFallback: "字体回退族",
+            injectStyle: "是否自动注入样式",
+            injectFontFace: "是否注入 @font-face",
+            styleId: "注入样式的元素 id",
+            fontSize: "render / renderText 默认字号（px）",
+            vrgLayerGap: "堆叠组层间距（em 比例）",
+            vrgItemGap: "层内元素间距（em 比例）",
+            textScale: "插入文本相对基准字号的倍率",
+            inlineBaseline: "行内嵌排时补偿堆叠组基线",
+            ligatureDebug: "连字部件显示调试边框",
+            glyphClass: "字形类名",
+            vrgClass: "堆叠组类名",
+            vrgLayerClass: "层容器类名",
+            ligClass: "连字类名",
+            ligDebugClass: "连字调试类名",
+            textClass: "插入文本类名",
+            brClass: "换行标记类名",
+            lineClass: "预留给调用方的行类名（引擎不使用）",
+        };
+        const CLASS_DOC = {
+            glyphClass: "字形（.hie）",
+            vrgClass: "堆叠组（.vrg）",
+            vrgLayerClass: "层容器（.vrg-layer）",
+            ligClass: "连字（.lig）",
+            ligDebugClass: "连字调试边框（.lig-debug）",
+            textClass: "插入文本（.txt）",
+            unsupportedClass: "字体缺失占位框（.unsup）",
+            brClass: "换行标记（.br）",
+        };
+
+        function addRow(table, cells) {
+            const tr = document.createElement("tr");
+            for (const c of cells) {
+                const td = document.createElement("td");
+                if (c && c.mono) { td.className = "k"; td.textContent = c.text; }
+                else td.textContent = c;
+                tr.appendChild(td);
+            }
+            table.appendChild(tr);
+        }
+
+        function buildTables() {
+            // §3 API
+            const apiTable = document.getElementById("apiTable");
+            for (const k of Object.keys(MdCRndr)) {
+                addRow(apiTable, [{ text: k, mono: true }, typeof MdCRndr[k], API_DOC[k] || ""]);
+            }
+            const inTable = document.getElementById("internalsTable");
+            for (const k of Object.keys(MdCRndr.internals)) {
+                addRow(inTable, [{ text: k, mono: true }, typeof MdCRndr.internals[k], INTERNALS_DOC[k] || ""]);
+            }
+
+            // §4 DEFAULTS
+            const dTable = document.getElementById("defaultsTable");
+            const cfg = MdCRndr.config();
+            for (const k of Object.keys(MdCRndr.DEFAULTS)) {
+                addRow(dTable, [{ text: k, mono: true }, JSON.stringify(cfg[k]), DEFAULTS_DOC[k] || ""]);
+            }
+
+            // §13 类名
+            const cTable = document.getElementById("classTable");
+            for (const k of Object.keys(CLASS_DOC)) {
+                addRow(cTable, [{ text: cfg[k], mono: true }, k, CLASS_DOC[k]]);
+            }
+
+            // §10 internals 说明列表
+            const ul = document.getElementById("internalsList");
+            for (const k of Object.keys(MdCRndr.internals)) {
+                const li = document.createElement("li");
+                const code = document.createElement("code");
+                code.textContent = k + "()";
+                li.appendChild(code);
+                li.appendChild(document.createTextNode(" —— " + (INTERNALS_DOC[k] || "")));
+                ul.appendChild(li);
+            }
+        }
+
+        // §3 实时求值表：表达式与其真实结果
+        const EXPRS = [
+            'typeof MdCRndr.renderText',
+            'Object.keys(MdCRndr.GARDINER).length',
+            'Object.keys(MdCRndr.visuHeight).length',
+            'Object.keys(MdCRndr.LIGATURES).length',
+            'MdCRndr.EM_SQUARE',
+            'MdCRndr.detectInputMode("A45a")',
+            'MdCRndr.detectInputMode("1313F")',
+            'MdCRndr.detectInputMode("bAw")',
+            'MdCRndr.charOf("D58")',
+            'MdCRndr.codeOf(String.fromCodePoint(0x130C0))',
+            'JSON.stringify(MdCRndr.internals.getMetrics("N35"))',
+            'MdCRndr.parse("S34-N35:AA1").invalid.length',
+            'MdCRndr.parse("[D21:G43}").invalid',
+            'MdCRndr.splitLines(MdCRndr.parse("D21-$-D46").tree).length',
+            'Object.keys(MdCRndr.internals).length',
+        ];
+        function buildEvalTable() {
+            const t = document.getElementById("evalTable");
+            for (const e of EXPRS) {
+                let v;
+                try { v = Function("MdCRndr", "return (" + e + ")")(MdCRndr); }
+                catch (err) { v = "抛出异常：" + err.message; }
+                addRow(t, [{ text: e, mono: true }, String(v)]);
+            }
+        }
+
+        // §6 解析检视器
+        function inspect() {
+            const text = document.getElementById("parseInput").value;
+            const r = MdCRndr.parse(text);
+            const lines = MdCRndr.splitLines(r.tree);
+            document.getElementById("parseOut").textContent =
+                "输入: " + JSON.stringify(text) + "\n" +
+                "invalid: " + JSON.stringify(r.invalid) + "\n" +
+                "段数(splitLines): " + lines.length + "\n\n" +
+                "tree = " + JSON.stringify(r.tree, null, 2);
+        }
+
+        // ---- 执行 ----
+        renderExamples();
+        buildTables();
+        buildEvalTable();
+
+        // 数据规模（运行期填写，避免文档与实现脱节）
+        document.getElementById("cntG").textContent = Object.keys(MdCRndr.GARDINER).length;
+        document.getElementById("cntV").textContent = Object.keys(MdCRndr.visuHeight).length;
+        document.getElementById("cntL").textContent = Object.keys(MdCRndr.LIGATURES).length;
+
+        document.getElementById("parseBtn").addEventListener("click", inspect);
+        document.getElementById("parseInput").addEventListener("input", inspect);
+        inspect();
+    </script>
+</body>
+
+</html>

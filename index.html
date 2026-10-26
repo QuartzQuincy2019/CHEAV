@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+
+<head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href=".\css\general.css" />
+    <title>CHEAV</title>
+    <!-- MdC 渲染引擎插件：单文件零依赖（含视觉度量、Gardiner 码表、连字数据、解析与渲染） -->
+    <script type="text/javascript" src="./js/plugin/MdCRndr.js"></script>
+    <!-- 以下为兼容层：把插件导出绑定回本项目沿用的全局名 -->
+    <script type="text/javascript" src="./lib/visumetrics.js"></script>
+    <script type="text/javascript" src="./js/database/GardinerCode.js"></script>
+    <script type="text/javascript" src="./js/database/maps.js"></script>
+    <script type="text/javascript" src="./js/database/semantics.js"></script>
+    <script type="text/javascript" src="./js/database/ligatures.js"></script>
+    <script type="text/javascript" src="./js/database/determinatives.js"></script>
+    <script type="text/javascript" src="./js/database/lang.js"></script>
+    <script type="text/javascript" src="./js/database/settings.js"></script>
+    <script type="text/javascript" src="./js/engine/core.js"></script>
+    <script type="text/javascript" src="./js/engine/rendering.js"></script>
+    <script type="text/javascript" src="./js/engine/pic.js"></script>
+    <script type="text/javascript" src="./js/database/vocabulary.js"></script>
+    <script type="text/javascript" src="./js/engine/parser.js"></script>
+    <script type="text/javascript" src="./js/engine/matcher.js"></script>
+    <!-- 
+    一期/2025-12-27
+        库文件、常用候选词、数据存储机制
+    二期/2026-01 ~ 2026-02
+        渲染引擎逻辑、引擎核心、功能集成
+    三期/2026-02
+        基本UI、按键交互功能
+      -->
+</head>
+
+<body>
+    <!-- 宽屏（PC）：IBBox 与 IB 预览框 1:1 左右两栏 -->
+    <div class="DualRow" id="IBRow">
+        <div class="IBBox" id="IBBox">
+            <input id="IB" class="IB" spellcheck="false" autocomplete="off" />
+        </div>
+        <div id="IBPreview" class="IBPreview" hidden>
+            <span class="IBPreview-tag" id="IBPreviewTag"></span>
+            <span class="IBPreview-render" id="IBPreviewRender"></span>
+            <span class="IBPreview-mdc" id="IBPreviewMdc"></span>
+        </div>
+    </div>
+    <div id="VMBox" class="MBox VMBox empty" data-ph="Vocabulary Match"></div>
+    <!-- 宽屏（PC）：PDMBox 与 GMBox 1:1 左右两栏 -->
+    <div class="DualRow" id="MBoxRow">
+        <div id="PDMBox" class="MBox PDMBox empty" data-ph="Phoneme / Determinative Match"></div>
+        <div id="GMBox" class="MBox GMBox empty" data-ph="Gardiner Code Match"></div>
+    </div>
+    <textarea id="Input" class="EditorInput" rows="3" spellcheck="false"></textarea>
+    <div class="RenderBox" id="RenderBox">
+    </div>
+    <details class="Settings" id="Settings">
+        <summary id="SettingsTitle">设置</summary>
+        <div class="Settings-body" id="SettingsBody"></div>
+    </details>
+    <div class="SiteFooter">
+        <h1>&#x13ce9; CHEAV &#x13cea;</h1>
+        <p>Cyrene's Hierograph Editor and Viewer
+            <br>Dec. 27th, 2025<br>Version: 1.0.0</p>
+        <nav class="SiteFooter-nav">
+            <!-- 带 data-doc 的链接由 js/ui/docs.js 接管：在页内浮层中打开；无 JS 时照常整页跳转 -->
+            <a href="instructions.html" data-doc="instructions">使用说明</a>
+            <a href="for_developers.html" data-doc="for_developers">开发者文档</a>
+            <a href="CPlugin_Test/index.html">插件测试台</a>
+            <a href="README.md">README</a>
+            <a href="https://github.com/QuartzQuincy2019/CHEAV" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+        <div class="Credit">Quincy K. / Quartz Studio ©2019-2026</div>
+    </div>
+    <!-- 文档内嵌浮层（结构与交互见 js/ui/docs.js；无 JS 时保持 hidden，退化为普通链接） -->
+    <div class="DocOverlay" id="DocOverlay" hidden>
+        <div class="DocOverlay-panel" role="dialog" aria-modal="true" aria-labelledby="DocOverlayTitle">
+            <div class="DocOverlay-bar">
+                <span class="DocOverlay-title" id="DocOverlayTitle">文档</span>
+                <a class="DocOverlay-open" id="DocOverlayOpen" href="instructions.html" target="_blank"
+                    rel="noopener">新标签页打开</a>
+                <button type="button" class="DocOverlay-close" id="DocOverlayClose" title="关闭（Esc）"
+                    aria-label="关闭">&#x2715;</button>
+            </div>
+            <iframe class="DocOverlay-frame" id="DocOverlayFrame" title="CHEAV 文档" loading="lazy"></iframe>
+        </div>
+    </div>
+    <!-- 按键展示插件：单文件零依赖，可嵌入任意前端项目（样式由插件自行注入） -->
+    <script type="text/javascript" src="./js/plugin/keycast.js"></script>
+    <!-- 文档内嵌浮层：接管页脚文档链接（无该脚本时链接照常跳转） -->
+    <script type="text/javascript" src="./js/ui/docs.js"></script>
+    <!-- apply.js 必须在 body 末尾加载：DOM 解析完成后才能查询元素 -->
+    <script type="text/javascript" src="./js/ui/apply.js"></script>
+</body>
+
+</html>

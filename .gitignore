@@ -1,0 +1,31 @@
+# 操作系统 / 编辑器
+Thumbs.db
+desktop.ini
+.DS_Store
+*.swp
+*~
+~$*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# 本地备份（历史文件副本；CLI 每次写盘前会自动创建，不入库）
+# 可用环境变量 CHEAV_BACKUP_DIR 把它指到仓库外
+backup/
+
+# 仓库外素材（见 _proj/README.md：JSesh 字形、Unicode 码表 PDF 已移出）
+_external_CHEAV/
+
+# 临时脚本与产物
+_tmp/
+*.log
+
+# 按键展示插件（录屏演示用）：仅本地保留，不随仓库分发
+# 缺失时应用与设置面板会自动跳过该功能（见 js/ui/apply.js 的 hasKeyCast 判断）
+js/plugin/keycast.js

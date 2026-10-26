@@ -1,0 +1,850 @@
+/* 字体与字形/组/连字样式由渲染引擎插件注入（js/plugin/MdCRndr.js）：
+   @font-face（家族名默认 MdCRndr）+ .hie / .vrg / .vrg-layer / .lig / .lig-debug。
+   此处仅为页面正文指定同一字体族。 */
+body {
+    font-family: "MdCRndr", "NewGardiner", sans-serif;
+    margin: 0;
+    padding: 16px;
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+/* 输入文本框（z-index 高于渲染区，防止渲染区溢出内容遮挡鼠标选择）
+   与 IB 同为 Consolas（正文即 MdC 渲染串，等宽更易读对齐） */
+.EditorInput {
+    box-sizing: border-box;
+    width: 100%;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 15px;
+    padding: 8px;
+    border: #333 1px solid;
+    margin-bottom: 4px;
+    resize: vertical;
+    position: relative;
+    z-index: 1;
+}
+
+/* 文本框含无法识别的串：边框与内阴影切换为警戒色（focus 时保持警戒） */
+.EditorInput.invalid {
+    border-color: #e63946;
+    box-shadow: inset 0 0 8px rgba(230, 57, 70, 0.55);
+}
+
+.EditorInput.invalid:focus {
+    border-color: #e63946;
+    box-shadow: inset 0 0 8px rgba(230, 57, 70, 0.55);
+    outline-color: #e63946;
+}
+
+/* 渲染区：外层 column 布局，每个"段"（$ 换行分隔）是一个 RenderLine；
+   段间距与外层 row-gap 统一（0.3em）。RenderLine 内 flex-wrap 自动换行。
+   同时禁用 user-selection（象形文字显示区不可选中） */
+.RenderBox {
+    border: #333 1px solid;
+    padding: 8px;
+    font-size: 100px;   /* 基准字号，决定 1 个 quadrat 的边长 */
+    line-height: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    row-gap: 0.3em;     /* 段间距（$ 主动换行与自动换行一致） */
+    min-height: 1em;
+    user-select: none;
+    -webkit-user-select: none;
+    position: relative;
+    z-index: 0;
+}
+
+/* 一个段（行组）：内部 flex-wrap 自动换行 */
+.RenderLine {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    row-gap: 0.3em;     /* 段内自动换行的行间距 */
+    column-gap: 0.125em; /* 符号间微小间隔（Faulkner 词典观感） */
+}
+
+/* "$" 换行标记（.br）与 <文本> 片段（.txt）的样式
+   由渲染引擎插件注入（js/plugin/MdCRndr.js 的 buildCss）——与 .hie/.vrg/.lig 同源。 */
+
+/* ===== 匹配系统四区域：IBBox → VMBox → PDMBox → GMBox =====
+   三处 MBox（VMBox / PDMBox / GMBox）常驻显示，空时以半透明占位说明；
+   选中焦点所在框高亮（Alt 循环切换）。
+   宽屏（≥900px）：IBBox 与预览框 1:1 左右；PDMBox 与 GMBox 1:1 左右。 */
+
+/* 宽屏双列容器（窄屏自动回落为单列堆叠） */
+.DualRow {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+/* 由 grid gap 统一间距，容器内子块不再各自留外边距 */
+.DualRow > * {
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+/* 宽屏 1:1 双列见文末「响应式」区（媒体查询统一置于所有基础规则之后） */
+
+/* IBBox：输入缓冲区外壳（保持自身高度：不被同排的预览框拉伸） */
+.IBBox {
+    position: relative;
+    z-index: 2;
+    margin-bottom: 4px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.IBBox .IB {
+    flex: 0 0 auto;      /* 保持 IBBox 的高度，不随预览框高度变化 */
+}
+
+/* MBox：候选框通用外观（横向单元行，无分页，按父元素宽度限量显示） */
+.MBox {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    border: #333 1px solid;
+    background: #fff;
+    padding: 3px 6px;
+    margin-bottom: 4px;
+    min-height: 44px;
+    overflow: hidden;    /* 单元数量已按宽度限量，无需滚动 */
+    font-family: sans-serif;
+    font-size: 15px;
+    position: relative;
+    z-index: 2;
+}
+
+/* 置空占位：居中半透明说明（仅空框显示；说明较长，单行省略） */
+.MBox.empty {
+    justify-content: center;
+    color: rgba(0, 0, 0, 0.35);
+}
+
+.MBox.empty::before {
+    content: attr(data-ph);
+    font-size: 13.5px;
+    line-height: 1.3;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* 选中焦点所在框：加粗描边 + 外发光 + 底色，醒目且不引起重排
+   （用 outline 加粗，避免改 border-width 造成上下抖动）。
+   注意：不在框上画左侧色条——否则会与内部候选行/单元的左侧标记重叠，
+   产生"框左边框"与"项目左边框"视觉不一致。左侧标记一律由内部项目承担。 */
+.MBox {
+    transition: outline-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+
+.MBox.focused {
+    border-color: #2a5cc0;
+    outline: 3px solid #3b6fd4;      /* 视觉上等同 3px 边框 */
+    outline-offset: -2px;
+    background: #f2f7ff;
+    box-shadow:
+        0 0 0 4px rgba(59, 111, 212, 0.16),          /* 外圈光晕 */
+        0 2px 8px rgba(59, 111, 212, 0.25);          /* 投影 */
+    z-index: 3;
+}
+
+/* 焦点框内置空时：占位说明加深，明确"焦点在此" */
+.MBox.focused.empty {
+    color: rgba(42, 92, 192, 0.8);
+}
+
+/* 焦点框内的选中项：进一步强调 */
+.MBox.focused .mcell.selected {
+    background: #cfe0ff;
+    border-color: #2a5cc0;
+    box-shadow: 0 0 0 2px rgba(59, 111, 212, 0.4);
+}
+
+.MBox.focused .candidate.selected {
+    background: #cfe0ff;
+    box-shadow: inset 3px 0 0 #2a5cc0;
+}
+
+/* VMBox：词匹配（垂直候选行 + 分页，↑/↓ 选项、←/→ 翻页）
+   左右内边距使候选行的左侧标记内缩，与框边框区分开（视觉一致）。 */
+.VMBox {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0 5px;
+    max-height: 340px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    font-size: 15px;
+}
+
+.VMBox.empty {
+    padding: 4px 8px;
+}
+
+/* PDMBox：音素 / 定符匹配（水平字符单元，←/→ 选项） */
+.PDMBox {
+    min-height: 44px;
+}
+
+/* GMBox：Gardiner Code 匹配（水平字符单元，←/→ 选项） */
+.GMBox {
+    min-height: 44px;
+}
+
+/* 字符单元（PDMBox / GMBox）：字形 + 两行下标
+   下标内容由单元数据决定：
+     音素 → 第一行 发音（加粗）/ 第二行 Gardiner Code
+     定符 → 第一行 ;名称（加粗）/ 第二行 Gardiner Code
+     码   → 第一行 Gardiner Code（加粗）/ 第二行 Unicode 十六进制
+
+   宽度固定：既让同排单元整齐，也使超长文本（如定符名 threshing_floor、
+   vegetable_offerings）能测量溢出并在内部循环滚动。
+   裁剪交给外层 wrap（行高 1.4 留足下伸部），标签自身不裁剪，
+   否则 g / q / y 等下伸字母会被切掉一截。 */
+.mcell {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: 84px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 3px 4px;
+    border: #ddd 1px solid;
+    border-radius: 4px;
+    background: #fcfcfc;
+    cursor: pointer;
+}
+
+.mcell:hover {
+    background: #eef4ff;
+    border-color: #a8c4ef;
+}
+
+/* 选中项（焦点在本框） */
+.mcell.selected {
+    background: #dce8ff;
+    border-color: #3b6fd4;
+}
+
+/* 选中项（焦点不在本框）：淡色提示 */
+.mcell.current {
+    border-color: #a8c4ef;
+}
+
+.mcell-glyph {
+    display: flex;
+    align-items: flex-end;
+    font-size: 26px;
+    line-height: 1;
+    min-height: 30px;
+}
+
+/* 下标两行的定宽容器：溢出时内部元素循环滚动。
+   注意：默认居中只适用于**放得下**的内容；内容超宽时若仍居中，
+   会向两侧溢出而裁掉左端（表现为"从中间开始显示"）。
+   因此溢出（.marquee）时改为左端对齐，滚动从首字符开始。 */
+.mcell-l1wrap,
+.mcell-l2wrap {
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.mcell-l1wrap.marquee,
+.mcell-l2wrap.marquee {
+    justify-content: flex-start;
+}
+
+/* 下标第一行（加粗） */
+.mcell-l1 {
+    display: inline-block;
+    font-size: 12.5px;
+    font-weight: bold;
+    line-height: 1.4;
+    color: #222;
+    white-space: nowrap;
+}
+
+/* 下标第二行（码 / Unicode） */
+.mcell-l2 {
+    display: inline-block;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: #555;
+    white-space: nowrap;
+}
+
+/* 溢出循环滚动：复用候选行的同一动画 */
+.mcell-l1wrap.marquee .mcell-l1,
+.mcell-l2wrap.marquee .mcell-l2 {
+    animation: mean-scroll var(--dur, 8.75s) linear infinite;
+}
+
+/* ===== IB 实时预览条带（IB 内容合法且非空时显示） =====
+   位置选择：内联条带（紧贴 IBBox 之下）——正在输入处即时可见，且不遮挡渲染区；
+   长内容横向滚动，窄屏由媒体查询降级。 */
+.IBPreview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    border: #333 1px solid;
+    border-left: 4px solid #3b6fd4;   /* 预览标识色 */
+    background: #f7faff;
+    padding: 2px 6px;
+    margin-bottom: 4px;
+    min-height: 56px;
+    max-height: 88px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    font-family: sans-serif;
+    position: relative;
+    z-index: 2;
+    scrollbar-width: thin;
+}
+
+.IBPreview[hidden] {
+    display: none;
+}
+
+/* IB 预览：内容非法（非 raw MdC）→ 警戒样式（只显示文本串，不渲染字形） */
+.IBPreview.invalid {
+    border-color: #e63946;
+    border-left-color: #e63946;
+    background: #fff5f5;
+    box-shadow: inset 0 0 8px rgba(230, 57, 70, 0.45);
+}
+
+.IBPreview.invalid .IBPreview-tag {
+    color: #b52b36;
+}
+
+.IBPreview.invalid .IBPreview-render {
+    display: none;
+}
+
+.IBPreview.invalid .IBPreview-mdc {
+    color: #b52b36;
+}
+
+.IBPreview-tag {
+    flex: 0 0 auto;
+    font-size: 13px;
+    color: #3b6fd4;
+    white-space: nowrap;
+}
+
+.IBPreview-render {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    font-size: 40px;      /* 与 IB_PREVIEW_SIZE 一致（插入文本按 0.4em 相对此值） */
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.IBPreview-mdc {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ===== 设置面板 ===== */
+.Settings {
+    margin-top: 12px;
+    margin-bottom: 4px;
+    border: #333 1px solid;
+    background: #fff;
+    font-family: sans-serif;
+    font-size: 13px;
+    position: relative;
+    z-index: 2;
+}
+
+.Settings > summary {
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+    user-select: none;
+}
+
+.Settings-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    padding: 8px 10px;
+    border-top: #eee 1px solid;
+}
+
+.SettingRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 260px;
+}
+
+.SettingLabel {
+    flex: 1 1 auto;
+    color: #555;
+}
+
+.SettingKey {
+    min-width: 92px;
+    padding: 3px 8px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    border: #bbb 1px solid;
+    border-radius: 4px;
+    background: #fafafa;
+    cursor: pointer;
+}
+
+.SettingKey:hover {
+    background: #eef4ff;
+    border-color: #a8c4ef;
+}
+
+.SettingKey.capturing {
+    background: #fff8e1;
+    border-color: #c9a227;
+    color: #8a6d00;
+}
+
+.SettingNum {
+    width: 64px;
+    padding: 3px 6px;
+    font-size: 13px;
+    border: #bbb 1px solid;
+    border-radius: 4px;
+}
+
+.SettingReset {
+    padding: 4px 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* 响应式：窄屏时设置项单列 */
+@media (max-width: 640px) {
+    .SettingRow {
+        min-width: 100%;
+    }
+}
+
+/* ===== 按键展示（录屏演示）=====
+   已抽为独立插件 js/plugin/keycast.js：样式由插件自行注入（类名 .kc-*），
+   本文件不再包含其规则。此处仅保留站点侧的说明。 */
+
+/* ===== 页脚：站名 / 说明 / 版权（原顶部三行移至页面底部） ===== */
+.SiteFooter {
+    margin-top: 16px;
+    padding-top: 10px;
+    border-top: #ddd 1px solid;
+    color: #555;
+    text-align: center;
+}
+
+.SiteFooter h1 {
+    font-size: 28px;
+    margin: 4px 0;
+    font-weight: normal;
+}
+
+.SiteFooter p {
+    margin: 4px 0;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.SiteFooter .Credit {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #888;
+}
+
+/* 页脚导航：文档 / 测试台 / README / GitHub */
+.SiteFooter-nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 14px;
+    margin: 8px 0 2px;
+    font-size: 13px;
+}
+
+.SiteFooter-nav a {
+    color: #4a6d8c;
+    text-decoration: none;
+    border-bottom: #4a6d8c 1px dotted;
+    padding-bottom: 1px;
+}
+
+.SiteFooter-nav a:hover {
+    color: #1f4460;
+    border-bottom-style: solid;
+}
+
+/* ===== 文档内嵌浮层（js/ui/docs.js 控制开合）===== */
+.DocOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: rgba(20, 24, 28, .55);
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding: 18px;
+}
+
+.DocOverlay[hidden] {
+    display: none;
+}
+
+.DocOverlay-panel {
+    display: flex;
+    flex-direction: column;
+    width: min(1100px, 100%);
+    height: 100%;
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+    overflow: hidden;
+}
+
+.DocOverlay-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px 8px 14px;
+    border-bottom: #ddd 1px solid;
+    background: #fafafa;
+    font-size: 13px;
+}
+
+.DocOverlay-title {
+    font-weight: bold;
+    color: #333;
+}
+
+.DocOverlay-open {
+    margin-left: auto;
+    color: #4a6d8c;
+    text-decoration: none;
+    border-bottom: #4a6d8c 1px dotted;
+}
+
+.DocOverlay-open:hover {
+    color: #1f4460;
+    border-bottom-style: solid;
+}
+
+.DocOverlay-close {
+    width: 28px;
+    height: 28px;
+    line-height: 1;
+    font-size: 15px;
+    color: #666;
+    background: #fff;
+    border: #ccc 1px solid;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.DocOverlay-close:hover {
+    color: #000;
+    border-color: #888;
+    background: #f2f2f2;
+}
+
+.DocOverlay-frame {
+    flex: 1;
+    width: 100%;
+    border: 0;
+    background: #fff;
+}
+
+/* 浮层打开时锁住背景滚动 */
+html.DocOverlay-open,
+html.DocOverlay-open body {
+    overflow: hidden;
+}
+
+@media (max-width: 700px) {
+    .DocOverlay {
+        padding: 0;
+    }
+
+    .DocOverlay-panel {
+        border-radius: 0;
+    }
+}
+
+/* ===== IB：输入缓冲区（匹配系统仅匹配 IB 内容；Consolas 便于读写 MdC） ===== */
+.IB {
+    box-sizing: border-box;
+    width: 100%;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 15px;
+    padding: 8px 10px;
+    border: #333 1px solid;
+    outline: none;
+}
+
+.IB:focus {
+    border-color: #3b6fd4;
+}
+
+/* 选中焦点在某个 MBox 时：IB 转为琥珀色提示（此刻方向键作用于候选框，不移动光标） */
+.IB.mbox-focused {
+    border-color: #c9a227;
+    box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.4);
+}
+
+/* IB 空时：占位说明居中、半透明（说明较长，窄屏自动缩小） */
+.IB::placeholder {
+    text-align: center;
+    opacity: 0.45;
+}
+
+/* ===== 候选行（VMBox 内） ===== */
+.candidate {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 3px 6px;
+    cursor: pointer;
+    border-bottom: #eee 1px solid;
+}
+
+.candidate.selected {
+    background: #dce8ff;
+}
+
+/* 选中项但焦点不在 VMBox：淡色提示 */
+.candidate.current {
+    background: #f0f5ff;
+}
+
+.candidate:hover {
+    background: #eef4ff;
+}
+
+/* 发音 */
+.c-pron {
+    font-weight: bold;
+    min-width: 80px;
+    font-size: 15px;
+    color: #222;
+}
+
+/* 预览：小型的象形文字显示区域（渲染引擎实时生成） */
+.c-preview {
+    display: flex;
+    align-items: flex-end;
+    font-size: 26px;
+    line-height: 1;
+    min-width: 130px;
+    overflow: visible;  /* 墨迹（含 VRG 贴底层）完整显示，不被裁剪 */
+    padding: 2px 0;
+    color: #333;
+}
+
+/* 释义区容器：MdC + 释义，超出候选宽度时循环滚动 */
+.c-mean-wrap {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+}
+
+.c-mean-inner {
+    display: inline-flex;
+    align-items: baseline;
+    white-space: nowrap;
+}
+
+/* 循环滚动动画：开头停留约 3.5 秒 → 滑动（内容左移）至末尾全部显示 →
+   短暂停留后立即从头开始，不断循环 */
+.c-mean-wrap.marquee .c-mean-inner {
+    animation: mean-scroll var(--dur, 8.75s) linear infinite;
+}
+
+@keyframes mean-scroll {
+    0%   { transform: translateX(0); }                   /* 开头（停留） */
+    40%  { transform: translateX(0); }                   /* 停留约 3.5s（40% × 8.75s） */
+    90%  { transform: translateX(var(--dist, -100px)); } /* 滑动至末尾 */
+    100% { transform: translateX(var(--dist, -100px)); } /* 末尾短暂显示，回 0% 即从头开始 */
+}
+
+/* MdC（Consolas 字体），与释义以 "-" 分隔 */
+.c-mdc {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+    color: #555;
+    margin-right: 2px;
+}
+
+.c-mdc::after {
+    content: " - ";
+    color: #999;
+}
+
+/* 释义 */
+.c-mean {
+    color: #666;
+    font-size: 14px;
+}
+
+/* 分页 */
+.pager {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    font-size: 13px;
+    color: #555;
+}
+
+.pager button {
+    font-size: 12px;
+    padding: 1px 6px;
+    cursor: pointer;
+}
+
+/* 字形 / 渲染组 / 连字样式：由渲染引擎插件 MdCRndr 注入（见 js/plugin/MdCRndr.js） */
+
+/* ===== 响应式 =====
+   注意：媒体查询必须置于所有基础规则之后——同特异性下后写的规则才生效，
+   否则覆盖会被上文的基础规则反覆盖。 */
+
+/* 宽屏（PC）：IBBox 与预览框、PDMBox 与 GMBox 各为 1:1 左右两块 */
+@media (min-width: 900px) {
+    .DualRow {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* 窄屏：回落单列并收紧尺寸 */
+@media (max-width: 640px) {
+    body {
+        padding: 10px;
+    }
+
+    .IB::placeholder {
+        font-size: 12px;
+    }
+
+    .IB {
+        font-size: 14px;
+        padding: 6px 8px;
+    }
+
+    .EditorInput {
+        font-size: 14px;
+    }
+
+    .IBPreview {
+        gap: 8px;
+        padding: 2px 5px;
+        min-height: 48px;
+        max-height: 72px;
+    }
+
+    .IBPreview-render {
+        font-size: 30px;
+    }
+
+    .MBox {
+        gap: 6px;
+        padding: 2px 5px;
+        min-height: 40px;
+        font-size: 14px;
+    }
+
+    .MBox.empty::before {
+        font-size: 12.5px;
+    }
+
+    .mcell {
+        width: 68px;
+    }
+
+    .mcell-glyph {
+        font-size: 22px;
+        min-height: 26px;
+    }
+
+    .mcell-l1 {
+        font-size: 11.5px;
+    }
+
+    .mcell-l2 {
+        font-size: 10.5px;
+    }
+
+    .candidate {
+        gap: 8px;
+        padding: 2px 5px;
+    }
+
+    .c-pron {
+        min-width: 60px;
+        font-size: 14px;
+    }
+
+    .c-preview {
+        min-width: 96px;
+        font-size: 22px;
+    }
+
+    .SiteFooter h1 {
+        font-size: 24px;
+    }
+}
+
+/* 极窄屏：优先保证字形预览，隐藏 MdC 串与单元第二行下标 */
+@media (max-width: 480px) {
+    .IBPreview-mdc {
+        display: none;
+    }
+
+    .IBPreview-render {
+        font-size: 24px;
+    }
+
+    .c-mdc {
+        display: none;
+    }
+
+    .mcell-l2wrap {
+        display: none;    /* 极窄屏隐藏第二行下标 */
+    }
+
+    .SiteFooter h1 {
+        font-size: 22px;
+    }
+}

@@ -1,0 +1,13 @@
+# 统一换行与二进制判定（避免 Windows 检出后整库显示为"已修改"）
+* text=auto
+
+# 二进制文件：不做换行转换、不做 diff 文本比较
+*.ttf binary
+*.otf binary
+*.png binary
+*.jpg binary
+*.pdf binary
+*.zst binary
+
+# 字体与字体许可
+fonts/*.ttf binary
