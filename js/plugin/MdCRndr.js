@@ -7177,7 +7177,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
         + (vertical ? " " + options.encVerticalClass : "");
     box.style.fontSize = fontSize + "px";
     box.title = "包围框：" + u.kind;
-    // F 框：四边齿 + 四角 L 形齿，用真实元素生成（四角共用同一 class，几何必然全等）
+    // F 框（堡垒式围框）：四边雉堞齿 + 四角 L 形齿，用真实元素生成（四角共用同一 class，几何必然全等）
     if (u.kind === "F") {
         for (const side of ["t", "b", "l", "r"]) {
             const e = document.createElement("span");
@@ -7774,7 +7774,7 @@ function splitLines(tree) {
             "    align-items: center;",
             "    width: 100%;",              // 撑满框宽，否则 inline-flex 收缩到内容宽、靠左
             "}",
-            "." + options.encKindClass.F + " {",   // 齿状框：细框线 + 外圈齿（由真实 DOM 元素绘制）
+            "." + options.encKindClass.F + " {",   // 堡垒式围框（F，fortified enclosure）：细框线 + 外圈雉堞齿（由真实 DOM 元素绘制）
             "    border: 0.03em solid #000;",
             "    position: relative;",
                         "    padding: 0.08em;",
