@@ -161,6 +161,17 @@
         .canvas-wrap { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; }
         .canvas-wrap canvas { border: 1px solid var(--line); border-radius: 6px; background: #fff; }
         .canvas-cap { color: var(--dim); font-size: 12px; text-align: center; margin-top: 6px; }
+        .steps { display: flex; flex-direction: column; gap: 18px; margin: 16px 0; }
+        .step { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #fbfcff; }
+        .step h4 { margin: 0 0 10px; font-size: 14.5px; }
+        .step .pair { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+        .step .cell { text-align: center; }
+        .step .verdict { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px;
+            border-radius: 10px; margin-bottom: 6px; }
+        .step .good { background: #e6f5ea; color: #1f7a3d; }
+        .step .bad  { background: #fdecec; color: #b52b36; }
+        .step .why { margin: 10px 0 0; color: #55606d; font-size: 13px; line-height: 1.75; }
+        .step .why b { color: #20437a; }
         .sig-ret  { font-family: Consolas, "Courier New", monospace; }
 
         /* API 一览：函数签名较长，允许在单元格内换行（保持等宽字体） */
@@ -592,6 +603,11 @@ MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
                     <b>一句话总结：</b>字号决定格，度量决定格内怎么摆，<code>min(1, …)</code> 决定要不要缩，
                     <code>em</code> 决定换字号时为什么不用改任何数值。
                 </div>
+
+                <h3>5.1 横排排版分步图解</h3>
+                <p>下面把横排的排版拆成 7 步，每步给<b>正确</b>与<b>错误</b>两张示意图（canvas 现场绘制，尺寸按 1em = 64px 折算），
+                   并说明这条规则<b>为什么</b>存在。看懂这 7 步，横排的行为就不用再猜。</p>
+                <div class="steps" id="layoutSteps"></div>
 
 
 
@@ -1107,6 +1123,284 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             }
         }
 
+        // ------------------------------------------------------------
+        // §5.1 横排排版分步图解：7 步 × 正确/错误
+        // 画布约定：1em = CELL px，墨迹尺寸取自字体度量（单位 1000 = 1em）
+        // ------------------------------------------------------------
+        const CELL = 64;
+
+        function cvFrame(ctx, x, y, w, h, color, dash) {
+            ctx.save();
+            ctx.strokeStyle = color || "#6d8fd1";
+            ctx.lineWidth = 1.4;
+            if (dash) ctx.setLineDash(dash);
+            ctx.strokeRect(x, y, w, h);
+            ctx.restore();
+        }
+
+        function cvInk(ctx, x, y, w, h, color) {
+            ctx.save();
+            ctx.fillStyle = color || "rgba(38, 127, 153, 0.16)";
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = "#267f99";
+            ctx.lineWidth = 1.2;
+            ctx.strokeRect(x, y, w, h);
+            ctx.restore();
+        }
+
+        function cvText(ctx, x, y, s, opts) {
+            const o = opts || {};
+            ctx.save();
+            ctx.fillStyle = o.color || "#55606d";
+            ctx.font = (o.bold ? "600 " : "") + (o.size || 12) + "px system-ui, sans-serif";
+            ctx.textAlign = o.align || "left";
+            ctx.fillText(s, x, y);
+            ctx.restore();
+        }
+
+        function cvArrow(ctx, x1, y1, x2, y2, color) {
+            ctx.save();
+            ctx.strokeStyle = color || "#b26a36";
+            ctx.fillStyle = color || "#b26a36";
+            ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            const a = Math.atan2(y2 - y1, x2 - x1);
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - 6 * Math.cos(a - 0.4), y2 - 6 * Math.sin(a - 0.4));
+            ctx.lineTo(x2 - 6 * Math.cos(a + 0.4), y2 - 6 * Math.sin(a + 0.4));
+            ctx.closePath(); ctx.fill();
+            ctx.restore();
+        }
+
+        // 常用墨迹（设计单位）
+        const INK = { A1: [695, 999], D21: [996, 305], Z1: [60, 395] };
+
+        /** 在 (x,y) 处画一个 1em 方格，并按给定对齐方式画墨迹 */
+        function cvCell(ctx, x, y, ink, align, label) {
+            cvFrame(ctx, x, y, CELL, CELL, "#6d8fd1");
+            const [uw, uh] = ink;
+            const w = CELL * uw / 1000, h = CELL * uh / 1000;
+            const ix = x + (CELL - w) / 2;
+            const iy = align === "center" ? y + (CELL - h) / 2 : y + CELL - h;
+            cvInk(ctx, ix, iy, w, h);
+            if (label) cvText(ctx, x + CELL / 2, y + CELL + 14, label, { align: "center", size: 11 });
+            return { x, y, w: CELL, h: CELL, ix, iy, iw: w, ih: h };
+        }
+
+        const LAYOUT_STEPS = [
+            {
+                title: "① 每个字形占一个 1em 方格",
+                why: "格宽与墨迹宽度无关：<b>同一行所有字形等宽、节距一致</b>，行高才会恒定，整行也能作为一个整体缩放。"
+                   + "若按墨迹宽度紧排（右图），窄字（Z1）与宽字（D21）挤出的间距忽大忽小，行就散了。",
+                ok(ctx, W, H) {
+                    const x0 = 40, y0 = 34;
+                    ["A1", "D21", "Z1"].forEach((k, i) => cvCell(ctx, x0 + i * (CELL + 10), y0, INK[k], "bottom", k));
+                    cvText(ctx, W / 2, H - 10, "三格等宽，节距固定", { align: "center", color: "#1f7a3d", bold: true });
+                },
+                bad(ctx, W, H) {
+                    let x = 40; const y0 = 34;
+                    ["A1", "D21", "Z1"].forEach((k) => {
+                        const [uw, uh] = INK[k];
+                        const w = CELL * uw / 1000, h = CELL * uh / 1000;
+                        cvInk(ctx, x, y0 + CELL - h, w, h);
+                        cvText(ctx, x + w / 2, y0 + CELL + 14, k, { align: "center", size: 11 });
+                        x += w + 6;
+                    });
+                    cvText(ctx, W / 2, H - 10, "无格：间距随墨迹宽度变化", { align: "center", color: "#b52b36", bold: true });
+                },
+            },
+            {
+                title: "② 底边对齐：所有墨迹落在同一基线",
+                why: "墨迹高度差异极大（A1 高 999、D21 只有 305）。横排用 <code>align-items: flex-end</code> 让<b>格底对齐</b>，"
+                   + "于是所有墨迹都坐在同一条底线上。若改成按墨迹垂直居中（右图），高大的字下垂、扁字上浮，行看起来是错落的。",
+                ok(ctx, W, H) {
+                    const x0 = 40, y0 = 34;
+                    ["A1", "D21", "Z1"].forEach((k, i) => cvCell(ctx, x0 + i * (CELL + 10), y0, INK[k], "bottom", k));
+                    ctx.save();
+                    ctx.strokeStyle = "#1f7a3d"; ctx.lineWidth = 1.2; ctx.setLineDash([5, 3]);
+                    ctx.beginPath(); ctx.moveTo(30, y0 + CELL); ctx.lineTo(W - 20, y0 + CELL); ctx.stroke();
+                    ctx.restore();
+                    cvText(ctx, W / 2, H - 10, "底边齐平（同一条基线）", { align: "center", color: "#1f7a3d", bold: true });
+                },
+                bad(ctx, W, H) {
+                    const x0 = 40, y0 = 34;
+                    ["A1", "D21", "Z1"].forEach((k, i) => cvCell(ctx, x0 + i * (CELL + 10), y0, INK[k], "center", k));
+                    cvText(ctx, W / 2, H - 10, "按墨迹居中：底部参差", { align: "center", color: "#b52b36", bold: true });
+                },
+            },
+            {
+                title: "③ 格内居中靠 transform 补偿，而不是改字号",
+                why: "字形在自己的行盒里是贴基线的。需要它在格内上下居中时（独立显示、候选预览、包围框内），引擎写入 "
+                   + "<code>translateY(-(1em − 墨迹高)/2)</code>。以 D21 为例：(1 − 0.305)/2 ≈ 0.347em，40px 字号下约 14px。"
+                   + "不补偿就会像右图那样整块沉在格底、上方留下大片空白。",
+                ok(ctx, W, H) {
+                    const x = W / 2 - CELL / 2, y = 34;
+                    cvCell(ctx, x, y, INK.D21, "center", "D21 居中");
+                    cvArrow(ctx, x - 26, y, x - 4, y, "#1f7a3d");
+                    cvText(ctx, x - 30, y + 4, "↑", { color: "#1f7a3d", size: 13, align: "right" });
+                    cvText(ctx, W / 2, H - 10, "墨迹在格内居中（上移约 0.35em）", { align: "center", color: "#1f7a3d", bold: true });
+                },
+                bad(ctx, W, H) {
+                    const x = W / 2 - CELL / 2, y = 34;
+                    cvCell(ctx, x, y, INK.D21, "bottom", "D21 未补偿");
+                    cvInk(ctx, x + 8, y + 6, CELL - 16, 14, "rgba(181, 43, 54, 0.05)");
+                    cvText(ctx, W / 2, H - 10, "沉在格底，上方留白", { align: "center", color: "#b52b36", bold: true });
+                },
+            },
+            {
+                title: "④ 层高按真实墨迹累加，不是每层 1em",
+                why: "堆叠组的每层只占自己的墨迹高，再加 <code>vrgLayerGap</code>（默认 0.05em）。"
+                   + "D21:N35 两层分别是 305 与 150，总层高 505 —— 放得下，<b>不缩放</b>。"
+                   + "若误按每层 1em 计算（右图），总高 2000，组会被压到一半大小，白白变小。",
+                ok(ctx, W, H) {
+                    const x = 90, y0 = 40, k = 0.14;      // 每单位 0.14px
+                    const segs = [[305, "D21 305"], [50, "gap 50"], [150, "N35 150"]];
+                    let y = y0;
+                    segs.forEach(([u, label], i) => {
+                        const h = u * k;
+                        if (i === 1) { ctx.save(); ctx.fillStyle = "#ddd"; ctx.fillRect(x, y, 70, h); ctx.restore(); }
+                        else cvInk(ctx, x, y, 70, h);
+                        cvText(ctx, x + 80, y + h / 2 + 4, label, { size: 11 });
+                        y += h;
+                    });
+                    cvFrame(ctx, x - 6, y0 - 6, 82, CELL + 12, "#1f7a3d", [4, 3]);
+                    cvText(ctx, x - 10, y0 - 12, "1em 方格", { size: 11, color: "#1f7a3d" });
+                    cvText(ctx, W / 2, H - 10, "总层高 505 → s = 1（原尺寸）", { align: "center", color: "#1f7a3d", bold: true });
+                },
+                bad(ctx, W, H) {
+                    const x = 90, y0 = 30, k = 0.055;
+                    [["D21 按 1em", 1000], ["N35 按 1em", 1000]].forEach(([label, u], i) => {
+                        const h = u * k;
+                        cvInk(ctx, x, y0 + i * (h + 6), 70, h);
+                        cvText(ctx, x + 80, y0 + i * (h + 6) + h / 2 + 4, label, { size: 11 });
+                    });
+                    cvFrame(ctx, x - 6, y0 - 6, 82, CELL + 12, "#1f7a3d", [4, 3]);
+                    cvText(ctx, W / 2, H - 10, "总层高 2000 → 被迫缩到一半", { align: "center", color: "#b52b36", bold: true });
+                },
+            },
+            {
+                title: "⑤ 缩放只缩不放：s = min(1, 1em/totalH, 1em/maxW)",
+                why: "三层 A1 的总层高 3097，必须缩到 0.323 才装进 1em；反过来，窄组（Z1*Z1 只有 0.245em 宽）"
+                   + "<b>绝不放大</b>——一放大笔画就变粗，与相邻字形不协调。右图是两种错误：不缩（溢出）与放大（走形）。",
+                ok(ctx, W, H) {
+                    const x = 70, y0 = 30;
+                    cvFrame(ctx, x - 6, y0 - 6, 76, CELL + 12, "#1f7a3d", [4, 3]);
+                    const s = 0.3229, lh = CELL * 0.999 * s, gap = CELL * 0.05 * s;
+                    for (let i = 0; i < 3; i++) {
+                        cvInk(ctx, x, y0 + i * (lh + gap), 64, lh);
+                    }
+                    cvText(ctx, x + 84, y0 + 20, "s = 0.323", { size: 11 });
+                    cvText(ctx, x + 84, y0 + 36, "三层恰好装进 1em", { size: 11 });
+                    cvText(ctx, W / 2, H - 10, "只缩不放 → 比例不变", { align: "center", color: "#1f7a3d", bold: true });
+                },
+                bad(ctx, W, H) {
+                    const x = 70, y0 = 24;
+                    cvFrame(ctx, x - 6, y0 - 6, 76, CELL + 12, "#b52b36", [4, 3]);
+                    for (let i = 0; i < 3; i++) cvInk(ctx, x, y0 + i * (CELL * 0.999 + 2), 64, CELL * 0.999);
+                    cvArrow(ctx, x + 74, y0, x + 74, y0 + 150, "#b52b36");
+                    cvText(ctx, x + 80, y0 + 76, "溢出", { size: 11, color: "#b52b36" });
+                    cvText(ctx, W / 2, H - 10, "不缩放：三层冲出 1em 方格", { align: "center", color: "#b52b36", bold: true });
+                },
+            },
+            {
+                title: "⑥ 组盒宽 = maxW × s，窄组不占满 1em",
+                why: "组盒宽取<b>最大层宽再乘缩放</b>，不是固定 1em。Z1*Z1:Z1*Z1 只有 0.245em 宽，于是紧贴前后字形；"
+                   + "若强行按 1em 排（右图），中间会出现一段与内容无关的空白，行内节奏被打断。",
+                ok(ctx, W, H) {
+                    const y0 = 40;
+                    cvCell(ctx, 40, y0, INK.A1, "bottom", "A1");
+                    const bx = 40 + CELL + 8, bw = CELL * 0.245;
+                    cvFrame(ctx, bx, y0, bw, CELL, "#7aa87a");
+                    cvText(ctx, bx + bw / 2, y0 + CELL / 2 + 4, "组", { align: "center", size: 11 });
+                    cvCell(ctx, bx + bw + 8, y0, INK.A1, "bottom", "A1");
+                    cvText(ctx, W / 2, H - 10, "组盒 0.245em：紧贴前后字形", { align: "center", color: "#1f7a3d", bold: true });
+                },
+                bad(ctx, W, H) {
+                    const y0 = 40;
+                    cvCell(ctx, 40, y0, INK.A1, "bottom", "A1");
+                    const bx = 40 + CELL + 8;
+                    cvFrame(ctx, bx, y0, CELL, CELL, "#b52b36");
+                    cvFrame(ctx, bx + CELL / 2 - 8, y0, 16, CELL, "#7aa87a");
+                    cvText(ctx, bx + 8, y0 - 6, "空白", { size: 10, color: "#b52b36" });
+                    cvCell(ctx, bx + CELL + 8, y0, INK.A1, "bottom", "A1");
+                    cvText(ctx, W / 2, H - 10, "强占 1em：中间一段无意义空白", { align: "center", color: "#b52b36", bold: true });
+                },
+            },
+            {
+                title: "⑦ 换行以字形为单位，不从中间断开",
+                why: "每个字形是 <code>inline-block</code>，排版时作为<b>整体</b>参与换行。"
+                   + "若把一行拆成文本流（右图），行尾的字形会被切成两半——在圣书体里这等于把符号写坏了。",
+                ok(ctx, W, H) {
+                    const y0 = 26, y1 = 110;
+                    for (let i = 0; i < 4; i++) cvCell(ctx, 30 + i * (CELL * 0.66 + 6), y0, INK.A1, "bottom");
+                    cvFrame(ctx, 30 + 2 * (CELL * 0.66 + 6) - 3, y0 - 3, CELL * 0.66 + 6, CELL + 6, "#1f7a3d", [4, 3]);
+                    cvText(ctx, 30, y1 - 12, "第 1 行（放不下的整字移到下一行）", { size: 11 });
+                    for (let i = 0; i < 3; i++) cvCell(ctx, 30 + i * (CELL * 0.66 + 6), y1, INK.A1, "bottom");
+                    cvText(ctx, W / 2, H - 8, "整字换行", { align: "center", color: "#1f7a3d", bold: true });
+                },
+                bad(ctx, W, H) {
+                    const y0 = 26, y1 = 110, step = CELL * 0.66 + 6;
+                    for (let i = 0; i < 4; i++) {
+                        const x = 30 + i * step;
+                        const w = i === 3 ? 22 : CELL * 0.66;      // 行尾被截断
+                        cvFrame(ctx, x, y0, w, CELL, "#6d8fd1");
+                        cvInk(ctx, x + 4, y0 + 4, Math.max(4, w - 8), CELL - 8);
+                    }
+                    ctx.save();
+                    ctx.strokeStyle = "#b52b36"; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(30 + 3 * step + 24, y0 - 4); ctx.lineTo(30 + 3 * step + 24, y0 + CELL + 4); ctx.stroke();
+                    ctx.restore();
+                    cvText(ctx, 30, y1 - 12, "第 1 行（行尾字形被切断）", { size: 11, color: "#b52b36" });
+                    for (let i = 0; i < 3; i++) cvCell(ctx, 30 + i * step, y1, INK.A1, "bottom");
+                    cvText(ctx, W / 2, H - 8, "文本流换行：符号被劈开", { align: "center", color: "#b52b36", bold: true });
+                },
+            },
+        ];
+
+        function buildLayoutSteps() {
+            const host = document.getElementById("layoutSteps");
+            if (!host) return;
+            while (host.firstChild) host.removeChild(host.firstChild);
+            LAYOUT_STEPS.forEach((step) => {
+                const box = document.createElement("div");
+                box.className = "step";
+                const h4 = document.createElement("h4");
+                h4.textContent = step.title;
+                box.appendChild(h4);
+
+                const pair = document.createElement("div");
+                pair.className = "pair";
+                const makeCell = (verdict, cls, drawFn, cap) => {
+                    const wrap = document.createElement("div");
+                    wrap.className = "cell";
+                    const v = document.createElement("div");
+                    v.className = "verdict " + cls;
+                    v.textContent = verdict;
+                    wrap.appendChild(v);
+                    const cv = document.createElement("canvas");
+                    cv.width = 340;
+                    cv.height = 190;
+                    wrap.appendChild(cv);
+                    const c = document.createElement("div");
+                    c.className = "canvas-cap";
+                    c.textContent = cap;
+                    wrap.appendChild(c);
+                    try { drawFn(cv.getContext("2d"), 340, 190); } catch (e) { /* 单张失败不影响其它 */ }
+                    return wrap;
+                };
+                pair.appendChild(makeCell("✓ 正确", "good", step.ok, "推荐做法"));
+                pair.appendChild(makeCell("✗ 错误", "bad", step.bad, "常见误区"));
+                box.appendChild(pair);
+
+                const why = document.createElement("p");
+                why.className = "why";
+                why.innerHTML = step.why;
+                box.appendChild(why);
+                host.appendChild(box);
+            });
+        }
+
         // ============================================================
         // §3.3–3.5 图示：类架构、渲染流程、canvas 示意
         // ============================================================
@@ -1454,6 +1748,7 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             try { drawFlowDiagram(); } catch (e) { /* 同上 */ }
             try { drawMetricCanvas(); } catch (e) { /* 同上 */ }
             try { drawShadowCanvas(); } catch (e) { /* 同上 */ }
+            try { buildLayoutSteps(); } catch (e) { /* 同上 */ }
         }
 
         // ============================================================
