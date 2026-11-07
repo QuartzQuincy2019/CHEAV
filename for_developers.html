@@ -547,7 +547,7 @@ MdCRndr.internals.ligatureWidth("X1-G43");</pre>
                     <b>阴影：</b><code>组#1234</code>。解析时 <code>#</code> 作为分隔符（<code>parseCode</code> 的终止字符集），
                     由 <code>parseQuadrat</code> 记录到 items 的 <code>shadow</code>，收尾时挂到整个四开组：
                     单单位 → <code>{type:"shaded"}</code> 包装；组 → <code>vrg.shadow</code>。
-                    渲染用 <code>applyShadow(el, digits)</code>：每个分区是一层
+                    渲染用 <code>renderInShadedCell</code> 先包一个 1em 见方的 <code>.sh-cell</code>（阴影按此方格划分四象限，而非字形行盒），再调 <code>applyShadow(el, digits)</code>：每个分区是一层
                     <code>repeating-linear-gradient(45deg, …)</code>，<code>background-size: 50% 50%</code> +
                     对应角的 <code>background-position</code>，<code>no-repeat</code>；纯背景层，不参与布局与度量。
 </div>

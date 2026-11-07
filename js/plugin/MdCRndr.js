@@ -6824,6 +6824,7 @@ function getMetrics(code) {
 /**
  * 阴影：把 1-4 分区渲染为 45° 斜线底纹（背景层，不占布局、不影响度量）。
  * 1=左上 2=右上 3=左下 4=右下，可任意组合；每个分区是一层 50%×50% 的背景。
+ * 底纹必须落在 1em 方格上（见 .sh-cell），而不是字形自身的行盒。
  */
 function applyShadow(el, digits) {
     if (!el || !el.style) return el;
@@ -6842,6 +6843,21 @@ function applyShadow(el, digits) {
     el.style.backgroundPosition = positions.join(", ");
     el.style.backgroundRepeat = "no-repeat";
     return el;
+}
+/**
+ * 生成一个 1em 见方的"格"（.sh-cell），把渲染动作放进格内，再给格加阴影。
+ * 横排贴底、竖排居中，与普通字形的基线位置一致；阴影按此格划分四象限。
+ */
+function renderInShadedCell(parent, fontSize, digits, draw, alignEnd) {
+    const cell = document.createElement("span");
+    cell.className = "sh-cell";
+    cell.style.width = px(fontSize) + "px";
+    cell.style.height = px(fontSize) + "px";
+    cell.style.alignItems = alignEnd ? "flex-end" : "center";
+    parent.appendChild(cell);
+    draw(cell);
+    applyShadow(cell, digits);
+    return cell;
 }
 function renderGlyph(parent, code, fontSize, align) {
     const ch = decodeCode(code);
@@ -7088,17 +7104,21 @@ function renderHRG(parent, layers, fontSize) {
 function renderLayerUnitV(col, u, size) {
     if (!u) return;
     if (u.type === "char") {
-        const before = col.children.length;
-        renderGlyph(col, u.code, size, "center");       // 1em 轨道内上下居中
-        if (u.shadow && col.children.length > before) {
-            applyShadow(col.children[col.children.length - 1], u.shadow);
+        if (u.shadow) {
+            renderInShadedCell(col, size, u.shadow, (cell) => {
+                renderGlyph(cell, u.code, size, "center");
+            }, false);
+        } else {
+            renderGlyph(col, u.code, size, "center");       // 1em 轨道内上下居中
         }
     } else if (u.type === "vrg") {
         // 单层组 = 一行内并列（"*"）；多层组 = 每层一行（":"），都由 HRG 承担
-        const before = col.children.length;
-        renderHRG(col, u.layers, size);
-        if (u.shadow && col.children.length > before) {
-            applyShadow(col.children[col.children.length - 1], u.shadow);
+        if (u.shadow) {
+            renderInShadedCell(col, size, u.shadow, (cell) => {
+                renderHRG(cell, u.layers, size);
+            }, false);
+        } else {
+            renderHRG(col, u.layers, size);
         }
     } else if (u.type === "lig") {
         renderLigature(col, u.name, size);
@@ -7250,22 +7270,24 @@ function renderLigature(parent, name, fontSize) {
 function render(parent, tree, fontSize) {
     if (!tree) return;
     if (tree.type === "char") {
-        const before = parent.children.length;
-        renderGlyph(parent, tree.code, fontSize, "center");
-        if (tree.shadow && parent.children.length > before) {
-            applyShadow(parent.children[parent.children.length - 1], tree.shadow);
+        if (tree.shadow) {
+            renderInShadedCell(parent, fontSize, tree.shadow, (cell) => {
+                renderGlyph(cell, tree.code, fontSize, "center");
+            }, true);
+        } else {
+            renderGlyph(parent, tree.code, fontSize, "center");
         }
     } else if (tree.type === "vrg") {
         if (tree.layers.length === 1 && !tree.shadow) {
             // 只有一层的 VRG 视为一般字符（序列）
             for (const u of tree.layers[0]) render(parent, u, fontSize);
+        } else if (tree.shadow) {
+            // 阴影覆盖整个四开组：先放进 1em 方格，再按方格划分四象限
+            renderInShadedCell(parent, fontSize, tree.shadow, (cell) => {
+                renderVRG(cell, tree.layers, fontSize);
+            }, true);
         } else {
-            const before = parent.children.length;
             renderVRG(parent, tree.layers, fontSize);
-            if (tree.shadow && parent.children.length > before) {
-                // 阴影落在整个四开组盒上（4 个分区相对该盒划分）
-                applyShadow(parent.children[parent.children.length - 1], tree.shadow);
-            }
         }
     } else if (tree.type === "lig") {
         renderLigature(parent, tree.name, fontSize);
@@ -7835,6 +7857,12 @@ function splitLines(tree) {
             + vrg + ' {\n'
             + '    display: inline-flex;\n'
             + '    flex-direction: column;\n'
+            + '}\n\n'
+            + '.sh-cell {\n'                                  // 阴影格：1em 见方，阴影按此格划分四象限
+            + '    display: inline-flex;\n'
+            + '    justify-content: center;\n'
+            + '    flex: 0 0 auto;\n'
+            + '    line-height: 1;\n'
             + '}\n\n'
             + layer + ' {\n'
             + '    display: flex;\n'
