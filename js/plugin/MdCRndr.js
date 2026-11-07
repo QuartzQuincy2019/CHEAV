@@ -6821,6 +6821,28 @@ function getMetrics(code) {
  * @param {string} [align] "center"：在 1em 轨道内垂直居中（IS 用）；
  *                         其他/缺省：贴底（baseline 对齐，VRG 层内用）
  */
+/**
+ * 阴影：把 1-4 分区渲染为 45° 斜线底纹（背景层，不占布局、不影响度量）。
+ * 1=左上 2=右上 3=左下 4=右下，可任意组合；每个分区是一层 50%×50% 的背景。
+ */
+function applyShadow(el, digits) {
+    if (!el || !el.style) return el;
+    const hatch = "repeating-linear-gradient(45deg, #000 0 0.02em, transparent 0.02em 0.06em)";
+    const posMap = { "1": "left top", "2": "right top", "3": "left bottom", "4": "right bottom" };
+    const layers = [], sizes = [], positions = [];
+    for (const d of String(digits)) {
+        if (!posMap[d]) continue;
+        layers.push(hatch);
+        sizes.push("50% 50%");
+        positions.push(posMap[d]);
+    }
+    if (!layers.length) return el;
+    el.style.backgroundImage = layers.join(", ");
+    el.style.backgroundSize = sizes.join(", ");
+    el.style.backgroundPosition = positions.join(", ");
+    el.style.backgroundRepeat = "no-repeat";
+    return el;
+}
 function renderGlyph(parent, code, fontSize, align) {
     const ch = decodeCode(code);
     if (!ch) return null;
@@ -7066,10 +7088,18 @@ function renderHRG(parent, layers, fontSize) {
 function renderLayerUnitV(col, u, size) {
     if (!u) return;
     if (u.type === "char") {
+        const before = col.children.length;
         renderGlyph(col, u.code, size, "center");       // 1em 轨道内上下居中
+        if (u.shadow && col.children.length > before) {
+            applyShadow(col.children[col.children.length - 1], u.shadow);
+        }
     } else if (u.type === "vrg") {
         // 单层组 = 一行内并列（"*"）；多层组 = 每层一行（":"），都由 HRG 承担
+        const before = col.children.length;
         renderHRG(col, u.layers, size);
+        if (u.shadow && col.children.length > before) {
+            applyShadow(col.children[col.children.length - 1], u.shadow);
+        }
     } else if (u.type === "lig") {
         renderLigature(col, u.name, size);
     } else if (u.type === "enc") {
@@ -7220,13 +7250,22 @@ function renderLigature(parent, name, fontSize) {
 function render(parent, tree, fontSize) {
     if (!tree) return;
     if (tree.type === "char") {
+        const before = parent.children.length;
         renderGlyph(parent, tree.code, fontSize, "center");
+        if (tree.shadow && parent.children.length > before) {
+            applyShadow(parent.children[parent.children.length - 1], tree.shadow);
+        }
     } else if (tree.type === "vrg") {
-        if (tree.layers.length === 1) {
+        if (tree.layers.length === 1 && !tree.shadow) {
             // 只有一层的 VRG 视为一般字符（序列）
             for (const u of tree.layers[0]) render(parent, u, fontSize);
         } else {
+            const before = parent.children.length;
             renderVRG(parent, tree.layers, fontSize);
+            if (tree.shadow && parent.children.length > before) {
+                // 阴影落在整个四开组盒上（4 个分区相对该盒划分）
+                applyShadow(parent.children[parent.children.length - 1], tree.shadow);
+            }
         }
     } else if (tree.type === "lig") {
         renderLigature(parent, tree.name, fontSize);
@@ -7338,7 +7377,8 @@ function parseInput(text) {
 
     function parseCode() {
         const start = pos;
-        while (pos < s.length && !"-*:]})($<>".includes(s[pos])) pos++;
+        // "#" 是阴影分隔符（<组>#<1-4>），必须在此终止码 token
+        while (pos < s.length && !"-*:]})($<>#".includes(s[pos])) pos++;
         return s.slice(start, pos);
     }
 
@@ -7460,6 +7500,17 @@ function parseInput(text) {
                 pos++;
                 items.push({ unit: { type: "newline" }, sep: null });
                 items.push({ unit: parseUnit(), sep: null });
+            } else if (ch === "#") {
+                // 阴影：<组>#<1-4>，1=左上 2=右上 3=左下 4=右下，可自由组合
+                pos++;
+                let digits = "";
+                while (pos < s.length && "1234".indexOf(s[pos]) >= 0) { digits += s[pos]; pos++; }
+                if (digits) {
+                    const last = items[items.length - 1];
+                    if (last) last.shadow = digits;
+                } else {
+                    invalid.push("#" + s.slice(pos));
+                }
             } else if (ch === "-") {
                 break;              // 四开组结束（"-" 由 parseSequence 消费）
             } else {
@@ -7470,6 +7521,8 @@ function parseInput(text) {
                 items.push({ unit, sep: null });
             }
         }
+        // 阴影作用于整个四开组（quadrat / VRG）：取最后一个带阴影的项
+        const quadratShadow = (items.filter(it => it.shadow).pop() || {}).shadow || null;
         if (items.some(it => it.sep === ":")) {
             const layers = [];
             let current = [];
@@ -7480,7 +7533,9 @@ function parseInput(text) {
                     current = [];
                 }
             }
-            return [{ type: "vrg", layers }];
+            const unit = { type: "vrg", layers };
+            if (quadratShadow) unit.shadow = quadratShadow;
+            return [unit];
         }
         const units = items.map(it => it.unit);
         // "*" 连接的同层组保留为单层 VRG：
@@ -7488,7 +7543,13 @@ function parseInput(text) {
         //   竖排据此知道这些单位应并列在同一"行"（HRG），而不是各占一行。
         // 含 "$" 换行时不打包，交给 splitLines 处理。
         if (units.length > 1 && items.some(it => it.sep === "*") && !units.some(x => x.type === "newline")) {
-            return [{ type: "vrg", layers: [units] }];
+            const unit = { type: "vrg", layers: [units] };
+            if (quadratShadow) unit.shadow = quadratShadow;
+            return [unit];
+        }
+        if (quadratShadow) {
+            if (units.length === 1) return [{ type: "shaded", unit: units[0], shadow: quadratShadow }];
+            return [{ type: "vrg", layers: [units], shadow: quadratShadow }];
         }
         return units;
     }
@@ -7531,8 +7592,14 @@ function parseInput(text) {
             invalid.push(u);
             return null;
         }
+        if (u.type === "shaded") {
+            // 阴影包装：先展开内部单位，再把分区信息挂到结果上
+            const inner = expandUnit(u.unit);
+            if (!inner) return null;
+            return Object.assign({}, inner, { shadow: u.shadow });
+        }
         if (u.type === "vrg") {
-            return { type: "vrg", layers: u.layers.map(line => line.map(expandUnit).filter(x => x)) };
+            return { type: "vrg", layers: u.layers.map(line => line.map(expandUnit).filter(x => x)), shadow: u.shadow };
         }
         if (u.type === "lig") {
             if (LIGATURES[u.name]) return u; // 连字名保留，渲染时查 LIGATURES 表

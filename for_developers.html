@@ -544,6 +544,14 @@ MdCRndr.internals.ligatureWidth("X1-G43");</pre>
                     <tr><td class="k">空格</td><td>组外空白一律忽略（宽容）；<code>&lt; &gt;</code> 内保留</td><td>—</td></tr>
                 </table>
 <div class="note">
+                    <b>阴影：</b><code>组#1234</code>。解析时 <code>#</code> 作为分隔符（<code>parseCode</code> 的终止字符集），
+                    由 <code>parseQuadrat</code> 记录到 items 的 <code>shadow</code>，收尾时挂到整个四开组：
+                    单单位 → <code>{type:"shaded"}</code> 包装；组 → <code>vrg.shadow</code>。
+                    渲染用 <code>applyShadow(el, digits)</code>：每个分区是一层
+                    <code>repeating-linear-gradient(45deg, …)</code>，<code>background-size: 50% 50%</code> +
+                    对应角的 <code>background-position</code>，<code>no-repeat</code>；纯背景层，不参与布局与度量。
+</div>
+                <div class="note">
                     <b>包围框（MdC 扩展）：</b><code>&lt;- … -&gt;</code>（王名圈）、<code>&lt;S- … -&gt;</code>（锦旗框）、
                     <code>&lt;h1- … -h1&gt;</code>（裸方框）、<code>&lt;F- … -&gt;</code>（齿状框，四边方块齿，段长 0.12em / 间隔 0.20em）。解析为 <code>{ type:"enc", kind, units }</code>，
                     嵌套计入 <code>invalid</code>；渲染为 <code>.enc</code> + <code>.enc-A / .enc-S / .enc-h1</code>，竖排加 <code>.enc-v</code>。
