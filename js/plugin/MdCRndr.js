@@ -7692,7 +7692,6 @@ function splitLines(tree) {
             "." + options.encKindClass.F + " .enc-F-corner {",
             "    position: absolute;",
             "    pointer-events: none;",
-            "    background-color: #000;",
             "}",
             "." + options.encKindClass.F + " .enc-F-edge {",   // 边：齿带 0.14em，相位居中 → 左右/上下对称
             "    background-image: repeating-linear-gradient(var(--f-angle, 90deg), #000 0 0.12em, transparent 0.12em 0.20em);",
