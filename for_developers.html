@@ -609,6 +609,68 @@ MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
                    并说明这条规则<b>为什么</b>存在。看懂这 7 步，横排的行为就不用再猜。</p>
                 <div class="steps" id="layoutSteps"></div>
 
+                <h3>5.2 VRG 的各种变体：品、倒品、2×2 ……</h3>
+                <p>MdC 里<b>没有</b>「品」「倒品」这类专门符号 —— 四开组的形态完全由<b>层结构</b>决定：
+                   <code>*</code> 同层并列、<code>:</code> 换到下一层。所以理论上任何「上下几行、每行几个」都能写出来。
+                   常见的几种给法如下（实测数值取自引擎，字体单位为 1000 = 1em）：</p>
+                <table id="vrgVariantTable">
+                    <tr>
+                        <th style="width:14%">名称</th>
+                        <th style="width:22%">MdC 写法</th>
+                        <th style="width:12%">层结构</th>
+                        <th style="width:18%">层高×层宽</th>
+                        <th style="width:8%">s</th>
+                        <th style="width:10%">组宽</th>
+                        <th>说明</th>
+                    </tr>
+                    <tr><td class="k"><b>左右并列</b></td><td class="k"><code>X1*Z1</code></td><td class="k">2（单层）</td>
+                        <td class="k">395×679</td><td class="k">1.000</td><td class="k">0.679em</td>
+                        <td>单层 VRG；术语上也叫「四开组的横排」</td></tr>
+                    <tr><td class="k"><b>上下堆叠</b></td><td class="k"><code>X1:Z1</code></td><td class="k">1+1</td>
+                        <td class="k">276×494 / 395×60</td><td class="k">1.000</td><td class="k">0.494em</td>
+                        <td>两层各一个；组宽由较宽的那层决定</td></tr>
+                    <tr><td class="k"><b>品</b></td><td class="k"><code>X1:Z1*X1</code></td><td class="k">1+2</td>
+                        <td class="k">276×494 / 395×679</td><td class="k">1.000</td><td class="k">0.679em</td>
+                        <td>上一下二，正三角；下层出现层内并列</td></tr>
+                    <tr><td class="k"><b>倒品</b></td><td class="k"><code>X1*Z1:W24</code></td><td class="k">2+1</td>
+                        <td class="k">395×679 / 570×540</td><td class="k">0.985</td><td class="k">0.669em</td>
+                        <td>上二下一，倒三角；高字在下层时略微缩</td></tr>
+                    <tr><td class="k"><b>2×2</b></td><td class="k"><code>X1*Z1:Z1*X1</code></td><td class="k">2+2</td>
+                        <td class="k">395×679 / 395×679</td><td class="k">1.000</td><td class="k">0.679em</td>
+                        <td>四开四格；两层等宽时上下对齐最整齐</td></tr>
+                    <tr><td class="k"><b>1+3</b></td><td class="k"><code>X1:Z1*X1*Z1</code></td><td class="k">1+3</td>
+                        <td class="k">276×494 / 395×864</td><td class="k">1.000</td><td class="k">0.864em</td>
+                        <td>上一下三；下层三格两端对齐，组宽被下层撑大</td></tr>
+                    <tr><td class="k"><b>3+1</b></td><td class="k"><code>Z1*X1*Z1:X1</code></td><td class="k">3+1</td>
+                        <td class="k">395×864 / 276×494</td><td class="k">1.000</td><td class="k">0.864em</td>
+                        <td>上三下一与 1+3 镜像，组宽相同</td></tr>
+                    <tr><td class="k"><b>2+1+1</b></td><td class="k"><code>X1*Z1:X1:Z1</code></td><td class="k">2+1+1</td>
+                        <td class="k">395×679 / 276×494 / 395×60</td><td class="k">0.858</td><td class="k">0.582em</td>
+                        <td>三层；总层高 1166 超过 1em → 整组缩到 0.858</td></tr>
+                </table>
+                <figure class="diagram">
+                    <div class="canvas-wrap" id="variantCanvases"></div>
+                    <figcaption>四开组形态示意：方框为 1em 方格，色块按该层真实层高与组宽绘制（缩放后）</figcaption>
+                </figure>
+
+                <h4>这些变体是怎么落到版面里的</h4>
+                <ul>
+                    <li><b>层数越多，越容易触发缩放</b>：总层高 = Σ层高 + 0.05em×(层数−1)。1+1、1+2 这类两层组合通常在 1em 内，
+                        三层以上的（如 2+1+1）往往要缩到 0.86 左右；</li>
+                    <li><b>组宽由最宽的层决定</b>：品（1+2）与 2×2 的组宽都是 0.679em，因为最宽层相同；
+                        1+3 与 3+1 都是 0.864em —— 上下镜像不改变层宽；</li>
+                    <li><b>层内多元素两端对齐、单元素居中</b>：所以「品」的下层两格会贴住左右边缘，「倒品」的下层单个高字居中，
+                        这决定了同组里符号的横向呼吸感；</li>
+                    <li><b>组宽仍然不是 1em</b>：即使四格排满，只要最宽层没到 1em，组盒就按实际宽度收窄（见 §6 的公式）；
+                        只有像 <code>D21*N35*Z1</code> 这种超宽层才会被缩到正好 1em；</li>
+                    <li><b>竖排（HRG）下含义不同</b>：同一个写法，<code>*</code> 变成「同一行并列」、<code>:</code> 变成「换到下一行」，
+                        但层结构、层高、层宽与缩放公式<b>完全不变</b>，所以品/倒品在竖排里是同一组符号的另一种读向。</li>
+                </ul>
+                <div class="note">
+                    <b>书写建议：</b>先按<b>视觉</b>确定层数（几行），再决定每行放几个（<code>*</code>）；
+                    一个四开组内的 <code>-</code> 是非法的（那是组之间的分隔），所以「品」只能是 <code>A:B*C</code>，不能写成 <code>A-B*C</code>。
+                </div>
+
 
 
                 <h3><code>MdCRndr.renderText(el, mdC, fontSize?) → { tree, invalid }</code></h3>
@@ -1121,6 +1183,98 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
                 }
                 if (!el.title) el.title = (pron ? pron + " · " : "") + mdC;
             }
+        }
+
+        // ------------------------------------------------------------
+        // §5.2 VRG 变体示意：品 / 倒品 / 2×2 / 1+3
+        // 用真实层高与组宽在 1em 方格内绘制（缩放后）
+        // ------------------------------------------------------------
+        const VRG_VARIANTS = [
+            { name: "品（1+2）", src: "X1:Z1*X1" },
+            { name: "倒品（2+1）", src: "X1*Z1:W24" },
+            { name: "2×2", src: "X1*Z1:Z1*X1" },
+            { name: "1+3", src: "X1:Z1*X1*Z1" },
+        ];
+
+        /** 按 1em 方格绘制一个四开组的层结构 */
+        function drawVariant(cv, item) {
+            if (!cv || !cv.getContext) return;
+            const ctx = cv.getContext("2d");
+            const W = cv.width, H = cv.height;
+            ctx.clearRect(0, 0, W, H);
+
+            const side = 120, x0 = (W - side) / 2, y0 = 26;
+            cvFrame(ctx, x0, y0, side, side, "#6d8fd1");
+            cvText(ctx, x0, y0 - 8, "1em 方格", { size: 10.5, color: "#6d8fd1" });
+
+            let layers = [], s = 1, boxW = 1000;
+            try {
+                const u = MdCRndr.parse(item.src).tree.units[0];
+                const ms = u.layers.map(l => MdCRndr.internals.layerMetrics(l));
+                const gapL = MdCRndr.config().vrgLayerGap * 1000;
+                const totalH = ms.reduce((a, m) => a + m.h, 0) + gapL * (ms.length - 1);
+                const maxW = Math.max(...ms.map(m => m.w));
+                s = Math.min(1, 1000 / totalH, 1000 / maxW);
+                boxW = MdCRndr.internals.vrgBoxWidth(u.layers);
+                layers = ms.map((m, i) => ({ h: m.h, w: m.w, n: u.layers[i].length }));
+            } catch (e) { /* 引擎未就绪时留空 */ }
+
+            const boxPx = side * boxW / 1000;
+            const bx = x0 + (side - boxPx) / 2;
+            // 组盒
+            cvFrame(ctx, bx, y0, boxPx, side, "#7aa87a", [4, 3]);
+
+            // 层：自下而上按 1em 内的实际高度；用 space-between 语义（首层贴顶、末层贴底）
+            let yTop = y0, yBottom = y0 + side;
+            layers.forEach((l, i) => {
+                const hPx = Math.max(6, side * l.h * s / 1000);
+                const isFirst = i === 0, isLast = i === layers.length - 1;
+                const ly = isFirst ? yTop : (isLast ? yBottom - hPx : yTop + (yBottom - yTop - hPx) / 2);
+                const wPx = Math.max(10, boxPx * Math.min(1, l.n > 1 ? 1 : 0.7));
+                ctx.save();
+                ctx.fillStyle = l.n > 1 ? "rgba(59, 111, 212, 0.20)" : "rgba(38, 127, 153, 0.20)";
+                ctx.fillRect(bx + 1, ly, boxPx - 2, hPx);
+                ctx.strokeStyle = l.n > 1 ? "#3b6fd4" : "#267f99";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(bx + 1, ly, boxPx - 2, hPx);
+                ctx.restore();
+                // 层内分格线
+                if (l.n > 1) {
+                    for (let k = 1; k < l.n; k++) {
+                        const gx = bx + (boxPx / l.n) * k;
+                        ctx.save();
+                        ctx.strokeStyle = "rgba(59,111,212,0.45)";
+                        ctx.setLineDash([3, 3]);
+                        ctx.beginPath(); ctx.moveTo(gx, ly); ctx.lineTo(gx, ly + hPx); ctx.stroke();
+                        ctx.restore();
+                    }
+                }
+                cvText(ctx, bx + boxPx + 6, ly + Math.min(hPx, 30) / 2 + 3, l.n + " 格", { size: 10, color: "#55606d" });
+                if (isFirst) yTop = ly + hPx;
+                if (isLast) yBottom = ly;
+            });
+
+            cvText(ctx, W / 2, H - 26, item.name + "   " + item.src, { align: "center", size: 12, bold: true, color: "#22303f" });
+            cvText(ctx, W / 2, H - 8, "组宽 " + (boxW / 1000).toFixed(3) + "em · s = " + s.toFixed(3), { align: "center", size: 11, color: "#6b6b6b" });
+        }
+
+        function buildVariantCanvases() {
+            const host = document.getElementById("variantCanvases");
+            if (!host) return;
+            while (host.firstChild) host.removeChild(host.firstChild);
+            VRG_VARIANTS.forEach((item) => {
+                const wrap = document.createElement("div");
+                const cv = document.createElement("canvas");
+                cv.width = 200;
+                cv.height = 190;
+                wrap.appendChild(cv);
+                const cap = document.createElement("div");
+                cap.className = "canvas-cap";
+                cap.textContent = item.name;
+                wrap.appendChild(cap);
+                host.appendChild(wrap);
+                try { drawVariant(cv, item); } catch (e) { /* 单张失败不影响其它 */ }
+            });
         }
 
         // ------------------------------------------------------------
@@ -1749,6 +1903,7 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             try { drawMetricCanvas(); } catch (e) { /* 同上 */ }
             try { drawShadowCanvas(); } catch (e) { /* 同上 */ }
             try { buildLayoutSteps(); } catch (e) { /* 同上 */ }
+            try { buildVariantCanvases(); } catch (e) { /* 同上 */ }
         }
 
         // ============================================================
