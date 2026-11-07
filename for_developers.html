@@ -233,7 +233,7 @@
             <a href="#overview">1 项目结构与加载顺序</a>
             <a href="#embed">2 三步接入</a>
             <b>接口</b>
-            <a href="#api">3 API 一览（运行时生成）</a>
+            <a href="#api">3 API 与类型</a>
             <a href="#life">4 生命周期与配置</a>
             <a href="#render">5 渲染</a>
             <a href="#parse">6 解析</a>
@@ -338,7 +338,8 @@ js/ui/apply.js            ← 最后（需 DOM 就绪）</pre>
 
             <!-- ============================================ -->
             <section id="api">
-                <h2>3 API 一览（运行时生成，按字典序排列）</h2>
+                <h2>3 API 与类型</h2>
+                <h3>3.1 接口一览（运行时生成，按字典序排列）</h3>
                 <p>下表由页面加载后直接枚举插件对象生成，因此永远与实现一致；成员按<b>字典序</b>排列（大小写不敏感），新增或改名会自动反映到表里，无需手工维护。<br>
                     <b>函数型成员</b>以 TypeScript 风格展示参数列表（<code>?</code> 表示可选），第二列为返回类型；
                     <code>HTMLElement</code> / <code>UnitTree</code> / <code>Config</code> 等为示意类型名。</p>
@@ -354,6 +355,77 @@ js/ui/apply.js            ← 最后（需 DOM 就绪）</pre>
                 <table id="evalTable">
                     <tr><th style="width:46%">表达式</th><th>结果</th></tr>
                 </table>
+
+                <h3>3.2 类型一览</h3>
+                <p>上面签名里的 <code>Unit</code> / <code>UnitTree</code> / <code>Config</code> / <code>LigaturePart</code>
+                   等类型名，含义如下。前一半是<b>渲染引擎</b>内部的数据形状，后一半是<b>应用侧</b>
+                   （<code>js/database/semantics.js</code>）的语义类 —— 后者只服务于缓冲区匹配，不参与渲染。</p>
+
+                <h4>渲染引擎侧</h4>
+                <table id="unitTable">
+                    <tr><th style="width:16%">类型 / 字段</th><th style="width:26%">形状</th><th>说明</th></tr>
+                    <tr><td class="k">Unit</td><td class="k">带 <code>type</code> 的对象</td>
+                        <td>解析树的基本单位，见下面各行；<code>parse()</code> 的 <code>tree.units</code> 即由它们组成。</td></tr>
+                    <tr><td class="k">char</td><td class="k">{ type:"char", code, shadow? }</td>
+                        <td>单字符。<code>code</code> 为 Gardiner 码或十六进制码；<code>shadow</code> 为阴影分区串（如 <code>"134"</code>）。</td></tr>
+                    <tr><td class="k">vrg</td><td class="k">{ type:"vrg", layers: Unit[][], shadow? }</td>
+                        <td>堆叠组：外层数组是层，内层是该层并列的单位。<code>*</code> 连接的同层组也会保留为单层 vrg。</td></tr>
+                    <tr><td class="k">seq</td><td class="k">{ type:"seq", units: Unit[] }</td>
+                        <td>序列：顶层树、以及 <code>$</code> 分段后每段都是 seq。</td></tr>
+                    <tr><td class="k">lig</td><td class="k">{ type:"lig", name }</td>
+                        <td>连字引用 <code>{name}</code>；几何取自 <code>MdCRndr.LIGATURES[name]</code>。</td></tr>
+                    <tr><td class="k">text</td><td class="k">{ type:"text", text }</td>
+                        <td>插入文本 <code>&lt;…&gt;</code>，按小字号居中显示。</td></tr>
+                    <tr><td class="k">enc</td><td class="k">{ type:"enc", kind:"A"|"S"|"h1"|"F", units }</td>
+                        <td>包围框：王名圈 <code>A</code>、锦旗框 <code>S</code>、裸方框 <code>h1</code>、齿状框 <code>F</code>。</td></tr>
+                    <tr><td class="k">newline / unsup</td><td class="k">{ type:"newline" } / { type:"unsup", code }</td>
+                        <td>手动换行标记 / 字体缺失码的占位框。</td></tr>
+                    <tr><td class="k">UnitTree</td><td class="k">seq</td>
+                        <td>顶层单位树，即 <code>parse(text).tree</code> 的类型。</td></tr>
+                    <tr><td class="k">RenderResult</td><td class="k">{ tree: UnitTree, invalid: string[] }</td>
+                        <td><code>parse</code> / <code>renderText</code> / <code>renderVerticalText</code> 的返回值；<code>invalid</code> 为被拒片段。</td></tr>
+                    <tr><td class="k">Metrics</td><td class="k">{ height: number, width: number }</td>
+                        <td>墨迹尺寸，单位是字体设计单位（1000 = 1em），与 <code>visuHeight</code> / <code>visuWidth</code> 同口径。</td></tr>
+                    <tr><td class="k">Config</td><td class="k">键集合同 <code>MdCRndr.DEFAULTS</code></td>
+                        <td>可经 <code>init(options)</code> / <code>set(options)</code> 覆盖，全表见第 4 节。</td></tr>
+                    <tr><td class="k">LigatureGeometry</td><td class="k">{ name, parts: LigaturePart[], pron? }</td>
+                        <td><code>MdCRndr.LIGATURES[name]</code> 的值，仅含几何与发音，不含释义。</td></tr>
+                    <tr><td class="k">LigaturePart</td><td class="k">{ code, dx, dy, scale }</td>
+                        <td>连字部件：<code>code</code> 码；<code>dx</code> / <code>dy</code> 相对方块左下角的偏移（em）；<code>scale</code> 缩放。
+                            <code>parts[0]</code> 通常是基准件（dx=0, dy=0, scale=1）。</td></tr>
+                </table>
+
+                <h4>应用侧语义类（js/database/semantics.js）</h4>
+                <table id="semanticsTable">
+                    <tr><th style="width:18%">类 / 成员</th><th style="width:26%">形状</th><th>说明</th></tr>
+                    <tr><td class="k">Semantics</td><td class="k">抽象基类</td>
+                        <td>发音 + 释义 + 统一的多态接口；匹配系统只依赖这套接口，不按类型分支。</td></tr>
+                    <tr><td class="k">pron</td><td class="k">string</td><td>发音 / 检索键；连字可无发音（null）。</td></tr>
+                    <tr><td class="k">meaning</td><td class="k">{ en?: string, chs?: string }</td>
+                        <td>释义。互为变体的词条共用同一个 meaning 对象，改母条即全族同步。</td></tr>
+                    <tr><td class="k">kind</td><td class="k">"word" | "lig"</td><td>类型标签（<code>Vocabulary</code> → word，<code>Ligature</code> → lig）。</td></tr>
+                    <tr><td class="k">code / renderInput</td><td class="k">string</td>
+                        <td>MdC 渲染串（词条为码串，连字为 <code>{name}</code>）；<code>renderInput</code> 直接喂给渲染引擎。</td></tr>
+                    <tr><td class="k">insert</td><td class="k">string</td><td>按 Tab 确认时写入缓冲区的串，默认同 <code>code</code>。</td></tr>
+                    <tr><td class="k">matchesCode(p) / matchesPron(p)</td><td class="k">(prefix: string) =&gt; boolean</td>
+                        <td>码前缀 / 发音前缀匹配。<code>Ligature</code> 覆盖了 <code>matchesCode</code>，把 <code>:</code> 与 <code>*</code> 归一化为 <code>-</code>。</td></tr>
+                    <tr><td class="k">meanText</td><td class="k">string</td><td>释义显示串：英文 + 当前语言；连字显示为「连字」标记。</td></tr>
+                    <tr><td class="k">toCandidate(flags)</td><td class="k">Candidate</td>
+                        <td>生成 UI 候选（含排序用标记 byPron / pronExact / pronLen）。</td></tr>
+                    <tr><td class="k">Vocabulary extends Semantics</td><td class="k">{ mdC, variantOf, parent }</td>
+                        <td>词汇。<code>variantOf</code> 记录母词的 MdC，<code>parent</code> 指向母词实例，<code>isVariant</code> 判定是否为变体。</td></tr>
+                    <tr><td class="k">Ligature extends Semantics</td><td class="k">{ mdC, name }</td>
+                        <td>连字。<code>mdC</code> 形如 <code>{I10-D46}</code>，<code>name</code> 为去掉花括号的名字；
+                            几何数据在引擎侧的 <code>LigatureGeometry</code> 里，本类只承担匹配与确认。</td></tr>
+                    <tr><td class="k">Phoneme</td><td class="k">{ pron, code }</td>
+                        <td>音素（独立类，<b>不继承</b> <code>Semantics</code>）：只参与声符 / 意符匹配，故不需要词匹配接口。
+                            <code>char</code> 便捷取字符，<code>isPrimary</code> 判定是否为该发音的首码。</td></tr>
+                </table>
+                <div class="note">
+                    <b>两级「连字」不要混淆：</b>引擎侧的 <code>LigatureGeometry</code> 只管<b>怎么画</b>（部件坐标与缩放），
+                    应用侧的 <code>Ligature</code> 只管<b>怎么被搜到与确认</b>（发音、名称、Tab 写入什么）。
+                    两者以连字名为键一一对应，互不依赖。
+                </div>
             </section>
 
             <!-- ============================================ -->
