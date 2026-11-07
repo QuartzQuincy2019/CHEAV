@@ -7144,7 +7144,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     // 框随内容拉伸：横排时内容横向排布，竖排时纵向排布（形状本身只由内容尺寸决定）
     // 框内字形按 JSesh 惯例略小于框外，使框体本身不显得拥挤
     // 锦旗框底部要留下宫墙纹，内容再小一档；其余按通用比例
-    const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.78 : ENC_CONTENT_SCALE);   // F 框体 1em = 内容 0.78 + 内边距 0.16 + 边框 0.06（齿在框外）
+    const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.50 : ENC_CONTENT_SCALE);   // F 总高 1em = 内容 0.50 + 内边距 0.16 + 边框 0.06 + 框外齿带 0.28
     if (vertical) {
         for (const x of (u.units || [])) renderLayerUnitV(inner, x, innerSize);
     } else {
