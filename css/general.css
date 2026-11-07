@@ -55,6 +55,65 @@ body {
     z-index: 0;
 }
 
+/* ===== 排版方向切换条（横排 / 竖排） ===== */
+.ModeBar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-family: sans-serif;
+}
+
+.ModeBar-title {
+    font-size: 13px;
+    color: #555;
+}
+
+.ModeSeg {
+    display: inline-flex;
+    border: #333 1px solid;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* hidden 属性需显式覆盖 display（否则被上面的 inline-flex 顶掉） */
+.ModeSeg[hidden] {
+    display: none;
+}
+
+.ModeBtn {
+    border: 0;
+    background: #fff;
+    color: #333;
+    padding: 3px 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    cursor: pointer;
+}
+
+.ModeBtn + .ModeBtn {
+    border-left: #333 1px solid;
+}
+
+.ModeBtn:hover {
+    background: #f0f0f0;
+}
+
+.ModeBtn.active {
+    background: #333;
+    color: #fff;
+}
+
+/* 编辑区 + 渲染区容器：横排时上下堆叠（与原布局一致） */
+.App {
+    display: block;
+}
+
+.App-canvas {
+    margin-top: 4px;
+}
+
 /* 一个段（行组）：内部 flex-wrap 自动换行 */
 .RenderLine {
     display: flex;
@@ -846,5 +905,63 @@ html.DocOverlay-open body {
 
     .SiteFooter h1 {
         font-size: 22px;
+    }
+}
+
+/* ===== 竖排模式：渲染区占 1/3 屏宽，可置于右侧（默认）或左侧 =====
+   .App 变为两栏网格：2fr 编辑区 + 1fr 渲染区；dock-left 时两栏互换。 */
+body.mode-vertical .App {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+}
+
+body.mode-vertical .App-side {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+}
+
+body.mode-vertical .App-canvas {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+    min-width: 0;
+    position: sticky;
+    top: 8px;
+    max-height: calc(100vh - 16px);
+    overflow: auto;
+}
+
+/* 靠左时两栏宽度也要互换：渲染区仍是 1fr，编辑区 2fr */
+body.mode-vertical.dock-left .App {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+body.mode-vertical.dock-left .App-side {
+    grid-column: 2;
+}
+
+body.mode-vertical.dock-left .App-canvas {
+    grid-column: 1;
+}
+
+/* 竖排时渲染区内容较长，给一个最小高度，避免空栏太矮 */
+body.mode-vertical .RenderBox {
+    min-height: 40vh;
+}
+
+/* 窄屏：竖排也回落为上下堆叠，避免 1/3 栏过窄 */
+@media (max-width: 760px) {
+    body.mode-vertical .App {
+        display: block;
+    }
+
+    body.mode-vertical .App-canvas {
+        margin-top: 6px;
+        position: static;
+        max-height: none;
+        overflow: visible;
     }
 }

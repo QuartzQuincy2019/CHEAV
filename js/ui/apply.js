@@ -29,6 +29,12 @@
     const settingsBody = document.getElementById("SettingsBody");
     const settingsTitle = document.getElementById("SettingsTitle");
     const box = document.getElementById("RenderBox");
+    const modeTitle = document.getElementById("ModeTitle");       // 方向切换条标题
+    const modeH = document.getElementById("ModeHorizontal");      // 横排按钮
+    const modeV = document.getElementById("ModeVertical");        // 竖排按钮
+    const dockSeg = document.getElementById("ModeDockSeg");       // 靠左/靠右（仅竖排显示）
+    const dockL = document.getElementById("ModeDockLeft");
+    const dockR = document.getElementById("ModeDockRight");
 
     const SIZE = 100;            // 渲染区 1 quadrat = 100px
     const PREVIEW_SIZE = 26;     // 候选预览 / 字符单元字形字号
@@ -43,6 +49,38 @@
     const gm = { pool: [], visible: [], sel: 0 };
     let mode = "idle";                                    // idle | phon | gc | phon+gc | det
     let inflow = false;                                   // true = 入流（PDM/GM 空闲）
+
+    // ============ 排版方向（横排 / 竖排） ============
+    // 竖排：body 加 .mode-vertical（CSS 切换为两栏，渲染区占 1/3 屏宽），
+    //       并按 SETTINGS.verticalDock 决定渲染区在左（.dock-left）还是右。
+    function applyMode() {
+        const vertical = !!SETTINGS.verticalText;
+        const dockLeft = SETTINGS.verticalDock === "left";
+        document.body.classList.toggle("mode-vertical", vertical);
+        document.body.classList.toggle("dock-left", vertical && dockLeft);
+        if (modeH) modeH.classList.toggle("active", !vertical);
+        if (modeV) modeV.classList.toggle("active", vertical);
+        if (dockSeg) dockSeg.hidden = !vertical;
+        if (dockL) dockL.classList.toggle("active", dockLeft);
+        if (dockR) dockR.classList.toggle("active", !dockLeft);
+    }
+
+    /** 设定横/竖排并同步界面、设置面板与正文。 */
+    function setVerticalMode(on) {
+        SETTINGS.verticalText = !!on;
+        saveSettings();
+        applyMode();
+        buildSettings();     // 同步设置面板里的勾选状态
+        updateMatch();       // 栏宽变化 → 重新计算候选框可容量
+        refresh();           // 正文按新方向重绘
+    }
+
+    /** 设定竖排时渲染区靠哪侧。 */
+    function setDockSide(side) {
+        SETTINGS.verticalDock = (side === "left") ? "left" : "right";
+        saveSettings();
+        applyMode();
+    }
 
     // ============ 渲染区刷新（总文本框内容） ============
     // 渲染区只识别 raw MdC 渲染串。出现无法识别的串时：
@@ -773,6 +811,7 @@
                     updateMatch();
                     updateIBPreview();
                     updateKeyCast();
+                    applyMode();    // 与切换条保持同步
                     renderAll();
                     refresh();      // 竖排等显示类开关需重绘正文渲染区
                 });
@@ -790,6 +829,7 @@
             updateMatch();
             updateIBPreview();
             updateKeyCast();
+            applyMode();        // 恢复默认方向
             renderAll();
             refresh();          // 恢复默认后重绘正文（含竖排开关复位）
         });
@@ -799,6 +839,11 @@
     // ============ 界面文字同步 ============
     function applyI18n() {
         ib.placeholder = t("ibPlaceholder");
+        if (modeTitle) modeTitle.textContent = t("modeTitle");
+        if (modeH) modeH.textContent = t("modeHorizontal");
+        if (modeV) modeV.textContent = t("modeVertical");
+        if (dockL) dockL.textContent = t("modeDockLeft");
+        if (dockR) dockR.textContent = t("modeDockRight");
         vmBox.setAttribute("data-ph", t("vmPlaceholder"));
         pdmBox.setAttribute("data-ph", t("pdmPlaceholder"));
         gmBox.setAttribute("data-ph", t("gmPlaceholder"));
@@ -806,7 +851,14 @@
         buildSettings();
     }
 
+    // ---- 方向切换条 ----
+    if (modeH) modeH.addEventListener("click", () => setVerticalMode(false));
+    if (modeV) modeV.addEventListener("click", () => setVerticalMode(true));
+    if (dockL) dockL.addEventListener("click", () => setDockSide("left"));
+    if (dockR) dockR.addEventListener("click", () => setDockSide("right"));
+
     applyI18n();
+    applyMode();       // 还原上次的方向与靠侧
     buildPools();      // onload：一次性生成全部字符单元
     updateMatch();
     renderAll();

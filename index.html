@@ -33,25 +33,43 @@
 </head>
 
 <body>
-    <!-- 宽屏（PC）：IBBox 与 IB 预览框 1:1 左右两栏 -->
-    <div class="DualRow" id="IBRow">
-        <div class="IBBox" id="IBBox">
-            <input id="IB" class="IB" spellcheck="false" autocomplete="off" />
+    <!-- 排版方向切换：横排 / 竖排。竖排时渲染区占 1/3 屏宽，可靠左或靠右 -->
+    <div class="ModeBar" id="ModeBar">
+        <span class="ModeBar-title" id="ModeTitle">排版方向</span>
+        <div class="ModeSeg">
+            <button type="button" class="ModeBtn" id="ModeHorizontal">横排</button>
+            <button type="button" class="ModeBtn" id="ModeVertical">竖排</button>
         </div>
-        <div id="IBPreview" class="IBPreview" hidden>
-            <span class="IBPreview-tag" id="IBPreviewTag"></span>
-            <span class="IBPreview-render" id="IBPreviewRender"></span>
-            <span class="IBPreview-mdc" id="IBPreviewMdc"></span>
+        <div class="ModeSeg" id="ModeDockSeg" hidden>
+            <button type="button" class="ModeBtn" id="ModeDockLeft">渲染区靠左</button>
+            <button type="button" class="ModeBtn" id="ModeDockRight">渲染区靠右</button>
         </div>
     </div>
-    <div id="VMBox" class="MBox VMBox empty" data-ph="Vocabulary Match"></div>
-    <!-- 宽屏（PC）：PDMBox 与 GMBox 1:1 左右两栏 -->
-    <div class="DualRow" id="MBoxRow">
-        <div id="PDMBox" class="MBox PDMBox empty" data-ph="Phoneme / Determinative Match"></div>
-        <div id="GMBox" class="MBox GMBox empty" data-ph="Gardiner Code Match"></div>
-    </div>
-    <textarea id="Input" class="EditorInput" rows="3" spellcheck="false"></textarea>
-    <div class="RenderBox" id="RenderBox">
+    <!-- 编辑区与渲染区：横排时上下堆叠；竖排时左右两栏（见 css 的 .mode-vertical 区） -->
+    <div class="App" id="App">
+        <div class="App-side" id="AppSide">
+            <!-- 宽屏（PC）：IBBox 与 IB 预览框 1:1 左右两栏 -->
+            <div class="DualRow" id="IBRow">
+                <div class="IBBox" id="IBBox">
+                    <input id="IB" class="IB" spellcheck="false" autocomplete="off" />
+                </div>
+                <div id="IBPreview" class="IBPreview" hidden>
+                    <span class="IBPreview-tag" id="IBPreviewTag"></span>
+                    <span class="IBPreview-render" id="IBPreviewRender"></span>
+                    <span class="IBPreview-mdc" id="IBPreviewMdc"></span>
+                </div>
+            </div>
+            <div id="VMBox" class="MBox VMBox empty" data-ph="Vocabulary Match"></div>
+            <!-- 宽屏（PC）：PDMBox 与 GMBox 1:1 左右两栏 -->
+            <div class="DualRow" id="MBoxRow">
+                <div id="PDMBox" class="MBox PDMBox empty" data-ph="Phoneme / Determinative Match"></div>
+                <div id="GMBox" class="MBox GMBox empty" data-ph="Gardiner Code Match"></div>
+            </div>
+            <textarea id="Input" class="EditorInput" rows="3" spellcheck="false"></textarea>
+        </div>
+        <div class="App-canvas" id="AppCanvas">
+            <div class="RenderBox" id="RenderBox"></div>
+        </div>
     </div>
     <details class="Settings" id="Settings">
         <summary id="SettingsTitle">设置</summary>

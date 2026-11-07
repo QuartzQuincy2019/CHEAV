@@ -29,6 +29,7 @@ const SETTINGS_DEFAULTS = {
     },
     picEnabled: true,        // 主字符隐式转换（PIC）是否开启
     verticalText: false,     // 正文渲染区竖排（自上而下成列；输入框与预览始终横排）
+    verticalDock: "right",   // 竖排模式渲染区靠哪侧："right" | "left"（占 1/3 屏宽）
     keyCastEnabled: false,   // 按键展示（录屏演示用；仅电脑端显示）
 };
 
