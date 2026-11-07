@@ -182,7 +182,30 @@
             .wrap { flex-direction: column; }
             nav { position: static; width: 100%; flex: none; }
         }
-    </style>
+    
+        figure.shot {
+            margin: 14px 0 18px;
+            padding: 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fbfcff;
+        }
+
+        figure.shot img {
+            display: block;
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        figure.shot figcaption {
+            margin-top: 8px;
+            color: var(--dim);
+            font-size: 13px;
+            text-align: center;
+        }
+
+        </style>
 </head>
 
 <body>
@@ -203,7 +226,7 @@
             <a href="#quick">1 快速上手</a>
             <a href="#ui">2 界面一览</a>
             <a href="#syntax">3 MdC 输入语法</a>
-            <a href="#match">4 四个匹配区</a>
+            <a href="#match">4 匹配区</a>
             <a href="#keys">5 键盘操作</a>
             <a href="#flow">6 出流与入流</a>
             <a href="#pic">7 主字符隐式转换</a>
@@ -218,7 +241,7 @@
             <!-- ================================================== -->
             <section id="quick">
                 <h2>1 快速上手</h2>
-                <p>打开 <code>index.html</code>，把光标放进 <b>IB 输入缓冲区</b>（第一个大输入框），依次做三件事：</p>
+                <p>打开 <code>index.html</code>，把光标放进 <b>缓冲区</b>（第一个大输入框），依次做三件事：</p>
                 <table>
                     <tr>
                         <th style="width:38%">操作</th>
@@ -230,11 +253,11 @@
                     </tr>
                     <tr>
                         <td class="k">按 <kbd>Tab</kbd></td>
-                        <td>确认当前候选，把它的码写入 IB（此处 <code>nfr</code> → <code>F35</code>）。</td>
+                        <td>确认当前候选，把它的码写入缓冲区（此处 <code>nfr</code> → <code>F35</code>）。</td>
                     </tr>
                     <tr>
                         <td class="k">按 <kbd>Enter</kbd></td>
-                        <td>把 IB 的全部内容规范化为 MdC 后送入正文，IB 清空，正文下方即渲染出象形文字。</td>
+                        <td>把缓冲区的全部内容规范化为 MdC 后送入正文，缓冲区清空，正文下方即渲染出象形文字。</td>
                     </tr>
                 </table>
                 <div class="demo align-baseline">
@@ -242,59 +265,55 @@
                     <span class="mdc" data-mdc="F35" data-pron="nfr">F35</span>
                 </div>
                 <div class="note">
-                    <b>一句话理解：</b>左边输入框负责「找到想要的字」，<kbd>Tab</kbd> 把它放进 IB，
-                    <kbd>Enter</kbd> 再把 IB 送进正文；正文下方是只读的渲染结果。
+                    <b>一句话理解：</b>左边输入框负责「找到想要的字」，<kbd>Tab</kbd> 把它放进缓冲区，
+                    <kbd>Enter</kbd> 再把缓冲区送进正文；正文下方是只读的渲染结果。
                 </div>
             </section>
 
             <!-- ================================================== -->
             <section id="ui">
                 <h2>2 界面一览</h2>
+                <p>下图是 CHEAV 的完整界面，红框与文字是说明用的标注，实际页面没有这些标记。</p>
+                <figure class="shot">
+                    <img src="img/interface.png" alt="CHEAV 界面分区：缓冲区、缓冲区预览、匹配区（词汇 / 声符·意符 / Gardiner Code）、正文区、渲染区、设置面板">
+                    <figcaption>CHEAV 界面分区</figcaption>
+                </figure>
                 <table>
                     <tr>
-                        <th style="width:22%">区域</th>
+                        <th style="width:24%">区域</th>
                         <th>用途</th>
-                        <th style="width:30%">占位提示（中文界面）</th>
                     </tr>
                     <tr>
-                        <td class="k"><b>IBBox</b>（IB）</td>
-                        <td>输入缓冲区。可键入发音（<code>nfr</code>）、码（<code>F35</code>）、组语法与连字引用；它同时也是「待送入正文」的暂存区。</td>
-                        <td>在这里输入词语或单字符，按 Enter 可置入正文……</td>
+                        <td class="k"><b>缓冲区</b></td>
+                        <td>页首的输入框。可以键入发音、码、组语法或连字引用；它同时是「待送入正文」的暂存区。</td>
                     </tr>
                     <tr>
-                        <td class="k"><b>IB 预览</b></td>
-                        <td>实时显示 IB 当前内容渲染后的样子，并给出规范化后的 MdC 串；内容非法时转为红色警戒样式（不渲染）。</td>
-                        <td>预览</td>
+                        <td class="k"><b>缓冲区预览</b></td>
+                        <td>实时显示缓冲区内容渲染后的样子，并给出规范化后的 MdC 串；内容无法识别时转为红色警戒样式（不渲染）。</td>
                     </tr>
                     <tr>
-                        <td class="k"><b>VMBox</b>（词匹配）</td>
-                        <td>显示与 IB 相符的<b>词汇</b>与<b>连字</b>。候选行自左至右为：发音 / 字形预览 / 码串 + 释义。</td>
-                        <td>词匹配 —— 与输入相符的词汇与连字（Tab 确认）</td>
+                        <td class="k"><b>匹配区 · 词汇匹配</b></td>
+                        <td>列出与缓冲区内容相符的<b>词汇</b>与<b>连字</b>。每行自左至右为：发音 / 字形 / 码串与释义。</td>
                     </tr>
                     <tr>
-                        <td class="k"><b>PDMBox</b>（音素 / 定符）</td>
-                        <td>左侧单元为<b>音素</b>（字母 → 单字符），键入分号 <code>;</code> 后切换为<b>定符</b>。单元上行为发音或 <code>;名称</code>，下行为 Gardiner 码。</td>
-                        <td>音素 / 定符匹配 —— 字母出单字符，分号 ; 出定符（Tab 确认）</td>
+                        <td class="k"><b>匹配区 · 声符 / 意符匹配</b></td>
+                        <td>左侧单元按发音给出<b>单字符</b>；键入分号 <code>;</code> 后切换为<b>意符（定符）</b>。单元上行为发音或 <code>;名称</code>，下行为 Gardiner 码。</td>
                     </tr>
                     <tr>
-                        <td class="k"><b>GMBox</b>（Gardiner Code）</td>
-                        <td>按码检索<b>单字符</b>，<b>大小写不敏感</b>（输入 <code>v</code> 也命中 <code>V…</code> 系）。单元上行为码，下行为 Unicode 码位。</td>
-                        <td>Gardiner Code 匹配 —— 大小写不敏感地出对应码单字符（Tab 确认）</td>
+                        <td class="k"><b>匹配区 · Gardiner Code 匹配</b></td>
+                        <td>按码检索单字符，<b>大小写不敏感</b>（输入 <code>v</code> 也命中 <code>V…</code> 系）。单元上行为码，下行为 Unicode 码位。</td>
                     </tr>
                     <tr>
-                        <td class="k"><b>正文文本框</b></td>
+                        <td class="k"><b>正文区</b></td>
                         <td>最终文本。只接受<b>纯 MdC 渲染串</b>；可用 <code>$</code> 手动换行。出现无法识别的片段时边框转为警戒色。</td>
-                        <td>—</td>
                     </tr>
                     <tr>
                         <td class="k"><b>渲染区</b></td>
                         <td>正文的渲染结果。<b>只读</b>，不可选中，随输入即时更新。</td>
-                        <td>—</td>
                     </tr>
                     <tr>
                         <td class="k"><b>设置面板</b></td>
-                        <td>页面底部可折叠区域：改键位、VMBox 每页项数、功能开关。</td>
-                        <td>设置</td>
+                        <td>页面底部可折叠区域：改键位、匹配区每页项数、功能开关（含竖排正文）。</td>
                     </tr>
                 </table>
                 <p>被选中的候选框有蓝色外框与光晕；框内当前项高亮显示。<b>光标在哪个框，<kbd>Tab</kbd> 就确认哪个框</b>。</p>
@@ -303,7 +322,7 @@
             <!-- ================================================== -->
             <section id="syntax">
                 <h2>3 MdC 输入语法</h2>
-                <p>IB 与正文共用同一套语法（Manuel de Codage 的渲染子集）：</p>
+                <p>缓冲区与正文共用同一套语法（Manuel de Codage 的渲染子集）：</p>
                 <table>
                     <tr>
                         <th style="width:16%">写法</th>
@@ -380,18 +399,19 @@
                 </div>
                 <div class="note">
                     <b>渲染区只认这种「纯 MdC」：</b>它不识别发音（<code>nfr</code>）与定符名（<code>;eye</code>）。
-                    这些请用 IB 输入并确认 —— IB 会在入正文前把它们规范化为码（见第 7 节）。
+                    这些请用缓冲区输入并确认 —— 缓冲区会在入正文前把它们规范化为码（见第 7 节）。
                 </div>
             </section>
 
             <!-- ================================================== -->
             <section id="match">
-                <h2>4 四个匹配区</h2>
+                <h2>4 匹配区</h2>
+            <p>界面上是三个面板：<b>词汇匹配</b>、<b>声符 / 意符匹配</b>（同一个面板，键入 <code>;</code> 切换）与 <b>Gardiner Code 匹配</b>；下面按四种匹配分别说明。</p>
 
-                <h3>4.1 词匹配（VMBox）</h3>
+                <h3>4.1 词汇匹配</h3>
                 <p>对象是<b>词汇</b>与<b>连字</b>，两条线索同时生效：</p>
                 <ul>
-                    <li><b>码序列前缀</b>：与 IB 中已确认的码串相符。匹配时忽略 <code>{ }</code>（有些文本不主动写成连字形式），但始终关注 <code>*</code> 与 <code>:</code>（方块分组）。</li>
+                    <li><b>码序列前缀</b>：与缓冲区中已确认的码串相符。匹配时忽略 <code>{ }</code>（有些文本不主动写成连字形式），但始终关注 <code>*</code> 与 <code>:</code>（方块分组）。</li>
                     <li><b>发音匹配</b>：你键入的字母片段（如 <code>nfr</code>）与词条发音相符时同样列出。</li>
                 </ul>
                 <div class="demo align-baseline">
@@ -401,7 +421,7 @@
                 </div>
                 <p>候选排序：发音匹配优先 → 发音更精确、更短者优先 → 复合码串 → 单段码。</p>
 
-                <h3>4.2 音素匹配（PDMBox 左半）</h3>
+                <h3>4.2 声符匹配（发音 → 单字符）</h3>
                 <p>键入<b>字母</b>即列出对应单字符。例如键入 <code>k</code>：</p>
                 <div class="demo align-baseline">
                     <span class="label">音素区：</span>
@@ -412,7 +432,7 @@
                 </div>
                 <p>含数字的片段（如 <code>D34</code>）判定为「必走码」，音素区自动关闭。</p>
 
-                <h3>4.3 定符匹配（PDMBox 右半，键入 <code>;</code> 后）</h3>
+                <h3>4.3 意符（定符）匹配（键入 <code>;</code> 后）</h3>
                 <p>输入分号进入定符模式，此时词匹配区与码区<b>一并停用</b>；只输入 <code>;</code> 会列出全部定符供挑选。</p>
                 <div class="demo align-baseline">
                     <span class="label">键入 <code>;eye</code>：</span>
@@ -420,7 +440,7 @@
                     —— 按 <kbd>Tab</kbd> 确认后写入 <code>D4</code>，<b>分号会被一并删除</b>。
                 </div>
 
-                <h3>4.4 Gardiner Code 匹配（GMBox）</h3>
+                <h3>4.4 Gardiner Code 匹配</h3>
                 <p>按码检索单字符，<b>大小写不敏感</b>：输入 <code>v</code> 也会列出 <code>V1</code>、<code>V2</code>…；输入 <code>d34</code> 命中 <code>D34</code>。</p>
                 <div class="demo align-baseline">
                     <span class="label">键入 <code>v</code>：</span>
@@ -446,17 +466,17 @@
                     <tr>
                         <td class="k"><kbd>Alt</kbd></td>
                         <td>在词匹配 / 音素 / 码三个候选框间循环切换焦点（<b>自动跳过当前无候选的框</b>；三者皆空时不切换）。</td>
-                        <td>可（切换 Box 键）</td>
+                        <td>可（切换匹配区键）</td>
                     </tr>
                     <tr>
                         <td class="k"><kbd>Tab</kbd></td>
-                        <td>确认当前候选框的选中项，写入 IB，焦点回到词匹配区（进入「入流」）。</td>
+                        <td>确认当前候选框的选中项，写入缓冲区，焦点回到词匹配区（进入「入流」）。</td>
                         <td>可（选项确认键）</td>
                     </tr>
                     <tr>
                         <td class="k"><kbd>Enter</kbd></td>
-                        <td>把 IB 全部内容规范化后送入正文，并清空 IB。</td>
-                        <td>可（IB 确认键）</td>
+                        <td>把缓冲区全部内容规范化后送入正文，并清空缓冲区。</td>
+                        <td>可（缓冲区确认键）</td>
                     </tr>
                     <tr>
                         <td class="k"><kbd>↑</kbd> <kbd>↓</kbd></td>
@@ -470,7 +490,7 @@
                     </tr>
                     <tr>
                         <td class="k"><kbd>Backspace</kbd></td>
-                        <td>IB 为空时，等同正文文本框的退格（连续删除正文，无需切换焦点）。</td>
+                        <td>缓冲区为空时，等同正文文本框的退格（连续删除正文，无需切换焦点）。</td>
                         <td>否</td>
                     </tr>
                     <tr>
@@ -511,11 +531,11 @@
             <!-- ================================================== -->
             <section id="pic">
                 <h2>7 主字符隐式转换（PIC）</h2>
-                <p>默认<b>开启</b>。开启时，IB 中凡是与<b>音素表</b>发音相符的片段，都会在<b>入流</b>与<b>按 <kbd>Enter</kbd></b> 两个时机被自动换成该发音的<b>主字符码</b>：</p>
+                <p>默认<b>开启</b>。开启时，缓冲区中凡是与<b>音素表</b>发音相符的片段，都会在<b>入流</b>与<b>按 <kbd>Enter</kbd></b> 两个时机被自动换成该发音的<b>主字符码</b>：</p>
                 <table>
                     <tr>
                         <th style="width:30%">你输入</th>
-                        <th style="width:26%">IB 变成</th>
+                        <th style="width:26%">缓冲区变成</th>
                         <th>说明</th>
                     </tr>
                     <tr>
@@ -539,14 +559,14 @@
                         <td><code>&lt; &gt;</code> 文本区内的内容不参与转换，也不会被判非法。</td>
                     </tr>
                 </table>
-                <p>关闭方式：设置面板取消勾选「主字符隐式转换（PIC）」。关闭后 IB 预览也不再做转换。</p>
+                <p>关闭方式：设置面板取消勾选「主字符隐式转换（PIC）」。关闭后缓冲区预览也不再做转换。</p>
             </section>
 
             <!-- ================================================== -->
             <section id="ligdet">
                 <h2>8 连字与定符</h2>
                 <h3>8.1 连字</h3>
-                <p>在 IB 中输入 <code>{</code>，词匹配区即列出可用连字（按连字名或按发音均可检索，例如 <code>{I10</code> 或 <code>{Dd</code>）。</p>
+                <p>在缓冲区中输入 <code>{</code>，词匹配区即列出可用连字（按连字名或按发音均可检索，例如 <code>{I10</code> 或 <code>{Dd</code>）。</p>
                 <div class="demo align-baseline">
                     <span class="label">连字（2–3 个字符按固定相对位置合并为一个方块）：</span>
                     <span class="mdc" data-mdc="{G39-X1}" data-pron="sAt">…</span>
@@ -554,7 +574,7 @@
                     <span class="mdc" data-mdc="{Q3-G43}" data-pron="pw">…</span>
                     <span class="mdc" data-mdc="{X1-G43-X1}" data-pron="twt">…</span>
                 </div>
-                <p>按 <kbd>Tab</kbd> 确认后，IB 中会写入 <code>{名称}</code>（若前面已有内容，只替换连字那一段）。</p>
+                <p>按 <kbd>Tab</kbd> 确认后，缓冲区中会写入 <code>{名称}</code>（若前面已有内容，只替换连字那一段）。</p>
 
                 <h3>8.2 定符</h3>
                 <p>定符用「分号 + 名称」检索：输入 <code>;</code> 后用字母过滤，<kbd>Tab</kbd> 确认即写入对应单字符的码（分号被删除）。</p>
@@ -581,11 +601,11 @@
                 </ul>
                 <div class="note">
                     <b>竖排：</b>设置面板里的「<b>竖排（仅正文，VRG 变 HRG）</b>」开关只改变<b>正文渲染区</b>：
-                    文字改为<b>自上而下成列</b>，<code>$</code> 分段即分列，列<b>自右向左</b>排列。<br>
+                    文字改为<b>自上而下成列</b>，<code>$</code> 分段即分列，列<b>自左向右</b>排列（先读最左一列，列内自上而下）。<br>
                     组内规则不变：<code>*</code> 连接的符号仍在<b>同一行</b>内左右并列，<code>:</code> 仍换到下一行，
                     整个组仍收在 1 em 见方内（只缩不放大）。竖排中的组称为<b>水平渲染组（HRG）</b>，
                     因为它占的是一条横带（一行）。<br>
-                    输入框、IB 预览与三个候选框<b>始终横排</b>，打字方式不受影响。
+                    输入框、缓冲区预览与三个候选框<b>始终横排</b>，打字方式不受影响。
                 </div>
             </section>
 
@@ -600,7 +620,7 @@
                         <th>说明</th>
                     </tr>
                     <tr>
-                        <td class="k">切换 Box 键</td>
+                        <td class="k">切换匹配区键</td>
                         <td class="k"><kbd>Alt</kbd></td>
                         <td>点击键帽后按新键即可改绑（<kbd>Esc</kbd> 取消）。</td>
                     </tr>
@@ -610,17 +630,17 @@
                         <td>确认当前候选。</td>
                     </tr>
                     <tr>
-                        <td class="k">IB 确认键</td>
+                        <td class="k">缓冲区确认键</td>
                         <td class="k"><kbd>Enter</kbd></td>
-                        <td>IB → 正文。</td>
+                        <td>缓冲区 → 正文。</td>
                     </tr>
                     <tr>
-                        <td class="k">VM 每页项数</td>
+                        <td class="k">匹配区每页项数</td>
                         <td class="k">5</td>
                         <td>范围 1–9，超出会自动夹取。</td>
                     </tr>
                     <tr>
-                        <td class="k">VM 翻页键 / 各框选项键</td>
+                        <td class="k">匹配区翻页键 / 各框选项键</td>
                         <td class="k">← → / ↑ ↓</td>
                         <td>可逐个改绑；同一键同时承担两种作用时，选项键优先。</td>
                     </tr>
@@ -665,7 +685,7 @@
                     </tr>
                     <tr>
                         <td class="k">按 <kbd>Tab</kbd> 没有反应</td>
-                        <td>焦点在 IB 上（IB 用 <kbd>Enter</kbd> 确认）。先按 <kbd>Alt</kbd> 切到候选框；若三个候选框都为空，<kbd>Alt</kbd> 不会切换。</td>
+                        <td>焦点在缓冲区上（缓冲区用 <kbd>Enter</kbd> 确认）。先按 <kbd>Alt</kbd> 切到候选框；若三个候选框都为空，<kbd>Alt</kbd> 不会切换。</td>
                     </tr>
                     <tr>
                         <td class="k">音素 / 码区突然空了</td>
@@ -677,7 +697,7 @@
                     </tr>
                     <tr>
                         <td class="k">正文出现红色边框</td>
-                        <td>存在无法识别的片段：可能是把发音（<code>bAw</code>）或定符名（<code>;eye</code>）直接写进了正文，或括号写错（<code>[D21:G43}</code>）。用 IB 输入并确认可避免。</td>
+                        <td>存在无法识别的片段：可能是把发音（<code>bAw</code>）或定符名（<code>;eye</code>）直接写进了正文，或括号写错（<code>[D21:G43}</code>）。用缓冲区输入并确认可避免。</td>
                     </tr>
                     <tr>
                         <td class="k">某个字显示成方框</td>
