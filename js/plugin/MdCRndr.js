@@ -7695,6 +7695,8 @@ function splitLines(tree) {
             "}",
             "." + options.encKindClass.F + " .enc-F-edge {",   // 边：齿带 0.14em，相位居中 → 左右/上下对称
             "    background-image: repeating-linear-gradient(var(--f-angle, 90deg), #000 0 0.12em, transparent 0.12em 0.20em);",
+            "    background-size: 0.20em 100%;",   // 一个齿周期
+            "    background-repeat: space;",       // 整齿等距分布，两端不留半齿
             "    background-position: center;",
             "}",
             "." + options.encKindClass.F + " .enc-F-t { left: 0.20em; right: 0.20em; top: -0.14em; height: 0.14em; }",
