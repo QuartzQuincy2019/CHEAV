@@ -7144,7 +7144,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     // 框随内容拉伸：横排时内容横向排布，竖排时纵向排布（形状本身只由内容尺寸决定）
     // 框内字形按 JSesh 惯例略小于框外，使框体本身不显得拥挤
     // 锦旗框底部要留下宫墙纹，内容再小一档；其余按通用比例
-    const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.50 : ENC_CONTENT_SCALE);   // F 总高 1em = 内容 0.50 + 内边距 0.16 + 边框 0.06 + 框外齿带 0.28
+    const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.62 : ENC_CONTENT_SCALE);   // F 总高 1em = 内容 0.62 + 内边距 0.16 + 边框 0.06 + 框外齿带 0.16
     if (vertical) {
         for (const x of (u.units || [])) renderLayerUnitV(inner, x, innerSize);
     } else {
@@ -7686,7 +7686,7 @@ function splitLines(tree) {
             "    border: 0.03em solid #000;",
             "    position: relative;",
                         "    padding: 0.08em;",
-            "    margin: 0.14em;",   // 为框外齿带预留布局空间，避免溢出容器  "    box-sizing: content-box;",
+            "    margin: 0.08em;",   // 为框外齿带预留布局空间，避免溢出容器  "    box-sizing: content-box;",
             "}",
             "." + options.encKindClass.F + " .enc-F-edge,",
             "." + options.encKindClass.F + " .enc-F-corner {",
@@ -7694,20 +7694,20 @@ function splitLines(tree) {
             "    pointer-events: none;",
             "}",
             "." + options.encKindClass.F + " .enc-F-edge {",   // 边：齿带 0.14em，相位居中 → 左右/上下对称
-            "    background-image: repeating-linear-gradient(var(--f-angle, 90deg), #000 0 0.12em, transparent 0.12em 0.20em);",
-            "    background-size: 0.20em 100%;",   // 一个齿周期
+            "    background-image: repeating-linear-gradient(var(--f-angle, 90deg), #000 0 0.16em, transparent 0.16em 0.24em);",
+            "    background-size: 0.24em 100%;",   // 一个齿周期
             "    background-repeat: space;",       // 整齿等距分布，两端不留半齿
             "    background-position: center;",
             "}",
             "." + options.encKindClass.F + " .enc-F-l,",
             "." + options.encKindClass.F + " .enc-F-r {",
-            "    background-size: 100% 0.20em;",   // 竖向边沿 y 平铺
+            "    background-size: 100% 0.24em;",   // 竖向边沿 y 平铺
 "}",
 
-            "." + options.encKindClass.F + " .enc-F-t { left: 0.20em; right: 0.20em; top: -0.14em; height: 0.14em; }",
-            "." + options.encKindClass.F + " .enc-F-b { left: 0.20em; right: 0.20em; bottom: -0.14em; height: 0.14em; }",
-            "." + options.encKindClass.F + " .enc-F-l { top: 0.20em; bottom: 0.20em; left: -0.14em; width: 0.14em; --f-angle: 180deg; }",
-            "." + options.encKindClass.F + " .enc-F-r { top: 0.20em; bottom: 0.20em; right: -0.14em; width: 0.14em; --f-angle: 180deg; }",
+            "." + options.encKindClass.F + " .enc-F-t { left: 0.24em; right: 0.24em; top: -0.08em; height: 0.08em; }",
+            "." + options.encKindClass.F + " .enc-F-b { left: 0.24em; right: 0.24em; bottom: -0.08em; height: 0.08em; }",
+            "." + options.encKindClass.F + " .enc-F-l { top: 0.24em; bottom: 0.24em; left: -0.08em; width: 0.08em; --f-angle: 180deg; }",
+            "." + options.encKindClass.F + " .enc-F-r { top: 0.24em; bottom: 0.24em; right: -0.08em; width: 0.08em; --f-angle: 180deg; }",
             "." + options.encKindClass.F + " .enc-F-corner {",   // 角：0.14em 方块 + 两向臂 = L
             "    width: 0.14em;",
             "    height: 0.14em;",
@@ -7718,8 +7718,8 @@ function splitLines(tree) {
             "    position: absolute;",
             "    background-color: #000;",
             "}",
-            "." + options.encKindClass.F + " .enc-F-corner::before { width: 0.20em; height: 0.14em; }",
-            "." + options.encKindClass.F + " .enc-F-corner::after { width: 0.14em; height: 0.20em; }",
+            "." + options.encKindClass.F + " .enc-F-corner::before { width: 0.24em; height: 0.08em; }",
+            "." + options.encKindClass.F + " .enc-F-corner::after { width: 0.08em; height: 0.24em; }",
             "." + options.encKindClass.F + " .enc-F-tl { left: -0.14em; top: -0.14em; }",
             "." + options.encKindClass.F + " .enc-F-tr { right: -0.14em; top: -0.14em; }",
             "." + options.encKindClass.F + " .enc-F-bl { left: -0.14em; bottom: -0.14em; }",
