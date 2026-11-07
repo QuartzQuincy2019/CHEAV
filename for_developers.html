@@ -543,6 +543,13 @@ MdCRndr.internals.ligatureWidth("X1-G43");</pre>
                     <tr><td class="k">$</td><td>手动换行；<code>splitLines</code> 据此分段</td><td><code>D21-$-D46</code></td></tr>
                     <tr><td class="k">空格</td><td>组外空白一律忽略（宽容）；<code>&lt; &gt;</code> 内保留</td><td>—</td></tr>
                 </table>
+<div class="note">
+                    <b>包围框（MdC 扩展）：</b><code>&lt;- … -&gt;</code>（王名圈）、<code>&lt;S- … -&gt;</code>（锦旗框）、
+                    <code>&lt;h1- … -h1&gt;</code>（裸方框）。解析为 <code>{ type:"enc", kind, units }</code>，
+                    嵌套计入 <code>invalid</code>；渲染为 <code>.enc</code> + <code>.enc-A / .enc-S / .enc-h1</code>，竖排加 <code>.enc-v</code>。
+                    几何全部用 em 推导（stroke 0.05 / 0.07，内容 0.70 / 0.64，外廓恒为 1em），不做测量、不做重复拼贴。
+                    竖排列序为<b>自左向右</b>（<code>.vtext</code> 用 <code>flex-direction: row</code>），列内自上而下。
+</div>
                 <div class="note warn">
                     <b>严格配对：</b><code>{ }</code>、<code>( )</code>、<code>&lt; &gt;</code> 必须同种闭合。
                     写成 <code>{D21:G43)</code> 或缺闭合符时，该片段计入 <code>parse().invalid</code>；顶层若残留多余字符同样计入。
@@ -585,15 +592,20 @@ MdCRndr.internals.ligatureWidth("X1-G43");</pre>
                 <h4>插入文本</h4>
                 <p>字号为 <code>textScale × 基准字号</code>（默认 0.4），引擎写成<b>绝对 px</b> 内联样式，因而不依赖宿主容器的 <code>font-size</code>；上下居中由 <code>align-self: center</code> 提供。</p>
                 <h4>竖排：VRG → HRG（水平渲染组）</h4>
-                <p>竖排时整个坐标系转 90°：文字<b>自上而下成列</b>，<code>$</code> 分段即分列，列<b>自右向左</b>排列。
-                    横排中上下堆叠的 VRG 在竖排中变为<b>左右并列</b>的 HRG，两者是同一套几何的转置：</p>
-                <pre>横排 VRG：层自上而下，层内元素左右并列     竖排 HRG：层自左向右（成为"列"），列内元素自上而下
-s = min(1, 1em / 总层高, 1em / 最大层宽)    s = min(1, 1em / 总层宽, 1em / 最大层高)</pre>
-                <p>即 HRG 的"层"就是 VRG 的层，只是排版方向转置：组高固定 1 em，组宽 = 总层宽 × s；
-                    列与列两端对齐（<code>space-between</code>），单符号列居中。</p>
+                <p>竖排时文字<b>自上而下成列</b>，<code>$</code> 分段即分列，列<b>自右向左</b>排列；每列宽度恒为 1 em（<code>.vline</code>）。</p>
+                <p>组在竖排中改称 <b>HRG</b>（水平渲染组），但<b>几何与横排 VRG 完全相同</b>：</p>
+                <pre>*  同一"层"内的单位左右并列 —— 竖排中即同一行内并列
+:  下移一层 —— 竖排中即换到下一行（仍属同一个组，组宽仍限 1 em）
+-  四开组之间的横排 —— 竖排中即换到下一"行"（新的组）</pre>
+                <p>区别只在命名与流向：横排里 VRG 是一条"竖带"（层自上而下堆叠），竖排里同一个组占的是一条<b>"横带"（一行）</b>，
+                    故称水平渲染组。缩放、层间距（<code>vrgLayerGap</code>）、层内两端对齐与单符号居中全部沿用 VRG 的规则
+                    （<code>s = min(1, 1em/总层高, 1em/最大层宽)</code>）。</p>
+                <p><b>解析约定：</b>为让竖排知道哪些单位应在同一行，<code>*</code> 连接的同层组在解析树中<b>保留</b>为单层
+                    <code>{ type:"vrg", layers:[…] }</code>（横排渲染与度量都不变：<code>render</code> 对单层组仍按序列展开，
+                    <code>unitMetrics</code> 也不计层内间隙）。</p>
                 <p>入口：<code>MdCRndr.renderVerticalText(el, text, size)</code>，或运行期 <code>MdCRndr.set({ vertical: true })</code>。
-                    CHEAV 中该开关只作用于<b>正文渲染区</b>（设置面板「竖排」）；输入框、IB 预览与候选仍走横排的
-                    <code>renderText</code>。<code>&lt;文本&gt;</code> 片段在竖排中改为 <code>writing-mode: vertical-rl</code>。</p>
+                    CHEAV 中该开关只作用于<b>正文渲染区</b>；输入框、IB 预览与候选仍走横排的 <code>renderText</code>。
+                    <code>&lt;文本&gt;</code> 片段在竖排中改为 <code>writing-mode: vertical-rl</code>。</p>
             </section>
 
             <!-- ============================================ -->
@@ -606,8 +618,7 @@ s = min(1, 1em / 总层高, 1em / 最大层宽)    s = min(1, 1em / 总层宽, 1
                 <pre>.hie        { display:inline-block; line-height:1; font-family:"MdCRndr","NewGardiner",sans-serif }
 .vtext      { display:inline-flex; flex-direction:row-reverse; align-items:flex-start }
 .vline      { display:flex; flex-direction:column; align-items:center }
-.hrg        { display:inline-flex; flex-direction:row; align-items:flex-start; justify-content:space-between }
-.hrg-col    { display:flex; flex-direction:column; align-items:center; overflow:visible }
+.hrg        { display:inline-flex; flex-direction:column }   /* 与 .vrg 同几何，仅名称不同 */
 .vrg        { display:inline-flex; flex-direction:column }
 .vrg-layer  { display:flex; align-items:flex-end; overflow:visible; white-space:nowrap }
 .lig        { position:relative; display:inline-block; vertical-align:bottom; line-height:1 }
@@ -880,8 +891,7 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             renderVRG: "渲染堆叠组",
             renderLayerUnit: "渲染层内单位（字符 / 嵌套组 / 连字 / 文本）",
             renderLigature: "渲染连字",
-            hrgBoxWidth: "水平渲染组盒宽（含缩放）",
-            renderHRG: "渲染水平渲染组（竖排中的 VRG）",
+            renderHRG: "渲染水平渲染组（竖排中的组；几何同 VRG，仅换类名）",
             renderLayerUnitV: "渲染竖排列内单位（字符 / 嵌套 HRG / 连字 / 文本）",
             renderVertical: "竖排整块渲染（$ 分段成列，列自右向左）",
             buildCss: "生成注入的样式文本",

@@ -54,10 +54,12 @@
         textClass: "txt",       // <文本> 插入的文本片段
         unsupportedClass: "unsup",  // 字体不支持的码：方块占位 + 码名
         brClass: "br",          // "$" 手动换行标记
+        encClass: "enc",        // 包围框（王名圈 / 锦旗框 / 方框）
+        encKindClass: { A: "enc-A", S: "enc-S", h1: "enc-h1" },   // 按种类区分的类名
+        encVerticalClass: "enc-v",   // 竖排朝向
         vtextClass: "vtext",    // 竖排整块容器
         vlineClass: "vline",    // 竖排中一列（"$" 分段）
         hrgClass: "hrg",        // 水平渲染组（竖排中的 VRG）
-        hrgColClass: "hrg-col", // HRG 的一列（= 横排 VRG 的一层）
         lineClass: "",
     };
 
@@ -65,6 +67,8 @@
     function setOptions(o) { if (o) Object.assign(options, o); return options; }
 
     // 渲染期读取的选项钩子（可在运行期经 set() 改变）
+    const ENC_PAD = 0.12;               // 包围框内边距（em 比例）
+    const ENC_CONTENT_SCALE = 0.7;    // 框内字形相对框外的缩放（JSesh 惯例：框内略小）
     function vrgLayerGap() { return options.vrgLayerGap * EM_SQUARE; }
     function vrgItemGap() { return options.vrgItemGap * EM_SQUARE; }
     function ligatureDebug() { return !!options.ligatureDebug; }
@@ -6862,7 +6866,14 @@ function unitMetrics(u) {
     if (u.type === "vrg") {
         // 只有一层的 VRG 视为一般字符（序列），不再保留方块结构
         if (u.layers.length === 1) {
-            return layerMetrics(u.layers[0]);
+            // 单层组在横排中按序列展开（无层内间隙），度量也按序列计，保证横排不变
+            let h = 0, w = 0;
+            for (const x of u.layers[0]) {
+                const m = unitMetrics(x);
+                h = Math.max(h, m.h);
+                w += m.w;
+            }
+            return { h: Math.max(h, 1), w: Math.max(w, 1) };
         }
         return { h: EM_SQUARE, w: Math.max(vrgBoxWidth(u.layers), 1) };
     }
@@ -6877,6 +6888,12 @@ function unitMetrics(u) {
     if (u.type === "text") {
         // 插入文本：适中字号（0.4em），宽度按字符数估算
         return { h: 0.4 * EM_SQUARE, w: Math.max(0.24 * EM_SQUARE * u.text.length, 1) };
+    }
+    if (u.type === "enc") {
+        // 包围框：内容宽 + 内边距（左右各 ENC_PAD em）；高度按 1em 计
+        let w = 0;
+        for (const x of (u.units || [])) w += unitMetrics(x).w;
+        return { h: EM_SQUARE, w: Math.max(w + ENC_PAD * 2 * EM_SQUARE, 1) };
     }
     if (u.type === "unsup") {
         // 字体不支持的码（占位框）：按 1em 方块计——与普通字符同位、参与 VRG 缩放
@@ -6994,6 +7011,8 @@ function renderLayerUnit(layer, u, glyphSize) {
         } else {
             renderVRG(layer, u.layers, glyphSize);
         }
+    } else if (u.type === "enc") {
+        renderEnclosure(layer, u, glyphSize, false);        // 组内包围框：横排朝向
     } else if (u.type === "lig") {
         renderLigature(layer, u.name, glyphSize);
     } else if (u.type === "text") {
@@ -7014,70 +7033,32 @@ function renderLayerUnit(layer, u, glyphSize) {
 // ============================================================================
 // 五之二、竖排排版：VRG → HRG（水平渲染组）
 // ----------------------------------------------------------------------------
-// 竖排时整个坐标系转 90°：文字自上而下成列，"$" 分段为列，列自右向左。
-// 横排中的 VRG（上下堆叠）在竖排中改为 HRG（左右并列）——两者是同一套几何的
-// 转置关系：
-//   横排 VRG：层自上而下，层内元素左右并列，整组收入 1em 见方
-//   竖排 HRG：层自左向右（成为"列"），列内元素自上而下，整组同样收入 1em 见方
+// 竖排时文字自上而下成列，"$" 分段为列，列自右向左。
+// 组（横排的 VRG）在竖排中改称"水平渲染组"（HRG）：组的各"层"自上而下各占一整行，
+// 层内元素（"*" 连接的）仍然左右并列 —— 与横排完全同一套层结构，只是缩放口径不同：
+//   横排 VRG：把整组压进 1 em 见方 —— s = min(1, 1em/总层高, 1em/最大层宽)
+//   竖排 HRG：只受列宽 1 em 限制，层高各保留 1 em 轨道，不再纵向压缩
+//              —— s = min(1, 1em/最大层宽)，整组因而是"高"的而不是方的
 // 仅用于正文渲染区：输入框、预览与候选仍走横排路径（render / renderText）。
 // ============================================================================
 
 /**
- * 水平渲染组（HRG）的组宽（unit，相对 1em）——与 vrgBoxWidth 同构，宽高互换。
- * @param {Array[]} layers 二维数组（转置后自左向右为列）
- * @returns {number}
- */
-function hrgBoxWidth(layers) {
-    const metrics = layers.map(layerMetrics);
-    const totalW = metrics.reduce((sum, m) => sum + m.w, 0) + vrgLayerGap() * (layers.length - 1);
-    const maxH = Math.max(...metrics.map(m => m.h));
-    const s = Math.min(1, EM_SQUARE / totalW, EM_SQUARE / maxH);
-    return totalW * s;
-}
-
-/**
- * 渲染水平渲染组（HRG）：竖排中由 VRG 转置而来，多层改为左右并列。
- * 词典式缩放同样适用：整体超出 1em 方块时等比缩小，不放大。
+ * 渲染水平渲染组（HRG）：竖排中的组。
+ * 几何与横排 VRG **完全相同**（层自上而下、层内 "*" 左右并列、整组收在 1 em 见方、
+ * 只缩不放大），区别只在命名与所处流向：它在竖排里占的是一条"横带"（一行），
+ * 因此称水平渲染组。换类名便于样式与调试；内部结构仍是 .vrg-layer。
  * @param {HTMLElement} parent 父容器
- * @param {Array[]} layers 已分层的单位（二维数组，转置后自左向右为列）
+ * @param {Array[]} layers 已分层的单位（二维数组，自上而下）
  * @param {number} fontSize 基准字号（px）
  * @returns {HTMLElement}
  */
 function renderHRG(parent, layers, fontSize) {
-    const scale = fontSize / EM_SQUARE;
-    const N = layers.length;
-    const metrics = layers.map(layerMetrics);
-
-    // 与 renderVRG 同构，只是"总高/最大宽"换成"总宽/最大高"
-    const totalW = metrics.reduce((sum, m) => sum + m.w, 0) + vrgLayerGap() * (N - 1);
-    const maxH = Math.max(...metrics.map(m => m.h));
-    const s = Math.min(1, EM_SQUARE / totalW, EM_SQUARE / maxH);
-
-    const box = document.createElement("span");
-    box.className = options.hrgClass;
-    box.style.height = fontSize + "px";                 // 竖排中的"方块"为 1em 高
-    box.style.width = px(totalW * s * scale) + "px";
-    box.style.justifyContent = "space-between";         // 列与列两端对齐
-
-    for (let i = 0; i < N; i++) {
-        const glyphSize = fontSize * s;                 // 列内单位字号（统一等比缩放）
-        const colW = metrics[i].w * s * scale;          // 列宽 = 缩放后的墨迹宽
-        const col = document.createElement("span");
-        col.className = options.hrgColClass;
-        col.style.width = px(colW) + "px";
-        // 纵向分布：多元素列两端对齐；单符号列居中（与 VRG 的层内规则对称）
-        col.style.justifyContent = layers[i].length > 1 ? "space-between" : "center";
-        for (const u of layers[i]) renderLayerUnitV(col, u, glyphSize);
-        box.appendChild(col);
-    }
-
-    parent.appendChild(box);
+    const box = renderVRG(parent, layers, fontSize);
+    if (box) box.className = options.hrgClass;
     return box;
 }
-
 /**
- * 竖排列内单位：与 renderLayerUnit 一一对应，坐标轴换成竖排。
- * 单层组按序列在列内自上而下；多层组递归渲染为 HRG。
+ * 竖排列内单位：与 renderLayerUnit 一一对应，区别只在多层的组走 HRG（层各占一行）。
  * @param {HTMLElement} col 列容器
  * @param {Object} u 渲染单位
  * @param {number} size 列内基准字号（px）
@@ -7087,13 +7068,12 @@ function renderLayerUnitV(col, u, size) {
     if (u.type === "char") {
         renderGlyph(col, u.code, size, "center");       // 1em 轨道内上下居中
     } else if (u.type === "vrg") {
-        if (u.layers.length === 1) {
-            for (const x of u.layers[0]) renderLayerUnitV(col, x, size);
-        } else {
-            renderHRG(col, u.layers, size);
-        }
+        // 单层组 = 一行内并列（"*"）；多层组 = 每层一行（":"），都由 HRG 承担
+        renderHRG(col, u.layers, size);
     } else if (u.type === "lig") {
         renderLigature(col, u.name, size);
+    } else if (u.type === "enc") {
+        renderEnclosure(col, u, size, true);        // 竖排：座 / 锦在下
     } else if (u.type === "text") {
         // 竖排中的插入文本：文字方向随列（自上而下），字号同横排比例
         const txt = document.createElement("span");
@@ -7110,7 +7090,7 @@ function renderLayerUnitV(col, u, size) {
 }
 
 /**
- * 竖排整块：每个 "$" 分段一列，列自右向左排列（古埃及竖排惯例）。
+ * 竖排整块：每个 "$" 分段一列，列自左向右排列（字形朝前，不镜像时按左→右书写）。
  * @param {HTMLElement} parent 父容器
  * @param {Object} tree 单位树
  * @param {number} fontSize 基准字号（px）
@@ -7130,7 +7110,36 @@ function renderVertical(parent, tree, fontSize) {
     parent.appendChild(wrap);
     return wrap;
 }
-
+/**
+ * 渲染包围框：王名圈（A）、锦旗框（S）、裸方框（h1）。
+ * 框体由 CSS 绘制（.enc-A / .enc-S / .enc-h1 + .enc-v 竖排朝向），此处只负责容器。
+ * @param {HTMLElement} parent 父容器
+ * @param {Object} u 单位 { type:"enc", kind, units }
+ * @param {number} fontSize 基准字号（px）
+ * @param {boolean} vertical 竖排朝向
+ * @returns {HTMLElement}
+ */
+function renderEnclosure(parent, u, fontSize, vertical) {
+    const box = document.createElement("span");
+    box.className = options.encClass + " " + (options.encKindClass[u.kind] || "")
+        + (vertical ? " " + options.encVerticalClass : "");
+    box.style.fontSize = fontSize + "px";
+    box.title = "包围框：" + u.kind;
+    const inner = document.createElement("span");
+    inner.className = "enc-body";
+    box.appendChild(inner);
+    // 框随内容拉伸：横排时内容横向排布，竖排时纵向排布（形状本身只由内容尺寸决定）
+    // 框内字形按 JSesh 惯例略小于框外，使框体本身不显得拥挤
+    // 锦旗框底部要留下宫墙纹，内容再小一档；其余按通用比例
+    const innerSize = fontSize * (u.kind === "S" ? 0.64 : ENC_CONTENT_SCALE);
+    if (vertical) {
+        for (const x of (u.units || [])) renderLayerUnitV(inner, x, innerSize);
+    } else {
+        for (const x of (u.units || [])) render(inner, x, innerSize);
+    }
+    parent.appendChild(box);
+    return box;
+}
 /**
  * 字体不支持的码：画一个方块占位并把码写在框内，作为普通字符参与排版
  * （行内、堆叠组层内、连字前后均可）。字号随码长度收缩，保证码名完整可见。
@@ -7221,6 +7230,8 @@ function render(parent, tree, fontSize) {
         txt.textContent = tree.text;
         txt.style.fontSize = px(options.textScale * fontSize) + "px";
         parent.appendChild(txt);
+    } else if (tree.type === "enc") {
+        renderEnclosure(parent, tree, fontSize, !!options.vertical);
     } else if (tree.type === "unsup") {
         // 字体不支持的码：方块占位 + 码名
         parent.appendChild(makeUnsupported(tree.code, fontSize));
@@ -7253,6 +7264,8 @@ function render(parent, tree, fontSize) {
  */
 function parseInput(text) {
     const invalid = [];
+    // 包围框种类（按顺序匹配前缀）：<- … ->（王名圈）、<S- … ->（锦旗框）、<h1- … -h1>（方框）
+    const ENC_OPENERS = [["h1", "<h1-", "-h1>"], ["S", "<S-", "->"], ["A", "<-", "->"]];
 
     // 预处理：外部空白宽容剔除；"<>" 文本区内部保留空白（含空格）。
     // "<" 进入文本区、"<" 前带 "\" 转义不进入；">" 退出文本区（"\>" 转义不退出）。
@@ -7262,7 +7275,36 @@ function parseInput(text) {
         const ch = text[i];
         const escaped = i > 0 && text[i - 1] === "\\";
         if (!inText) {
-            if (ch === "<" && !escaped) { inText = true; s += ch; }
+            if (ch === "<" && !escaped) {
+                // 包围框：整段按原样复制（内容不进入 <文本> 模式），用栈配对到对应闭框，
+                // 以便框内可含 <文本>、连字、嵌套框等。
+                let spec = null;
+                for (const sp of ENC_OPENERS) {
+                    if (text.slice(i, i + sp[1].length) === sp[1]) { spec = sp; break; }
+                }
+                if (spec) {
+                    const stack = [spec[2]];
+                    s += spec[1];
+                    let j = i + spec[1].length;
+                    while (j < text.length) {
+                        let op = null;
+                        for (const sp of ENC_OPENERS) {
+                            if (text.slice(j, j + sp[1].length) === sp[1]) { op = sp; break; }
+                        }
+                        if (op) { stack.push(op[2]); s += op[1]; j += op[1].length; continue; }
+                        const topc = stack[stack.length - 1];
+                        if (text.slice(j, j + topc.length) === topc) {
+                            stack.pop(); s += topc; j += topc.length;
+                            if (!stack.length) break;
+                            continue;
+                        }
+                        s += text[j]; j++;
+                    }
+                    i = j - 1;
+                    continue;
+                }
+                inText = true; s += ch;
+            }
             else if (ch === ">" && !escaped) { /* 孤立 > 忽略 */ }
             else if (!/\s/.test(ch)) s += ch;
         } else {
@@ -7312,6 +7354,51 @@ function parseInput(text) {
         return { type: "lig", name };
     }
 
+    // 包围框：<- … ->（王名圈）、<S- … ->（锦旗框）、<h1- … -h1>（裸方框）。
+    // 以 "<种类-" 开头，与普通插入文本 <文本> 区分；内容递归按本语法解析。
+
+    function parseEnclosure() {
+        const rest = s.slice(pos);
+        let kind = null, open = "", close = "";
+        for (const spec of ENC_OPENERS) {
+            if (rest.slice(0, spec[1].length) === spec[1]) { kind = spec[0]; open = spec[1]; close = spec[2]; break; }
+        }
+        if (!kind) return parseText();                 // 不是包围框 → 普通插入文本
+        pos += open.length;
+        const from = pos;
+        // 用栈配对，支持嵌套（<-<S-…->->）：遇任何开框入栈，遇栈顶闭框出栈
+        let end = -1;
+        const stack = [close];
+        for (let i = pos; i < s.length;) {
+            let opened = null;
+            for (const spec of ENC_OPENERS) {
+                if (s.slice(i, i + spec[1].length) === spec[1]) { opened = spec; break; }
+            }
+            if (opened) { stack.push(opened[2]); i += opened[1].length; continue; }
+            const top = stack[stack.length - 1];
+            if (s.slice(i, i + top.length) === top) {
+                stack.pop();
+                if (!stack.length) { end = i; break; }
+                i += top.length;
+                continue;
+            }
+            i++;
+        }
+        const inner = end < 0 ? s.slice(from) : s.slice(from, end);
+        // 包围框不允许嵌套（王名圈、锦旗框、方框皆同）——出现即报错
+        for (const spec of ENC_OPENERS) {
+            if (inner.indexOf(spec[1]) >= 0) {
+                invalid.push(open + inner + close + " (包围框不允许嵌套)");
+                break;
+            }
+        }
+        if (end < 0) invalid.push(s.slice(from - open.length) + " (缺少 " + close + ")");
+        pos = end < 0 ? s.length : end + close.length;
+        const sub = parseInput(inner);                 // 内容递归解析
+        for (const msg of sub.invalid) invalid.push(msg);
+        const units = sub.tree && sub.tree.type === "seq" ? sub.tree.units : (sub.tree ? [sub.tree] : []);
+        return { type: "enc", kind: kind, units: units };
+    }
     // 插入文本 <text>：< > 内为普通文本；"\<" 与 "\>" 转义为字面 "<" 与 ">"。
     function parseText() {
         const start = pos;
@@ -7336,6 +7423,7 @@ function parseInput(text) {
         const ch = s[pos];
         if (ch === "{") return parseLigature();
         if (ch === "(") return parseWord();
+        if (ch === "<") return parseEnclosure();   // <A- … -> / <S- … -> / <h1- … -h1>
         if (ch === "<") return parseText();
         // "$"：手动换行（渲染区强制换行；文本框中保留显示）
         if (ch === "$") { pos++; return { type: "newline" }; }
@@ -7381,7 +7469,15 @@ function parseInput(text) {
             }
             return [{ type: "vrg", layers }];
         }
-        return items.map(it => it.unit);
+        const units = items.map(it => it.unit);
+        // "*" 连接的同层组保留为单层 VRG：
+        //   横排结果不变（render 对单层组仍按序列展开，不产生层内间隙）；
+        //   竖排据此知道这些单位应并列在同一"行"（HRG），而不是各占一行。
+        // 含 "$" 换行时不打包，交给 splitLines 处理。
+        if (units.length > 1 && items.some(it => it.sep === "*") && !units.some(x => x.type === "newline")) {
+            return [{ type: "vrg", layers: [units] }];
+        }
+        return units;
     }
 
     // 顶层序列：由 "-" 分隔的四开组依次横排（组间只是普通的序列关系）。
@@ -7436,6 +7532,10 @@ function parseInput(text) {
         if (u.type === "text") {
             return u; // 插入文本单位，渲染时以适中字号居中显示
         }
+        if (u.type === "enc") {
+            // 包围框：内容在 parseEnclosure 中已递归解析并展开，这里原样保留
+            return { type: "enc", kind: u.kind, units: u.units || [] };
+        }
         if (u.type === "word") {
             // 词（lexis）：功能暂留空，内部按普通序列展开
             return { type: "seq", units: u.inner.map(expandUnit).filter(x => x) };
@@ -7476,6 +7576,107 @@ function splitLines(tree) {
     // ========================================================================
     // 六、样式注入（含 @font-face）
     // ========================================================================
+    /** 包围框样式（王名圈 / 锦旗框 / 方框，横排与竖排两种朝向）。 */
+    function encCss() {
+        const e = "." + options.encClass;
+        const body = e + "-body";
+        const A = "." + options.encKindClass.A;
+        const S = "." + options.encKindClass.S;
+        const h1 = "." + options.encKindClass.h1;
+        const v = "." + options.encVerticalClass;
+        const pad = ENC_PAD + "em";
+        return [
+            e + " {",
+            "    display: inline-flex;",
+            "    position: relative;",
+            "    box-sizing: content-box;",
+            "    padding: " + pad,
+            "    vertical-align: bottom;",
+            "}",
+            body + " {",
+            "    display: inline-flex;",
+            "    align-items: flex-end;",
+            "}",
+            A + " {",                       // 圆框：胶囊 + 座（座在框外侧，见 ::after）
+            "    border: 0.05em solid #000;",
+            "    border-radius: 100vh;",     // 胶囊
+            "    padding: 0.1em 0.3em;",     // 竖 0.1 / 横 0.3
+            "    box-sizing: content-box;",  // 0.7(内容) + 0.2 + 0.1 = 1em
+            "    position: relative;",
+            "}",
+            A + "::after {",                // 座：框右侧细条（宽度 = 边框，上下各出半线）
+            "    content: \"\";",
+            "    position: absolute;",
+            "    right: 0;",
+            "    top: 0;",
+            "    width: 0.05em;",
+            "    height: calc(100% + 0.05em);",
+            "    margin-top: -0.025em;",
+            "    background: #000;",
+            "    border-radius: 0.02em;",
+            "    transform: translateX(100%);",
+            "}",
+            A + v + " {",                   // 竖排：内容纵向，座在下
+            "    padding: 0.3em 0.1em;",
+            "}",
+            A + v + "::after {",            // 竖排的座：框下侧细横条
+            "    top: auto;",
+            "    right: 0;",
+            "    bottom: 0;",
+            "    width: calc(100% + 0.05em);",
+            "    height: 0.05em;",
+            "    margin-top: 0;",
+            "    margin-left: -0.025em;",
+            "    transform: translateY(100%);",
+            "}",
+            S + " {",                       // 锦旗框：矩形 + 底部宫墙纹
+            "    border: 0.07em solid #000;",   // 与尾部笔画同粗
+            "    padding: 0.11em 0.08em;",           // 0.64 + 0.22 + 0.14 = 1em
+            "    margin-right: 0.996em;",       // 尾墨迹宽 0.996em × 1em
+            "    box-sizing: content-box;",      // 0.55 + 0.1 + 0.3 + 0.05×2 ≈ 1em
+            "    position: relative;",
+            "}",
+            S + "::after {",                // 右尾（横排）：字体字形 U+13282
+            "    content: \"\u{13282}\";",
+            "    position: absolute;",
+            "    right: 0;",
+            "    top: -0.07em;",
+            "    bottom: auto;",
+            "    transform: translate(100%, 0);",
+            "    font-family: \"" + options.fontFamily + "\", \"" + options.fontFamily + "\";",
+            "    font-size: 1em;",      // = 框高（0.70 + 0.24 + 0.06）
+            "    line-height: 1;",
+            "    color: #000;",
+            "}",
+            S + v + " {",                   // 竖排：下尾在底部，故底部留位
+            "    padding: 0.11em 0.04em;",           // 竖排：左右收紧到 0.04
+            "    width: 1em;",                // 固定 1em 宽：与尾部字形同宽
+            "    box-sizing: border-box;",
+            "    margin-right: 0;",
+            "    margin-bottom: 0.996em;",   // 与尾同高
+            "}",
+            S + v + "::after {",            // 下尾（竖排）：字体字形 uniE46A，贴框外沿（下），宽与框同
+            "    content: \"\uE46A\";",
+            "    left: 50%;",
+            "    right: auto;",
+            "    bottom: 0.07em;",        // 基准是内边距盒 → 加边框宽，贴住框下外沿
+            "    top: auto;",
+            "    transform: translate(-50%, 100%);",
+            "    font-size: 1em;",      // = 框高（0.70 + 0.24 + 0.06）
+            "}",
+            v + " .enc-body {",             // 竖排：框内内容纵向排列并居中
+            "    flex-direction: column;",
+            "    align-items: center;",
+            "    width: 100%;",              // 撑满框宽，否则 inline-flex 收缩到内容宽、靠左
+            "}",
+            h1 + " {",                      // 裸方框
+            "    border: 0.07em solid #000;",   // 与锦旗框同粗
+            "    padding: 0.08em;",             // 0.70 内容 + 0.16 内边距 + 0.14 边框 = 1em
+            "    box-sizing: content-box;",
+            "}",
+            "",
+        ].join("\n");
+    }
     function buildCss() {
         const g = "." + options.glyphClass;
         const vrg = "." + options.vrgClass;
@@ -7490,6 +7691,7 @@ function splitLines(tree) {
                 + '    font-display: block;\n'
                 + '}\n\n';
         }
+        css += encCss() + "\n";
         css += g + ' {\n'
             + '    display: inline-block;\n'
             + '    line-height: 1;\n'
@@ -7544,7 +7746,7 @@ function splitLines(tree) {
             + '}\n\n'
             + '.' + options.vtextClass + ' {\n'
             + '    display: inline-flex;\n'
-            + '    flex-direction: row-reverse;\n'          // 列自右向左
+            + '    flex-direction: row;\n'          // 列自左向右（字形朝前，不镜像时按左→右）
             + '    align-items: flex-start;\n'
             + '    gap: var(--mdc-col-gap, 0.3em);\n'
             + '}\n\n'
@@ -7552,18 +7754,11 @@ function splitLines(tree) {
             + '    display: flex;\n'
             + '    flex-direction: column;\n'
             + '    align-items: center;\n'
+            + '    width: 1em;\n'                  // 列宽恒为 1em（= 一个四开组）
             + '}\n\n'
             + '.' + options.hrgClass + ' {\n'
             + '    display: inline-flex;\n'
-            + '    flex-direction: row;\n'
-            + '    align-items: flex-start;\n'
-            + '    justify-content: space-between;\n'
-            + '}\n\n'
-            + '.' + options.hrgColClass + ' {\n'
-            + '    display: flex;\n'
-            + '    flex-direction: column;\n'
-            + '    align-items: center;\n'
-            + '    overflow: visible;\n'
+            + '    flex-direction: column;\n'      // 与横排 VRG 同一几何
             + '}\n\n'
             + '.' + options.textClass + '.txt-v {\n'
             + '    writing-mode: vertical-rl;\n'
@@ -7671,7 +7866,6 @@ function splitLines(tree) {
             renderVRG: renderVRG,
             renderLayerUnit: renderLayerUnit,
             renderLigature: renderLigature,
-            hrgBoxWidth: hrgBoxWidth,
             renderHRG: renderHRG,
             renderLayerUnitV: renderLayerUnitV,
             renderVertical: renderVertical,

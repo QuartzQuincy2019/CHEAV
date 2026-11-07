@@ -98,7 +98,8 @@ Notes:
 - **Vocabulary variants**: entries that are variants of one another **share the same meaning object**, so
   editing one updates the whole family
 - **Settings panel**: rebindable keys, VM page size (1–9), PIC toggle, key-cast toggle (shown only when the plugin is present), reset
-- **Vertical body text**: the render area can be switched to vertical writing (columns top-to-bottom, ordered right-to-left; a VRG becomes a side-by-side *horizontal rendering group*, HRG), while the input buffer and the preview stay horizontal
+- **Enclosures**: `<- … ->` cartouche (capsule + outside seat), `<S- … ->` serekh (rectangle + glyph tail), `<h1- … -h1>` bare box; all stretch with their content and adapt to vertical writing (nesting is rejected)
+- **Vertical body text**: the render area can be switched to vertical writing (columns top-to-bottom, ordered right-to-left); inside a group `*` still means side by side and `:` still starts the next row, and the group is then called a *horizontal rendering group* (HRG). The input buffer and the preview stay horizontal
 - **Key cast**: a translucent overlay for screen recording (recent-key history plus the current
   combination); usable as a standalone embed as well
 - **Warnings and tolerance**: invalid fragments turn the border red and rendering is aborted (the previous
