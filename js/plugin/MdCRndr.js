@@ -7669,10 +7669,10 @@ function splitLines(tree) {
             "    align-items: center;",
             "    width: 100%;",              // 撑满框宽，否则 inline-flex 收缩到内容宽、靠左
             "}",
-            "." + options.encKindClass.F + " {",   // 齿状框：实线框 + 框外方块齿（四角各一齿包裹边角）
-            "    border: 0.07em solid #000;",          // 框：实线
+            "." + options.encKindClass.F + " {",   // 齿状框：细实线框 + 框外方块齿
+            "    border: 0.03em solid #000;",          // 框：细线（JSesh 观感）
             "    position: relative;",
-            "    padding: 0.08em;",
+            "    padding: 0.12em;",                    // 0.70 + 0.24 + 0.06 = 1em
             "    box-sizing: content-box;",
             "}",
             "." + options.encKindClass.F + "::before {",   // 齿层：外扩一圈，落在框外侧
