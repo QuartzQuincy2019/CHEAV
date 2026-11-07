@@ -6861,19 +6861,25 @@ function renderInShadedCell(parent, fontSize, digits, draw, alignEnd, emWidth) {
     applyShadow(cell, digits);
     return cell;
 }
-function renderGlyph(parent, code, fontSize, align) {
+function renderGlyph(parent, code, fontSize, align, mirror) {
     const ch = decodeCode(code);
     if (!ch) return null;
     const el = document.createElement("span");
     el.className = "hie";
     el.textContent = ch;
-    el.title = code;
+    el.title = mirror ? code + "（水平镜像）" : code;
     el.style.fontSize = fontSize + "px";
+    const tf = [];
     if (align === "center") {
         // 上下居中：把墨迹整体上移 (1em - 墨迹高)/2
         const inkH = getMetrics(code).height * fontSize / EM_SQUARE;
-        el.style.transform = `translateY(-${px((fontSize - inkH) / 2)}px)`;
+        tf.push(`translateY(-${px((fontSize - inkH) / 2)}px)`);
     }
+    if (mirror) {
+        tf.push("scaleX(-1)");       // 水平镜像：宽度不变，故不影响排版
+        el.classList.add("mir");
+    }
+    if (tf.length) el.style.transform = tf.join(" ");
     parent.appendChild(el);
     return el;
 }
@@ -7043,7 +7049,7 @@ function renderVRG(parent, layers, fontSize) {
  */
 function renderLayerUnit(layer, u, glyphSize) {
     if (u.type === "char") {
-        renderGlyph(layer, u.code, glyphSize);
+        renderGlyph(layer, u.code, glyphSize, undefined, u.mirror);
     } else if (u.type === "vrg") {
         if (u.layers.length === 1) {
             // 单层 VRG 视为一般字符：层内元素直接按序列渲染
@@ -7108,10 +7114,10 @@ function renderLayerUnitV(col, u, size) {
     if (u.type === "char") {
         if (u.shadow) {
             renderInShadedCell(col, size, u.shadow, (cell) => {
-                renderGlyph(cell, u.code, size, "center");
+                renderGlyph(cell, u.code, size, "center", u.mirror);
             }, false, true);                                // 竖排：格宽 = 列宽 1em
         } else {
-            renderGlyph(col, u.code, size, "center");       // 1em 轨道内上下居中
+            renderGlyph(col, u.code, size, "center", u.mirror);   // 1em 轨道内上下居中
         }
     } else if (u.type === "vrg") {
         // 单层组 = 一行内并列（"*"）；多层组 = 每层一行（":"），都由 HRG 承担
@@ -7275,10 +7281,10 @@ function render(parent, tree, fontSize) {
     if (tree.type === "char") {
         if (tree.shadow) {
             renderInShadedCell(parent, fontSize, tree.shadow, (cell) => {
-                renderGlyph(cell, tree.code, fontSize, "center");
+                renderGlyph(cell, tree.code, fontSize, "center", tree.mirror);
             }, true);
         } else {
-            renderGlyph(parent, tree.code, fontSize, "center");
+            renderGlyph(parent, tree.code, fontSize, "center", tree.mirror);
         }
     } else if (tree.type === "vrg") {
         if (tree.layers.length === 1 && !tree.shadow) {
@@ -7403,7 +7409,8 @@ function parseInput(text) {
     function parseCode() {
         const start = pos;
         // "#" 是阴影分隔符（<组>#<1-4>），必须在此终止码 token
-        while (pos < s.length && !"-*:]})($<>#".includes(s[pos])) pos++;
+        // "\\" 是镜像后缀（<码>\\ → 该字符水平镜像），必须在此终止码 token
+        while (pos < s.length && !"-*:]})($<>#\\".includes(s[pos])) pos++;
         return s.slice(start, pos);
     }
 
@@ -7536,6 +7543,12 @@ function parseInput(text) {
                 } else {
                     invalid.push("#" + s.slice(pos));
                 }
+            } else if (ch === "\\") {
+                // 镜像后缀：<码>\ 表示把紧邻的一个字符水平镜像（JSesh 兼容）
+                pos++;
+                const lastMirror = items[items.length - 1];
+                if (lastMirror && lastMirror.unit !== "") lastMirror.mirror = true;   // 前面没有可镜像的单位 → 记非法
+                else invalid.push("\\");
             } else if (ch === "-") {
                 break;              // 四开组结束（"-" 由 parseSequence 消费）
             } else {
@@ -7546,13 +7559,15 @@ function parseInput(text) {
                 items.push({ unit, sep: null });
             }
         }
+        // 带镜像后缀的项包成 { type:"mirror" }，由 expandUnit 展开后挂 mirror 标记
+        const unitOf = (it) => (it.mirror ? { type: "mirror", unit: it.unit } : it.unit);
         // 阴影作用于整个四开组（quadrat / VRG）：取最后一个带阴影的项
         const quadratShadow = (items.filter(it => it.shadow).pop() || {}).shadow || null;
         if (items.some(it => it.sep === ":")) {
             const layers = [];
             let current = [];
             for (const it of items) {
-                current.push(it.unit);
+                current.push(unitOf(it));
                 if (it.sep === ":" || it.sep === null) {
                     layers.push(current);
                     current = [];
@@ -7562,7 +7577,7 @@ function parseInput(text) {
             if (quadratShadow) unit.shadow = quadratShadow;
             return [unit];
         }
-        const units = items.map(it => it.unit);
+        const units = items.map(unitOf);
         // "*" 连接的同层组保留为单层 VRG：
         //   横排结果不变（render 对单层组仍按序列展开，不产生层内间隙）；
         //   竖排据此知道这些单位应并列在同一"行"（HRG），而不是各占一行。
@@ -7616,6 +7631,12 @@ function parseInput(text) {
             // 非码串（读音 / 词名 / 定符名等）→ 非法
             invalid.push(u);
             return null;
+        }
+        if (u.type === "mirror") {
+            // 水平镜像：只对单字符生效（镜像不改变度量，故排版不受影响）
+            const inner = expandUnit(u.unit);
+            if (!inner) return null;
+            return inner.type === "char" ? Object.assign({}, inner, { mirror: true }) : inner;
         }
         if (u.type === "shaded") {
             // 阴影包装：先展开内部单位，再把分区信息挂到结果上

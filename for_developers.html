@@ -395,7 +395,7 @@ js/ui/apply.js            ← 最后（需 DOM 就绪）</pre>
                     <tr><th style="width:16%">类型 / 字段</th><th style="width:26%">形状</th><th>说明</th></tr>
                     <tr><td class="k">Unit</td><td class="k">带 <code>type</code> 的对象</td>
                         <td>解析树的基本单位，见下面各行；<code>parse()</code> 的 <code>tree.units</code> 即由它们组成。</td></tr>
-                    <tr><td class="k">char</td><td class="k">{ type:"char", code, shadow? }</td>
+                    <tr><td class="k">char</td><td class="k">{ type:"char", code, shadow?, mirror? }</td>
                         <td>单字符。<code>code</code> 为 Gardiner 码或十六进制码；<code>shadow</code> 为阴影分区串（如 <code>"134"</code>）。</td></tr>
                     <tr><td class="k">vrg</td><td class="k">{ type:"vrg", layers: Unit[][], shadow? }</td>
                         <td>堆叠组：外层数组是层，内层是该层并列的单位。<code>*</code> 连接的同层组也会保留为单层 vrg。</td></tr>
@@ -745,7 +745,7 @@ MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
                 <table>
                     <tr><th style="width:34%">节点</th><th>含义</th></tr>
                     <tr><td class="k">{ type: "seq", units: [...] }</td><td>序列（顶层与每段都是它）</td></tr>
-                    <tr><td class="k">{ type: "char", code }</td><td>单字符</td></tr>
+                    <tr><td class="k">{ type: "char", code, mirror? }</td><td>单字符；<code>mirror</code> 表示水平镜像（MdC 写作 <code>&lt;码&gt;\</code>）</td></tr>
                     <tr><td class="k">{ type: "vrg", layers: [[...], ...] }</td><td>堆叠组，<code>layers</code> 自上而下</td></tr>
                     <tr><td class="k">{ type: "lig", name }</td><td>连字引用</td></tr>
                     <tr><td class="k">{ type: "text", text }</td><td>插入文本</td></tr>
