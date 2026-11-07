@@ -7682,19 +7682,26 @@ function splitLines(tree) {
             "    inset: -0.14em;",                  // 外扩到框外（0.07 边框 + 0.07 齿根）
             "    pointer-events: none;",
             "    background-image:",
-            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 左上 / 右上角齿
-            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 左下 / 右下角齿
+            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 左上：横臂 / 竖臂
+            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 右上：横臂 / 竖臂
+            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 左下：横臂 / 竖臂
+            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 右下：横臂 / 竖臂
             "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",   // 上边中段齿
             "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",   // 下边中段齿
             "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em),",  // 左边中段齿
             "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em);",  // 右边中段齿
             "    background-size:",
-            "        0.14em 0.14em, 0.14em 0.14em, 0.14em 0.14em, 0.14em 0.14em,",       // 角齿：0.14 见方，包裹边角
+            "        0.28em 0.14em, 0.14em 0.28em,",        // 角齿 L 形：横臂 0.28x0.14，竖臂 0.14x0.28
+            "        0.28em 0.14em, 0.14em 0.28em,",
+            "        0.28em 0.14em, 0.14em 0.28em,",
+            "        0.28em 0.14em, 0.14em 0.28em,",
             "        100% 0.14em, 100% 0.14em, 0.14em 100%, 0.14em 100%;",
             "    background-position:",
-            "        left top, right top, left bottom, right bottom,",
+            "        left top, left top, right top, right top,",
+            "        left bottom, left bottom, right bottom, right bottom,",
             "        left top, left bottom, left top, right top;",
             "    background-repeat:",
+            "        no-repeat, no-repeat, no-repeat, no-repeat,",
             "        no-repeat, no-repeat, no-repeat, no-repeat,",
             "        repeat-x, repeat-x, repeat-y, repeat-y;",
             "}",
