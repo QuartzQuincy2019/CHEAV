@@ -7131,7 +7131,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     // 框随内容拉伸：横排时内容横向排布，竖排时纵向排布（形状本身只由内容尺寸决定）
     // 框内字形按 JSesh 惯例略小于框外，使框体本身不显得拥挤
     // 锦旗框底部要留下宫墙纹，内容再小一档；其余按通用比例
-    const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.50 : ENC_CONTENT_SCALE);   // F 含齿带，内容取 0.50 使总高 1em
+    const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.56 : ENC_CONTENT_SCALE);   // F 的齿带 0.28 + 内边距 0.16 + 内容 0.56 = 1em
     if (vertical) {
         for (const x of (u.units || [])) renderLayerUnitV(inner, x, innerSize);
     } else {
@@ -7669,43 +7669,28 @@ function splitLines(tree) {
             "    align-items: center;",
             "    width: 100%;",              // 撑满框宽，否则 inline-flex 收缩到内容宽、靠左
             "}",
-            "." + options.encKindClass.F + " {",   // 齿状框：细实线框 + 框外方块齿
-            "    border: 0.03em solid #000;",          // 框：细线（JSesh 观感）
+            "." + options.encKindClass.F + " {",   // 齿状框：整体由 9 宫格 SVG 经 border-image 绘制（四角必然相同）
+            "    border: 0.14em solid transparent;",   // 齿带宽度 = 边框宽度，画面全部来自 border-image",
+            "    border-image-source: url(\"data:image/svg+xml;utf8," + encodeURIComponent(
+                    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'>"
+                  + "<path d='M0 0H24V12H12V24H0Z' fill='%23000'/>"                 /* 左上 L */
+                  + "<path d='M72 0H96V24H84V12H72Z' fill='%23000'/>"                /* 右上 L */
+                  + "<path d='M0 72H12V84H24V96H0Z' fill='%23000'/>"                 /* 左下 L */
+                  + "<path d='M96 72V96H72V84H84V72Z' fill='%23000'/>"               /* 右下 L */
+                  + "<rect x='24' y='0' width='12' height='12' fill='%23000'/>"      /* 上边齿（一片，round 平铺） */
+                  + "<rect x='24' y='84' width='12' height='12' fill='%23000'/>"     /* 下边齿 */
+                  + "<rect x='0' y='24' width='12' height='12' fill='%23000'/>"      /* 左边齿 */
+                  + "<rect x='84' y='24' width='12' height='12' fill='%23000'/>"     /* 右边齿 */
+                  + "<path d='M15 15H81V81H15Z M21 21H75V75H21Z' fill='%23000' fill-rule='evenodd'/>"  /* 细框线 */
+                  + "</svg>") + "\");",
+            "    border-image-slice: 24 fill;",        // 四角 24/96 固定，四边中段由 round 等分平铺
+            "    border-image-width: 0.14em;",
+            "    border-image-repeat: round;",
             "    position: relative;",
-            "    padding: 0.08em;",                    // 0.50 + 0.16 + 0.06 + 0.28(齿) = 1em
-            "    margin: 0.14em;",                    // 为框外的齿带预留布局空间（齿不再溢出）
+            "    padding: 0.08em;",                    // 内容 0.50 由 kind 单独控制
             "    box-sizing: content-box;",
             "}",
-            "." + options.encKindClass.F + "::before {",   // 齿层：外扩一圈，落在框外侧
-            "    content: \"\";",
-            "    position: absolute;",
-            "    inset: -0.14em;",                  // 外扩到框外（0.07 边框 + 0.07 齿根）
-            "    pointer-events: none;",
-            "    background-image:",
-            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 左上：横臂 / 竖臂
-            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 右上：横臂 / 竖臂
-            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 左下：横臂 / 竖臂
-            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 右下：横臂 / 竖臂
-            "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",   // 上边中段齿
-            "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",   // 下边中段齿
-            "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em),",  // 左边中段齿
-            "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em);",  // 右边中段齿
-            "    background-size:",
-            "        0.20em 0.14em, 0.14em 0.20em,",        // 角齿 L 形：横臂 0.20x0.14，竖臂 0.14x0.20
-            "        0.20em 0.14em, 0.14em 0.20em,",
-            "        0.20em 0.14em, 0.14em 0.20em,",
-            "        0.20em 0.14em, 0.14em 0.20em,",
-            "        100% 0.14em, 100% 0.14em, 0.14em 100%, 0.14em 100%;",
-            "    background-position:",
-            "        left top, left top, right top, right top,",
-            "        left bottom, left bottom, right bottom, right bottom,",
-            "        left top, left bottom, left top, right top;",
-            "    background-repeat:",
-            "        no-repeat, no-repeat, no-repeat, no-repeat,",
-            "        no-repeat, no-repeat, no-repeat, no-repeat,",
-            "        repeat-x, repeat-x, repeat-y, repeat-y;",
-            "}",
-            "." + options.encKindClass.F + v + " {",   // 竖排：同一套四边齿
+            "." + options.encKindClass.F + v + " {",   // 竖排：同一张九宫格，四角与四边自动适配
             "    padding: 0.08em;",
             "}",
             h1 + " {",                      // 裸方框
