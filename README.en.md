@@ -99,7 +99,7 @@ Notes:
   editing one updates the whole family
 - **Settings panel**: rebindable keys, VM page size (1–9), PIC toggle, key-cast toggle (shown only when the plugin is present), reset
 - **Shadowing**: `<quadrat>#<areas>` hatches selected quadrants of a quadrat / VRG; `1`=top-left `2`=top-right `3`=bottom-left `4`=bottom-right, freely combinable (e.g. `A1#134`, `A1*A2:I10#24`)
-- **Enclosures**: `<- … ->` cartouche (capsule + outside seat), `<S- … ->` serekh (rectangle + glyph tail), `<h1- … -h1>` bare box, `<F- … ->` fortified enclosure (crenellations on all four sides); all stretch with their content and adapt to vertical writing (nesting is rejected)
+- **Enclosures**: `<- … ->` cartouche (capsule + outside seat), `<S- … ->` serekh (rectangle + glyph tail), `<h1- … -h1>` bare box, `<F- … ->` fortified enclosure (crenellations on all four sides) — the last two are descriptive names used by this project, not established terminology; all stretch with their content and adapt to vertical writing (nesting is rejected)
 - **Vertical body text**: the render area can be switched to vertical writing (columns top-to-bottom, ordered right-to-left); inside a group `*` still means side by side and `:` still starts the next row, and the group is then called a *horizontal rendering group* (HRG). The input buffer and the preview stay horizontal
 - **Key cast**: a translucent overlay for screen recording (recent-key history plus the current
   combination); usable as a standalone embed as well
