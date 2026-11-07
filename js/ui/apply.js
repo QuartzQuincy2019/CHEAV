@@ -29,6 +29,7 @@
     const settingsBody = document.getElementById("SettingsBody");
     const settingsTitle = document.getElementById("SettingsTitle");
     const box = document.getElementById("RenderBox");
+    const watermark = document.getElementById("Watermark");   // 演示水印层
     const modeTitle = document.getElementById("ModeTitle");       // 方向切换条标题
     const modeH = document.getElementById("ModeHorizontal");      // 横排按钮
     const modeV = document.getElementById("ModeVertical");        // 竖排按钮
@@ -36,7 +37,11 @@
     const dockL = document.getElementById("ModeDockLeft");
     const dockR = document.getElementById("ModeDockRight");
 
-    const SIZE = 100;            // 渲染区 1 quadrat = 100px
+    const SIZE = 100;            // 渲染区 1 quadrat = 100px（横排）
+    const VERTICAL_COLUMNS = 7;  // 竖排列数目标：渲染栏内尽量显示 6~7 列（超出则横向滚动）
+    const VERTICAL_MIN_SIZE = 34;   // 竖排字号下限（px）
+    const VERTICAL_MAX_SIZE = 100;  // 竖排字号上限（px）
+    const VERTICAL_COL_GAP = 0.3;   // 与引擎默认 verticalColumnGap 一致（em）
     const PREVIEW_SIZE = 26;     // 候选预览 / 字符单元字形字号
     const IB_PREVIEW_SIZE = 40;  // IB 实时预览字号
     const CELL_GAP = 8;          // 与 .MBox 的 gap 一致（宽度限量估算用）
@@ -49,6 +54,33 @@
     const gm = { pool: [], visible: [], sel: 0 };
     let mode = "idle";                                    // idle | phon | gc | phon+gc | det
     let inflow = false;                                   // true = 入流（PDM/GM 空闲）
+
+    // ============ 演示水印（整屏平铺的背景文字） ============
+    // 用一张 SVG 瓷砖做 background-repeat：视口多大就平铺多大，无需监听 resize。
+    const WATERMARK_TEXT = "كونسي كونغ";
+    const WATERMARK_TILE_W = 440;          // 瓷砖宽（px）：越大越疏
+    const WATERMARK_TILE_H = 200;          // 瓷砖高（px）
+    const WATERMARK_SIZE = 64;             // 文字字号（px）
+    const WATERMARK_OPACITY = 0.06;        // 文字透明度
+
+    /** 生成平铺用的 SVG 瓷砖并应用到水印层；返回是否已应用。 */
+    function applyWatermark() {
+        if (!watermark) return false;
+        const on = !!SETTINGS.watermark;
+        document.body.classList.toggle("wm-off", !on);
+        if (!on) return false;
+        if (!watermark.dataset.ready) {
+            const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + WATERMARK_TILE_W + '" height="' + WATERMARK_TILE_H + '">'
+                + '<text x="' + (WATERMARK_TILE_W / 2) + '" y="' + (WATERMARK_TILE_H / 2) + '"'
+                + ' text-anchor="middle" dominant-baseline="middle"'
+                + ' font-family="Segoe UI, Noto Naskh Arabic, serif"'
+                + ' font-size="' + WATERMARK_SIZE + '" fill="rgba(0,0,0,' + WATERMARK_OPACITY + ')"'
+                + ' direction="rtl">' + WATERMARK_TEXT + '</text></svg>';
+            watermark.style.backgroundImage = 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) + '")';
+            watermark.dataset.ready = "1";
+        }
+        return true;
+    }
 
     // ============ 排版方向（横排 / 竖排） ============
     // 竖排：body 加 .mode-vertical（CSS 切换为两栏，渲染区占 1/3 屏宽），
@@ -69,9 +101,9 @@
     function setVerticalMode(on) {
         SETTINGS.verticalText = !!on;
         saveSettings();
-        applyMode();
-        buildSettings();     // 同步设置面板里的勾选状态
+        applyMode();         // 高亮切换条、切换两/三栏布局
         updateMatch();       // 栏宽变化 → 重新计算候选框可容量
+        updateIBPreview();   // 预览也随方向切换
         refresh();           // 正文按新方向重绘
     }
 
@@ -80,6 +112,15 @@
         SETTINGS.verticalDock = (side === "left") ? "left" : "right";
         saveSettings();
         applyMode();
+    }
+
+    /** 竖排字号（= 列宽 1em）：固定按 VERTICAL_COLUMNS 列排满渲染栏折算，
+     *  与当前文本有几列无关——这样列宽稳定，不会因为列数变化忽大忽小。 */
+    function verticalFontSize() {
+        const avail = (box && box.clientWidth > 50) ? box.clientWidth - 16 : 420;   // 减去内边距
+        const n = VERTICAL_COLUMNS;
+        const exact = (avail * 0.97) / (n + VERTICAL_COL_GAP * (n - 1));   // 留 3% 余量，避免刚好顶出滚动条
+        return Math.round(Math.max(VERTICAL_MIN_SIZE, Math.min(VERTICAL_MAX_SIZE, exact)));
     }
 
     // ============ 渲染区刷新（总文本框内容） ============
@@ -107,10 +148,13 @@
         input.classList.remove("invalid");
         box.innerHTML = "";
         if (SETTINGS.verticalText) {
-            // 竖排：仅正文渲染区（输入框、预览与候选保持横排）
-            MdCRndr.renderVerticalText(box, input.value, SIZE);
+            // 竖排：列宽 = 1em = 字号；按栏宽与列数算出字号，让 6~7 列排满一屏
+            const size = verticalFontSize();
+            box.style.fontSize = size + "px";
+            MdCRndr.renderVerticalText(box, input.value, size);
             return;
         }
+        box.style.fontSize = SIZE + "px";
         for (const line of splitLines(tree)) {
             const seg = document.createElement("span");
             seg.className = "RenderLine";
@@ -139,11 +183,16 @@
             return;
         }
         previewRender.innerHTML = "";
-        for (const line of splitLines(tree)) {
-            const seg = document.createElement("span");
-            seg.className = "RenderLine";
-            render(seg, line, IB_PREVIEW_SIZE);
-            previewRender.appendChild(seg);
+        if (SETTINGS.verticalText) {
+            // 竖排模式：预览与正文同向（自上而下成列）
+            MdCRndr.renderVerticalText(previewRender, src, IB_PREVIEW_SIZE);
+        } else {
+            for (const line of splitLines(tree)) {
+                const seg = document.createElement("span");
+                seg.className = "RenderLine";
+                render(seg, line, IB_PREVIEW_SIZE);
+                previewRender.appendChild(seg);
+            }
         }
         if (previewMdc) previewMdc.textContent = src;
     }
@@ -692,7 +741,7 @@
     gmBox.addEventListener("mousedown", () => { if (focusBox !== "GM") { focusBox = "GM"; renderAll(); } });
     input.addEventListener("input", () => { refresh(); });
     if (typeof window !== "undefined" && window.addEventListener) {
-        window.addEventListener("resize", () => { updateMatch(); renderAll(); updateKeyCast(); });
+        window.addEventListener("resize", () => { updateMatch(); renderAll(); updateKeyCast(); refresh(); });
     }
 
     // ============ 按键展示（独立插件 js/plugin/keycast.js） ============
@@ -742,7 +791,7 @@
         ["key", ["optionKeys", "GM", "prev"], "settingsGmOptPrev"],
         ["key", ["optionKeys", "GM", "next"], "settingsGmOptNext"],
         ["bool", ["picEnabled"], "settingsPic"],
-        ["bool", ["verticalText"], "settingsVertical"],
+        ["bool", ["watermark"], "settingsWatermark"],
         ["bool", ["keyCastEnabled"], "settingsKeyCast"],
     ];
 
@@ -811,6 +860,7 @@
                     updateMatch();
                     updateIBPreview();
                     updateKeyCast();
+                    applyWatermark();   // 演示水印开关
                     applyMode();    // 与切换条保持同步
                     renderAll();
                     refresh();      // 竖排等显示类开关需重绘正文渲染区
@@ -829,6 +879,7 @@
             updateMatch();
             updateIBPreview();
             updateKeyCast();
+            applyWatermark();   // 恢复默认水印开关
             applyMode();        // 恢复默认方向
             renderAll();
             refresh();          // 恢复默认后重绘正文（含竖排开关复位）
@@ -858,6 +909,7 @@
     if (dockR) dockR.addEventListener("click", () => setDockSide("right"));
 
     applyI18n();
+    applyWatermark();  // 演示水印（设置可关）
     applyMode();       // 还原上次的方向与靠侧
     buildPools();      // onload：一次性生成全部字符单元
     updateMatch();

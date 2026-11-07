@@ -126,6 +126,31 @@ body {
 /* "$" 换行标记（.br）与 <文本> 片段（.txt）的样式
    由渲染引擎插件注入（js/plugin/MdCRndr.js 的 buildCss）——与 .hie/.vrg/.lig 同源。 */
 
+/* ===== 演示水印（整屏平铺的背景文字） =====
+   固定覆盖整个视口、不拦截鼠标；平铺图案由 js/ui/apply.js 生成（SVG data URI）。
+   内容层（App / ModeBar / 页脚）显式抬到 z-index: 1，确保水印只作背景。 */
+.Watermark {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-repeat: repeat;
+    background-position: 0 0;
+    opacity: 1;
+}
+
+body.wm-off .Watermark {
+    display: none;
+}
+
+.ModeBar,
+.App,
+.Settings,
+.SiteFooter {
+    position: relative;
+    z-index: 1;
+}
+
 /* ===== 匹配系统四区域：IBBox → VMBox → PDMBox → GMBox =====
    三处 MBox（VMBox / PDMBox / GMBox）常驻显示，空时以半透明占位说明；
    选中焦点所在框高亮（Alt 循环切换）。
@@ -908,54 +933,189 @@ html.DocOverlay-open body {
     }
 }
 
-/* ===== 竖排模式：渲染区占 1/3 屏宽，可置于右侧（默认）或左侧 =====
-   .App 变为两栏网格：2fr 编辑区 + 1fr 渲染区；dock-left 时两栏互换。 */
+/* ===== 竖排模式：三栏 —— 编辑区 ｜ 预览区 ｜ 渲染区 =====
+   列 1：IB、匹配区（词 / 音素·定符 / Gardiner）、正文输入框，纵向堆叠；
+   列 2：IB 预览区（窄条、全高、竖排渲染）；
+   列 3：渲染区（约 1/3 屏宽）。
+   dock-left 时整体镜像：渲染区在最左，预览区居中，编辑区在最右。 */
 body.mode-vertical .App {
+    --col-edit: 1;
+    --col-prev: 2;
+    --col-canvas: 3;
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: minmax(0, 2fr) minmax(72px, 0.27fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto 1fr;
+    gap: 8px;
+    align-items: start;
+    /* 上部整体占视口 90%（页脚仍在下方） */
+    height: 90vh;
+    min-height: 420px;
+}
+
+body.mode-vertical.dock-left .App {
+    --col-edit: 3;
+    --col-canvas: 1;
+    grid-template-columns: minmax(0, 1fr) minmax(72px, 0.27fr) minmax(0, 2fr);
+}
+
+/* 展开两层包装（.App-side 与 #IBRow），让 IB / 预览 / 匹配区 / 正文框
+   直接成为 .App 的网格项——预览才能被放到第二列 */
+body.mode-vertical .App-side,
+body.mode-vertical #IBRow {
+    display: contents;
+}
+
+body.mode-vertical #IBBox {
+    grid-column: var(--col-edit);
+    grid-row: 1;
+}
+
+body.mode-vertical #VMBox {
+    grid-column: var(--col-edit);
+    grid-row: 2;
+}
+
+body.mode-vertical #MBoxRow {
+    grid-column: var(--col-edit);
+    grid-row: 3;
+}
+
+/* 竖排：并列行（音素·定符 / Gardiner Code）改为纵向堆叠，不再左右分栏 */
+body.mode-vertical .DualRow {
+    grid-template-columns: 1fr;
+}
+
+/* 预览区：第二列、贯穿整列高度，内部改为纵向（标签 / 竖排字形 / MdC 串） */
+body.mode-vertical .IBPreview {
+    grid-column: var(--col-prev);
+    grid-row: 1 / -1;
+    align-self: stretch;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    height: 100%;
+    max-height: none;
+    margin-bottom: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+body.mode-vertical .IBPreview-render {
+    flex: 0 0 auto;
+    white-space: normal;
+}
+
+/* 竖排模式预览：标签独占一行；字形与 MdC 左右并排、同一顶部对齐
+   （MdC 紧随字形旁边，不再被挤到下方） */
+body.mode-vertical .IBPreview {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     align-items: start;
 }
 
-body.mode-vertical .App-side {
-    grid-column: 1;
+body.mode-vertical .IBPreview-tag {
+    grid-column: 1 / -1;
     grid-row: 1;
-    min-width: 0;
 }
 
-body.mode-vertical .App-canvas {
+body.mode-vertical .IBPreview-render {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+}
+
+/* 竖排模式：MdC 串竖着写 —— 整串旋转 90°、自上而下读（与竖排字形同向） */
+body.mode-vertical .IBPreview-mdc {
     grid-column: 2;
-    grid-row: 1;
+    grid-row: 2;
+    align-self: stretch;
+    min-height: 0;
+    max-height: 100%;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;      /* 拉丁字母与数字整体旋转，不逐字直立 */
+    white-space: nowrap;
+    overflow: auto;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    font-size: 14px;
+}
+
+/* 渲染区：第三列，占约 1/3 屏宽；内容过长时自身滚动 */
+body.mode-vertical .App-canvas {
+    grid-column: var(--col-canvas);
+    grid-row: 1 / -1;
+    align-self: stretch;
     margin-top: 0;
     min-width: 0;
-    position: sticky;
-    top: 8px;
-    max-height: calc(100vh - 16px);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+}
+
+/* 渲染列里的正文输入框：固定在顶部，不随内容伸缩 */
+body.mode-vertical .App-canvas .EditorInput {
+    flex: 0 0 auto;
+    resize: none;
+    margin-bottom: 0;
+}
+
+/* 渲染区吃满剩余高度，内容超出时自身滚动 */
+body.mode-vertical .App-canvas .RenderBox {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: auto;
 }
 
-/* 靠左时两栏宽度也要互换：渲染区仍是 1fr，编辑区 2fr */
-body.mode-vertical.dock-left .App {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-}
-
-body.mode-vertical.dock-left .App-side {
-    grid-column: 2;
-}
-
-body.mode-vertical.dock-left .App-canvas {
-    grid-column: 1;
-}
-
-/* 竖排时渲染区内容较长，给一个最小高度，避免空栏太矮 */
-body.mode-vertical .RenderBox {
-    min-height: 40vh;
-}
-
-/* 窄屏：竖排也回落为上下堆叠，避免 1/3 栏过窄 */
+/* 窄屏：竖排也回落为上下堆叠，避免三栏过窄 */
 @media (max-width: 760px) {
     body.mode-vertical .App {
         display: block;
+        height: auto;
+        min-height: 0;
+    }
+
+    body.mode-vertical .App-canvas {
+        display: block;
+    }
+
+    body.mode-vertical .App-canvas .EditorInput {
+        resize: vertical;
+        margin-bottom: 4px;
+    }
+
+    /* 恢复两层包装（列布局不再需要 display:contents） */
+    body.mode-vertical .App-side {
+        display: block;
+    }
+
+    body.mode-vertical #IBRow {
+        display: grid;
+    }
+
+    /* 预览恢复横条形态 */
+    body.mode-vertical .IBPreview {
+        flex-direction: row;
+        align-items: center;
+        height: auto;
+        max-height: 88px;
+        margin-bottom: 4px;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    body.mode-vertical .IBPreview-render {
+        white-space: nowrap;
+    }
+
+    body.mode-vertical .IBPreview-mdc {
+        writing-mode: horizontal-tb;
+        text-orientation: mixed;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-height: none;
     }
 
     body.mode-vertical .App-canvas {

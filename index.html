@@ -33,12 +33,16 @@
 </head>
 
 <body>
+    <!-- 演示水印：整屏平铺背景文字（设置里可关闭；不拦截鼠标） -->
+    <div class="Watermark" id="Watermark" aria-hidden="true"></div>
     <!-- 排版方向切换：横排 / 竖排。竖排时渲染区占 1/3 屏宽，可靠左或靠右 -->
     <div class="ModeBar" id="ModeBar">
         <span class="ModeBar-title" id="ModeTitle">排版方向</span>
         <div class="ModeSeg">
-            <button type="button" class="ModeBtn" id="ModeHorizontal">横排</button>
-            <button type="button" class="ModeBtn" id="ModeVertical">竖排</button>
+            <button type="button" class="ModeBtn" id="ModeHorizontal"
+                title="横排：上下两块（吕）——编辑区在上，渲染区在下">横排</button>
+            <button type="button" class="ModeBtn" id="ModeVertical"
+                title="竖排：左右两块（吅）——渲染区占 1/3 屏宽，可靠左或靠右">竖排</button>
         </div>
         <div class="ModeSeg" id="ModeDockSeg" hidden>
             <button type="button" class="ModeBtn" id="ModeDockLeft">渲染区靠左</button>
@@ -65,9 +69,10 @@
                 <div id="PDMBox" class="MBox PDMBox empty" data-ph="Phoneme / Determinative Match"></div>
                 <div id="GMBox" class="MBox GMBox empty" data-ph="Gardiner Code Match"></div>
             </div>
-            <textarea id="Input" class="EditorInput" rows="3" spellcheck="false"></textarea>
         </div>
         <div class="App-canvas" id="AppCanvas">
+            <!-- 正文输入框与渲染区同处一列：横排时上下相邻（输入在上），竖排时位于渲染列顶部 -->
+            <textarea id="Input" class="EditorInput" rows="3" spellcheck="false"></textarea>
             <div class="RenderBox" id="RenderBox"></div>
         </div>
     </div>

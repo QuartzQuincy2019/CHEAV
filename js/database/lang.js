@@ -35,7 +35,7 @@ const LANG = {
         settingsGmOptPrev: "GM option-prev key",
         settingsGmOptNext: "GM option-next key",
         settingsPic: "Primary implicit conversion (PIC)",
-    settingsVertical: "Vertical text (body only, VRG becomes HRG)",
+        settingsWatermark: "Demo watermark (background text)",
         settingsKeyCast: "Key display (screen recording, desktop only)",
         // 排版方向切换条
         modeTitle: "Direction",
@@ -72,7 +72,7 @@ const LANG = {
         settingsGmOptPrev: "GM 选项（前）键",
         settingsGmOptNext: "GM 选项（后）键",
         settingsPic: "主字符隐式转换（PIC）",
-    settingsVertical: "竖排（仅正文，VRG 变 HRG）",
+        settingsWatermark: "演示水印（页面背景文字）",
         settingsKeyCast: "按键展示（录屏演示，仅电脑端）",
         // 排版方向切换条
         modeTitle: "排版方向",

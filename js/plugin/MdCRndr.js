@@ -7921,6 +7921,7 @@ function splitLines(tree) {
             + '    flex-direction: column;\n'
             + '    align-items: center;\n'
             + '    width: 1em;\n'                  // 列宽恒为 1em（= 一个四开组）
+            + '    flex: 0 0 auto;\n'            // 不被压缩：列多时横向溢出滚动，而非挤扁字形
             + '}\n\n'
             + '.' + options.hrgClass + ' {\n'
             + '    display: inline-flex;\n'
