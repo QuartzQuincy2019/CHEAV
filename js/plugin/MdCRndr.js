@@ -6846,13 +6846,15 @@ function applyShadow(el, digits) {
 }
 /**
  * 生成一个高 1em 的"格"（.sh-cell），把渲染动作放进格内，再给格加阴影。
- * 宽度**不**固定为 1em：窄字形（如 Z3）保持自然宽度，避免右侧留白。
+ * 横排：宽度**不**固定，窄字形（如 Z3）保持自然宽度，避免右侧留白；
+ * 竖排：宽度固定 1em（= 列宽），阴影与整列对齐，而不是贴在字形自身宽度上。
  * 横排贴底、竖排居中，与普通字形的基线位置一致；阴影按此格划分四象限。
  */
-function renderInShadedCell(parent, fontSize, digits, draw, alignEnd) {
+function renderInShadedCell(parent, fontSize, digits, draw, alignEnd, emWidth) {
     const cell = document.createElement("span");
     cell.className = "sh-cell";
     cell.style.height = px(fontSize) + "px";
+    if (emWidth) cell.style.width = px(fontSize) + "px";
     cell.style.alignItems = alignEnd ? "flex-end" : "center";
     parent.appendChild(cell);
     draw(cell);
@@ -7107,7 +7109,7 @@ function renderLayerUnitV(col, u, size) {
         if (u.shadow) {
             renderInShadedCell(col, size, u.shadow, (cell) => {
                 renderGlyph(cell, u.code, size, "center");
-            }, false);
+            }, false, true);                                // 竖排：格宽 = 列宽 1em
         } else {
             renderGlyph(col, u.code, size, "center");       // 1em 轨道内上下居中
         }
@@ -7116,7 +7118,7 @@ function renderLayerUnitV(col, u, size) {
         if (u.shadow) {
             renderInShadedCell(col, size, u.shadow, (cell) => {
                 renderHRG(cell, u.layers, size);
-            }, false);
+            }, false, true);
         } else {
             renderHRG(col, u.layers, size);
         }
