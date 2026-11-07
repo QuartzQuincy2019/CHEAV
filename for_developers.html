@@ -321,8 +321,9 @@ js/ui/apply.js            ← 最后（需 DOM 就绪）</pre>
 
             <!-- ============================================ -->
             <section id="api">
-                <h2>3 API 一览（运行时生成）</h2>
-                <p>下表由页面加载后直接枚举插件对象生成，因此永远与实现一致：</p>
+                <h2>3 API 一览（运行时生成，按字典序排列）</h2>
+                <p>下表由页面加载后直接枚举插件对象生成，因此永远与实现一致；成员按<b>字典序</b>排列（大小写不敏感），
+                   新增或改名会自动反映到表里，无需手工维护。</p>
                 <h4><code>MdCRndr</code> 顶层成员</h4>
                 <table id="apiTable">
                     <tr><th style="width:26%">成员</th><th style="width:14%">类型</th><th>说明</th></tr>
@@ -967,14 +968,20 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             table.appendChild(tr);
         }
 
+        /** 成员名字典序（大小写不敏感；同名不同大小写时以原始字符串兜底）。 */
+        function sortedKeys(obj) {
+            return Object.keys(obj).sort((a, b) =>
+                a.localeCompare(b, "en", { sensitivity: "base" }) || a.localeCompare(b, "en"));
+        }
+
         function buildTables() {
-            // §3 API
+            // §3 API（按字典序排列，运行时枚举，新增成员自动出现）
             const apiTable = document.getElementById("apiTable");
-            for (const k of Object.keys(MdCRndr)) {
+            for (const k of sortedKeys(MdCRndr)) {
                 addRow(apiTable, [{ text: k, mono: true }, typeof MdCRndr[k], API_DOC[k] || ""]);
             }
             const inTable = document.getElementById("internalsTable");
-            for (const k of Object.keys(MdCRndr.internals)) {
+            for (const k of sortedKeys(MdCRndr.internals)) {
                 addRow(inTable, [{ text: k, mono: true }, typeof MdCRndr.internals[k], INTERNALS_DOC[k] || ""]);
             }
 
