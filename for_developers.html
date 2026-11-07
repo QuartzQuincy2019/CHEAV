@@ -142,6 +142,7 @@
         .sig-type { color: #267f99; }                     /* 类型名 */
         .sig-str  { color: #a31515; }                     /* 字符串字面量 */
         .sig-punc { color: #6b6b6b; }                     /* 标点 */
+        .sig-opt  { color: #b26a00; font-weight: 600; }     /* 可选参数标记 ? */
         .sig-ret  { font-family: Consolas, "Courier New", monospace; }
 
         /* API 一览：函数签名较长，允许在单元格内换行（保持等宽字体） */
@@ -933,6 +934,412 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             vrgBoxWidth: { sig: "vrgBoxWidth(layers: Unit[][])", ret: "number" },
         };
 
+        /** 每个成员的详细说明（用于单元格 title 提示）。 */
+        const SIG_NOTE = {
+            "init": {
+                "params": [
+                    [
+                        "options",
+                        "配置覆盖项（字体、字号、类名等）；省略则只按默认值注入样式"
+                    ]
+                ],
+                "ret": "MdCRndr 自身，便于链式调用",
+                "note": "幂等：重复调用不会叠加 style 元素，按 styleId 复用同一个。"
+            },
+            "set": {
+                "params": [
+                    [
+                        "options",
+                        "需要修改的配置项（部分覆盖，未提供的键保持原值）"
+                    ]
+                ],
+                "ret": "MdCRndr 自身",
+                "note": "改动后立即重建样式表，适合做实时调参面板。"
+            },
+            "config": {
+                "ret": "生效配置的副本",
+                "note": "修改返回值不会影响插件内部状态。"
+            },
+            "render": {
+                "params": [
+                    [
+                        "el",
+                        "渲染目标容器（appendChild，不会清空原有内容）"
+                    ],
+                    [
+                        "tree",
+                        "单位树或单个单位对象"
+                    ],
+                    [
+                        "fontSize",
+                        "字号 px；省略时取 options.fontSize"
+                    ]
+                ],
+                "ret": "无",
+                "note": "底层入口，不校验也不解析；文本请用 renderText / renderVerticalText。"
+            },
+            "renderText": {
+                "params": [
+                    [
+                        "el",
+                        "渲染目标容器"
+                    ],
+                    [
+                        "text",
+                        "纯 MdC 渲染串（不识别发音与定符名）"
+                    ],
+                    [
+                        "fontSize",
+                        "字号 px；省略时取 options.fontSize"
+                    ]
+                ],
+                "ret": "{ tree, invalid }：解析树与被拒片段",
+                "note": "横排。$ 分段依次追加为同级元素；含非法片段时仍渲染其余部分。"
+            },
+            "renderVerticalText": {
+                "params": [
+                    [
+                        "el",
+                        "渲染目标容器"
+                    ],
+                    [
+                        "text",
+                        "纯 MdC 渲染串"
+                    ],
+                    [
+                        "fontSize",
+                        "字号 px；省略时取 options.fontSize"
+                    ]
+                ],
+                "ret": "{ tree, invalid }",
+                "note": "竖排：自上而下成列，$ 分段即分列，列自左向右；组按 HRG 规则排布。"
+            },
+            "parse": {
+                "params": [
+                    [
+                        "text",
+                        "纯 MdC 渲染串"
+                    ]
+                ],
+                "ret": "{ tree, invalid }",
+                "note": "只解析不渲染；invalid 为无法识别的片段，原样列出。"
+            },
+            "splitLines": {
+                "params": [
+                    [
+                        "tree",
+                        "parse 返回的顶层序列"
+                    ]
+                ],
+                "ret": "按 $ 切分后的段数组",
+                "note": "无 $ 时返回单段；非 seq 类型原样包成一段。"
+            },
+            "detectInputMode": {
+                "params": [
+                    [
+                        "code",
+                        "待判断的码串"
+                    ]
+                ],
+                "ret": "\"Gardiner\" | \"Hex\" | \"Default\"",
+                "note": "用于区分 Gardiner 码、十六进制码位与普通文本。"
+            },
+            "decodeCode": {
+                "params": [
+                    [
+                        "code",
+                        "码串（Gardiner 或十六进制）"
+                    ]
+                ],
+                "ret": "对应字符；无法解析时返回 null",
+                "note": ""
+            },
+            "charOf": {
+                "params": [
+                    [
+                        "gardinerCode",
+                        "Gardiner 码（大小写宽容）"
+                    ]
+                ],
+                "ret": "对应字符；表中没有时返回 null",
+                "note": ""
+            },
+            "codeOf": {
+                "params": [
+                    [
+                        "hierograph",
+                        "单个象形文字符"
+                    ]
+                ],
+                "ret": "对应的 Gardiner 码；反查不到时返回 undefined",
+                "note": ""
+            },
+            "canonicalCode": {
+                "params": [
+                    [
+                        "code",
+                        "可能是别名的码"
+                    ]
+                ],
+                "ret": "正式码名",
+                "note": "别名规则：J1 → AA1、J80 → Aa80、Y1v → Y1a；非别名原样返回。"
+            },
+            "canonicalize": {
+                "params": [
+                    [
+                        "text",
+                        "任意 MdC 串"
+                    ]
+                ],
+                "ret": "别名全部换成正式名后的串",
+                "note": "跳过 <…> 插入文本区，避免改写普通文字。"
+            },
+            "defineLigature": {
+                "params": [
+                    [
+                        "name",
+                        "连字名（用 - 连接 2–3 个码）"
+                    ],
+                    [
+                        "parts",
+                        "部件数组：{ code, dx, scale, … } 等几何信息"
+                    ],
+                    [
+                        "pron",
+                        "可选读音"
+                    ]
+                ],
+                "ret": "注册后的连字对象",
+                "note": "同名会覆盖；写入渲染引擎的 LIGATURES 表。"
+            },
+            "px": {
+                "params": [
+                    [
+                        "v",
+                        "任意数值"
+                    ]
+                ],
+                "ret": "四舍五入到 2 位小数的数值",
+                "note": ""
+            },
+            "getMetrics": {
+                "params": [
+                    [
+                        "code",
+                        "码串"
+                    ]
+                ],
+                "ret": "{ height, width }（字体设计单位，1000 = 1em）",
+                "note": "取不到时回退 1em 方块。"
+            },
+            "renderGlyph": {
+                "params": [
+                    [
+                        "parent",
+                        "父容器"
+                    ],
+                    [
+                        "code",
+                        "码串"
+                    ],
+                    [
+                        "fontSize",
+                        "字号 px"
+                    ],
+                    [
+                        "align",
+                        "可选 \"center\"：在 1em 轨道内垂直居中"
+                    ]
+                ],
+                "ret": "字形元素；码无法解析时返回 null",
+                "note": ""
+            },
+            "ligatureWidth": {
+                "params": [
+                    [
+                        "name",
+                        "连字名"
+                    ]
+                ],
+                "ret": "连字墨迹宽度（设计单位）",
+                "note": ""
+            },
+            "makeUnsupported": {
+                "params": [
+                    [
+                        "code",
+                        "字体不支持的码"
+                    ],
+                    [
+                        "size",
+                        "字号 px"
+                    ]
+                ],
+                "ret": "1em 方块 + 码名的占位元素",
+                "note": ""
+            },
+            "unitMetrics": {
+                "params": [
+                    [
+                        "u",
+                        "单位（char / vrg / seq …）"
+                    ]
+                ],
+                "ret": "{ h, w }（设计单位）",
+                "note": ""
+            },
+            "layerMetrics": {
+                "params": [
+                    [
+                        "line",
+                        "一层内的单位数组"
+                    ]
+                ],
+                "ret": "{ h, w }（设计单位）",
+                "note": "含层内元素间距。"
+            },
+            "vrgBoxWidth": {
+                "params": [
+                    [
+                        "layers",
+                        "二维层数组"
+                    ]
+                ],
+                "ret": "堆叠组盒宽（设计单位，含缩放）",
+                "note": ""
+            },
+            "renderVRG": {
+                "params": [
+                    [
+                        "parent",
+                        "父容器"
+                    ],
+                    [
+                        "layers",
+                        "二维层数组"
+                    ],
+                    [
+                        "fontSize",
+                        "基准字号 px"
+                    ]
+                ],
+                "ret": "堆叠组容器元素",
+                "note": "整体保持 1em 方块；超出时等比缩小。"
+            },
+            "renderLayerUnit": {
+                "params": [
+                    [
+                        "layer",
+                        "层容器元素"
+                    ],
+                    [
+                        "u",
+                        "单位对象"
+                    ],
+                    [
+                        "glyphSize",
+                        "该层字号 px"
+                    ]
+                ],
+                "ret": "无",
+                "note": "按类型分派到字形 / 嵌套组 / 连字 / 文本。"
+            },
+            "renderLigature": {
+                "params": [
+                    [
+                        "parent",
+                        "父容器"
+                    ],
+                    [
+                        "name",
+                        "连字名"
+                    ],
+                    [
+                        "fontSize",
+                        "基准字号 px"
+                    ]
+                ],
+                "ret": "连字容器元素",
+                "note": ""
+            },
+            "renderHRG": {
+                "params": [
+                    [
+                        "parent",
+                        "父容器"
+                    ],
+                    [
+                        "layers",
+                        "二维层数组"
+                    ],
+                    [
+                        "fontSize",
+                        "基准字号 px"
+                    ]
+                ],
+                "ret": "组容器元素",
+                "note": "竖排中的组：几何与 VRG 相同，只把类名换成 hrgClass。"
+            },
+            "renderLayerUnitV": {
+                "params": [
+                    [
+                        "col",
+                        "竖排列容器元素"
+                    ],
+                    [
+                        "u",
+                        "单位对象"
+                    ],
+                    [
+                        "size",
+                        "该列字号 px"
+                    ]
+                ],
+                "ret": "无",
+                "note": "竖排分派：字形 / HRG / 连字 / 文本 / 包围框 / 占位框。"
+            },
+            "renderVertical": {
+                "params": [
+                    [
+                        "parent",
+                        "父容器"
+                    ],
+                    [
+                        "tree",
+                        "单位树"
+                    ],
+                    [
+                        "fontSize",
+                        "基准字号 px"
+                    ]
+                ],
+                "ret": "竖排整块容器（.vtext）",
+                "note": "$ 分段成列，列自左向右排列。"
+            },
+            "buildCss": {
+                "ret": "注入用的完整样式文本",
+                "note": "只生成字符串，不写入文档。"
+            },
+            "injectStyle": {
+                "ret": "无",
+                "note": "写入 / 重建样式表（styleId）；幂等，重复调用复用同一元素。"
+            }
+        };
+
+        /** 组装 title：签名 + 表内简述 + 参数逐条 + 返回 + 备注。 */
+        function sigTitle(key, sig, brief) {
+            const n = SIG_NOTE[key] || {};
+            const lines = [sig.sig + "  →  " + sig.ret];
+            if (brief && brief !== n.ret) lines.push(brief);   // 与「返回」重复时不重复显示
+            if (n.params && n.params.length) {
+                lines.push("参数：");
+                for (const p of n.params) lines.push("  " + p[0] + " — " + p[1]);
+            }
+            if (n.ret) lines.push("返回：" + n.ret);
+            if (n.note) lines.push("备注：" + n.note);
+            return lines.join("\n");
+        }
+
         const API_DOC = {
             DEFAULTS: "默认配置对象（只读参考）",
             init: "初始化：应用配置并注入样式（幂等）",
@@ -1044,7 +1451,10 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
                     i = j;
                     continue;
                 }
-                push(ch, "sig-punc");                               // 标点（含 ? : , | [ ] { } ;）
+                // 可选参数标记 "?" 单独着色，其余为普通标点
+                if (ch === "?" && src[i + 1] === ":") push(ch, "sig-opt");
+                else push(ch, "sig-punc");
+
                 i++;
             }
             return out;
@@ -1054,6 +1464,7 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             const tr = document.createElement("tr");
             for (const c of cells) {
                 const td = document.createElement("td");
+                if (c && c.title) td.title = c.title;
                 if (c && c.sig !== undefined) {
                     // 函数签名：按 token 着色（IDE 风格）
                     td.className = "k";
@@ -1095,9 +1506,10 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             for (const k of sortedKeys(MdCRndr)) {
                 const v = MdCRndr[k];
                 const sig = typeof v === "function" ? API_SIG[k] : null;
+                const tip = sig ? sigTitle(k, sig, API_DOC[k]) : (API_DOC[k] || "");
                 addRow(apiTable, [
-                    sig ? { sig: sig.sig } : { text: k, mono: true },
-                    sig ? { ret: sig.ret } : typeof v,
+                    sig ? { sig: sig.sig, title: tip } : { text: k, mono: true, title: tip },
+                    sig ? { ret: sig.ret, title: tip } : typeof v,
                     API_DOC[k] || "",
                 ]);
             }
@@ -1105,9 +1517,10 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             for (const k of sortedKeys(MdCRndr.internals)) {
                 const v = MdCRndr.internals[k];
                 const sig = typeof v === "function" ? INTERNALS_SIG[k] : null;
+                const tip = sig ? sigTitle(k, sig, INTERNALS_DOC[k]) : (INTERNALS_DOC[k] || "");
                 addRow(inTable, [
-                    sig ? { sig: sig.sig } : { text: k, mono: true },
-                    sig ? { ret: sig.ret } : typeof v,
+                    sig ? { sig: sig.sig, title: tip } : { text: k, mono: true, title: tip },
+                    sig ? { ret: sig.ret, title: tip } : typeof v,
                     INTERNALS_DOC[k] || "",
                 ]);
             }
