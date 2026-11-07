@@ -9,7 +9,7 @@ open `index.html` and you are ready to go.
 > **Try it online: <https://quartzquincy2019.github.io/CHEAV/>**
 > (hosted on GitHub Pages; see below for local use)
 
-- Version: **1.0.0** (since 2025-12-27)
+- Version: **2.0.0** (since 2025-12-27)
 - Author: **Quincy K. / Quartz Studio ©2019-2026**
 - The rendering engine is a single-file plugin, [`js/plugin/MdCRndr.js`](js/plugin/MdCRndr.js), that can be
   embedded in other projects on its own
