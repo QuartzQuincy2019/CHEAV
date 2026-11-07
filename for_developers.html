@@ -659,6 +659,21 @@ MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
                     <figcaption>六种典型类型的层结构（方框为 1em 方格，色块按真实层高与组宽绘制；虚线表示层内分格）</figcaption>
                 </figure>
 
+                <h4>层与层为什么不会重叠</h4>
+                <p>组内布局用的是 <code>justify-content: space-between</code>：<b>首层贴顶、末层贴底，中间各层把剩余空间等分</b>。
+                   所以设层高为 <code>hᵢ' = hᵢ × s</code>（缩放后），则</p>
+                <pre>层间距 gap = (1em − Σhᵢ') / (层数 − 1)      // 层数为 1 时不适用
+第 i 层的顶部 yᵢ = 上一层的 y + h' + gap</pre>
+                <p>由此可推出几个直觉结论：</p>
+                <ul>
+                    <li><b>层数越多，层间空隙越窄</b>：亖（四层，Σh' 已接近 1em）的 gap 只剩几个像素，四层几乎连成一条；
+                        三（三层，总层高 550 远小于 1em）的 gap 就很大，三层之间明显拉开；</li>
+                    <li><b>重叠在实现里不可能发生</b>：gap ≥ 0 且各层顺序累加，最坏情况（Σh' 超过 1em）由缩放 <code>s</code> 提前拦截 ——
+                        这正是 <code>s = min(1, 1em/totalH, 1em/maxW)</code> 存在的意义；</li>
+                    <li><b>上图里的重叠是画图脚本的 bug，不是引擎行为</b>：早先版本把中间层各自"居中"到剩余空间，
+                        三层以上就会互相压住；现已改为按上面公式顺序堆叠。</li>
+                </ul>
+
                 <h4>从层结构能直接读出什么</h4>
                 <ul>
                     <li><b>层数决定要不要缩</b>：总层高 = Σ层高 + 0.05em×(层数−1)。三（N35×3）总高 550 → s=1；
@@ -1206,13 +1221,18 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             // 组盒
             cvFrame(ctx, bx, y0, boxPx, side, "#7aa87a", [4, 3]);
 
-            // 层：自下而上按 1em 内的实际高度；用 space-between 语义（首层贴顶、末层贴底）
-            let yTop = y0, yBottom = y0 + side;
+            // 层的分布 = 真实的 justify-content: space-between
+            //   首层贴顶、末层贴底，中间各层等分剩余空间 —— 层与层绝不重叠
+            const hs = layers.map(l => Math.max(5, side * l.h * s / 1000));
+            const sumH = hs.reduce((a, b) => a + b, 0);
+            const clampK = sumH > side ? side / sumH : 1;          // 极端情况防溢出
+            const drawH = hs.map(h => h * clampK);
+            const usedH = drawH.reduce((a, b) => a + b, 0);
+            const gapPx = layers.length > 1 ? Math.max(0, (side - usedH) / (layers.length - 1)) : 0;
+
+            let ly = y0;
             layers.forEach((l, i) => {
-                const hPx = Math.max(6, side * l.h * s / 1000);
-                const isFirst = i === 0, isLast = i === layers.length - 1;
-                const ly = isFirst ? yTop : (isLast ? yBottom - hPx : yTop + (yBottom - yTop - hPx) / 2);
-                const wPx = Math.max(10, boxPx * Math.min(1, l.n > 1 ? 1 : 0.7));
+                const hPx = drawH[i];
                 ctx.save();
                 ctx.fillStyle = l.n > 1 ? "rgba(59, 111, 212, 0.20)" : "rgba(38, 127, 153, 0.20)";
                 ctx.fillRect(bx + 1, ly, boxPx - 2, hPx);
@@ -1231,9 +1251,8 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
                         ctx.restore();
                     }
                 }
-                cvText(ctx, bx + boxPx + 6, ly + Math.min(hPx, 30) / 2 + 3, l.n + " 格", { size: 10, color: "#55606d" });
-                if (isFirst) yTop = ly + hPx;
-                if (isLast) yBottom = ly;
+                cvText(ctx, bx + boxPx + 6, ly + Math.min(hPx, 26) / 2 + 3, l.n + " 格", { size: 10, color: "#55606d" });
+                ly += hPx + gapPx;
             });
 
             cvText(ctx, W / 2, H - 26, item.name + "   " + item.src, { align: "center", size: 12, bold: true, color: "#22303f" });
@@ -1250,10 +1269,6 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
                 cv.width = 200;
                 cv.height = 190;
                 wrap.appendChild(cv);
-                const cap = document.createElement("div");
-                cap.className = "canvas-cap";
-                cap.textContent = item.name;
-                wrap.appendChild(cap);
                 host.appendChild(wrap);
                 try { drawVariant(cv, item); } catch (e) { /* 单张失败不影响其它 */ }
             });
