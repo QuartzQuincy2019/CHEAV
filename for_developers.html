@@ -609,41 +609,44 @@ MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
                    并说明这条规则<b>为什么</b>存在。看懂这 7 步，横排的行为就不用再猜。</p>
                 <div class="steps" id="layoutSteps"></div>
 
-                <h3>5.2 VRG 的类型：吅 · 吕 · 品 · 倒品 · 㗊 · 亖 · 𠾅</h3>
+                <h3>5.2 VRG 的类型：吅 · 吕 · 三 · 品 · 倒品 · 㗊 · 亖 · 𠾅</h3>
                 <p>MdC 里没有「品」「倒品」这样的专门记号 —— 四开组的形态完全由<b>层结构</b>决定：
-                   <code>*</code> 同层并列、<code>:</code> 换层。习惯上按<b>层内格数的组合</b>给它们起类比名
-                   （借汉字的字形记忆，<b>非学科术语</b>）：</p>
+                   <code>*</code> 同层并列、<code>: 换层</code>。习惯上按<b>层内格数的组合</b>起类比名（借汉字字形记忆，
+                   <b>非学科术语</b>）。下表每类都用真实码串举例（数值取自引擎，单位 1000 = 1em）：</p>
                 <table id="vrgVariantTable">
                     <tr>
-                        <th style="width:10%">类名</th>
+                        <th style="width:9%">类名</th>
                         <th style="width:9%">层结构</th>
-                        <th style="width:20%">MdC 写法</th>
-                        <th style="width:17%">层高×层宽</th>
+                        <th style="width:22%">MdC 写法</th>
+                        <th style="width:18%">层高×层宽</th>
                         <th style="width:7%">s</th>
                         <th style="width:9%">组宽</th>
                         <th>说明</th>
                     </tr>
-                    <tr><td class="k"><b>吅</b></td><td class="k">2</td><td class="k"><code>X1*Z1</code></td>
-                        <td class="k">395×679</td><td class="k">1.000</td><td class="k">0.679em</td>
-                        <td>单层两格并列（一个「横排四开组」）</td></tr>
-                    <tr><td class="k"><b>吕</b></td><td class="k">1+1</td><td class="k"><code>X1:Z1</code></td>
-                        <td class="k">276×494 / 395×60</td><td class="k">1.000</td><td class="k">0.494em</td>
-                        <td>上下各一格；组宽由较宽的那层决定</td></tr>
-                    <tr><td class="k"><b>品</b></td><td class="k">1+2</td><td class="k"><code>X1:Z1*X1</code></td>
-                        <td class="k">276×494 / 395×679</td><td class="k">1.000</td><td class="k">0.679em</td>
-                        <td>上一下二；下层出现层内并列，两端对齐</td></tr>
-                    <tr><td class="k"><b>倒品</b></td><td class="k">2+1</td><td class="k"><code>X1*Z1:W24</code></td>
-                        <td class="k">395×679 / 570×540</td><td class="k">0.985</td><td class="k">0.669em</td>
-                        <td>上二下一；下层是单个高字，居中</td></tr>
-                    <tr><td class="k"><b>㗊</b></td><td class="k">2+2</td><td class="k"><code>X1*Z1:Z1*X1</code></td>
-                        <td class="k">395×679 / 395×679</td><td class="k">1.000</td><td class="k">0.679em</td>
-                        <td>四格两行；两层等宽时上下最整齐</td></tr>
-                    <tr><td class="k"><b>亖</b></td><td class="k">1+1+1+1</td><td class="k"><code>X1:Z1:X1:Z1</code></td>
-                        <td class="k">276/395/276/395</td><td class="k">0.670</td><td class="k">0.331em</td>
-                        <td>四层各一格：总层高 1492，整组缩到 0.67，组宽只剩 0.33em</td></tr>
-                    <tr><td class="k"><b>𠾅</b></td><td class="k">2+1+2</td><td class="k"><code>X1*Z1:X1:Z1*X1</code></td>
-                        <td class="k">395×679 / 276×494 / 395×679</td><td class="k">0.858</td><td class="k">0.582em</td>
-                        <td>三层五格；总层高 1166，整体缩到 0.858</td></tr>
+                    <tr><td class="k"><b>吅</b></td><td class="k">2</td><td class="k"><code>D21*G43</code></td>
+                        <td class="k">999×1796</td><td class="k">0.557</td><td class="k">1.000em</td>
+                        <td>单层两格并列；两个都宽 → 缩到 0.557</td></tr>
+                    <tr><td class="k"><b>吕</b></td><td class="k">1+1</td><td class="k"><code>O34:N37</code></td>
+                        <td class="k">162×997 / 254×1000</td><td class="k">1.000</td><td class="k">1.000em</td>
+                        <td>两个宽扁符号上下叠，恰好 1em</td></tr>
+                    <tr><td class="k"><b>三</b></td><td class="k">1+1+1</td><td class="k"><code>N35:N35:N35</code></td>
+                        <td class="k">150×983 ×3</td><td class="k">1.000</td><td class="k">0.983em</td>
+                        <td>三层各一格；总层高 550，放得下，不缩</td></tr>
+                    <tr><td class="k"><b>品</b></td><td class="k">1+2</td><td class="k"><code>D21:G43*X1</code></td>
+                        <td class="k">305×996 / 999×1294</td><td class="k">0.739</td><td class="k">0.956em</td>
+                        <td>上一下二；下层 G43+X1 很宽，整组缩到 0.739</td></tr>
+                    <tr><td class="k"><b>倒品</b></td><td class="k">2+1</td><td class="k"><code>W24*X1:N1</code></td>
+                        <td class="k">570×1159 / 274×997</td><td class="k">0.863</td><td class="k">1.000em</td>
+                        <td>上二下一；上层宽 1159，缩到 0.863</td></tr>
+                    <tr><td class="k"><b>㗊</b></td><td class="k">2+2</td><td class="k"><code>D21*G43:N35*X1</code></td>
+                        <td class="k">999×1796 / 276×1602</td><td class="k">0.557</td><td class="k">1.000em</td>
+                        <td>四格两行；两层都宽，缩到 0.557</td></tr>
+                    <tr><td class="k"><b>亖</b></td><td class="k">1+1+1+1</td><td class="k"><code>O34:N37:Z9:Y1</code></td>
+                        <td class="k">162/254/505/257</td><td class="k">0.753</td><td class="k">0.753em</td>
+                        <td>四层各一格；四层宽度都接近 1em，总高 1328 → 0.753</td></tr>
+                    <tr><td class="k"><b>𠾅</b></td><td class="k">2+1+2</td><td class="k"><code>D21*G43:N35:N37*X1</code></td>
+                        <td class="k">999×1796 / 150×983 / 276×1619</td><td class="k">0.557</td><td class="k">1.000em</td>
+                        <td>三层五格；总层高 1525 → 0.557</td></tr>
                     <tr><td class="k">其他</td><td class="k">1+3</td><td class="k"><code>X1:Z1*X1*Z1</code></td>
                         <td class="k">276×494 / 395×864</td><td class="k">1.000</td><td class="k">0.864em</td>
                         <td>上一下三；组宽被宽的那层撑大</td></tr>
@@ -653,25 +656,27 @@ MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
                 </table>
                 <figure class="diagram">
                     <div class="canvas-wrap" id="variantCanvases"></div>
-                    <figcaption>七种典型类型的层结构（方框为 1em 方格，色块按真实层高与组宽绘制；虚线表示层内分格）</figcaption>
+                    <figcaption>六种典型类型的层结构（方框为 1em 方格，色块按真实层高与组宽绘制；虚线表示层内分格）</figcaption>
                 </figure>
 
                 <h4>从层结构能直接读出什么</h4>
                 <ul>
-                    <li><b>层数决定要不要缩</b>：总层高 = Σ层高 + 0.05em×(层数−1)。吅/吕/品/㗊 这类两层组合通常 s=1；
-                        亖（1+1+1+1）总层高 1492 → s=0.670，𠾅（2+1+2）总层高 1166 → s=0.858；</li>
-                    <li><b>组宽由最宽的层决定</b>：品（1+2）与㗊（2+2）都是 0.679em，因为最宽层一样；
-                        亖 每层只一格（宽 60～494），组宽缩到 0.331em —— 细长的「亖」看上去比同字号的一格字窄很多，就是这个原因；</li>
-                    <li><b>层内多格两端对齐、单格居中</b>：品的下层两格贴边、倒品的单格居中；𠾅 的上下两层各贴边、中间单格居中；</li>
-                    <li><b>组宽一般小于 1em</b>：只有超宽层（如 <code>D21*N35*Z1</code>）才会被缩到正好 1em；</li>
+                    <li><b>层数决定要不要缩</b>：总层高 = Σ层高 + 0.05em×(层数−1)。三（N35×3）总高 550 → s=1；
+                        亖（O34:N37:Z9:Y1）总高 1328 → s=0.753；𠾅（三层五格）总高 1525 → s=0.557；</li>
+                    <li><b>组宽由最宽的层决定</b>：吕的两个符号都接近 1em 宽 → 组宽正好 1.000em；
+                        三只 0.983em（N35 宽 983）；品 0.956em；亖 的每层宽 466–1000，最终 0.753em；</li>
+                    <li><b>宽符号更容易触发缩放</b>：吅/㗊/𠾅 都含 G43（宽 675）与 D21（宽 996），层宽 1796 → 一律 0.557；
+                        这是「两个宽字并排必定缩」的直接体现；</li>
+                    <li><b>层内多格两端对齐、单格居中</b>：品的下层 G43+X1 贴住左右边缘；倒品的下层 N1 单格居中；
+                        𠾅 是"贴边 / 居中 / 贴边"；</li>
                     <li><b>竖排（HRG）下同一写法换语义</b>：<code>*</code> 变「同一行并列」、<code>:</code> 变「换行」，
-                        但层结构、层高、层宽与缩放公式不变，所以「品」在竖排里是同一组符号的另一种读向。</li>
+                        但层结构、层高、层宽与缩放公式不变。</li>
                 </ul>
                 <div class="note">
-                    <b>书写规则：</b>四开组内不能用 <code>-</code>（那是组间分隔），所以「品」只能写 <code>A:B*C</code>，
-                    不能写 <code>A-B*C</code>；层内元素之间只允许 <code>*</code>。<br>
-                    <b>名称说明：</b>吅 / 吕 / 品 / 倒品 / 㗊 / 亖 / 𠾅 是<b>按汉字字形起的类比名</b>（便于记忆层数组合），
-                    不是埃及学或 MdC 规范的术语；正式场合请直接写层结构（如 <code>2+1+2</code>）。
+                    <b>书写规则：</b>四开组内不能用 <code>-</code>（那是组间分隔），所以「品」只能写 <code>D21:G43*X1</code>，
+                    不能写 <code>D21-G43*X1</code>；层内元素之间只允许 <code>*</code>。<br>
+                    <b>名称说明：</b>吅 / 吕 / 三 / 品 / 倒品 / 㗊 / 亖 / 𠾅 是<b>按汉字字形起的类比名</b>，
+                    不是埃及学或 MdC 规范的术语；正式场合直接写层结构（如 <code>2+1+2</code>）。
                 </div>
             </section>
 
@@ -1167,15 +1172,13 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
         // 用真实层高与组宽在 1em 方格内绘制（缩放后）
         // ------------------------------------------------------------
         const VRG_VARIANTS = [
-            { name: "吅（2）", src: "X1*Z1" },
-            { name: "吕（1+1）", src: "X1:Z1" },
-            { name: "品（1+2）", src: "X1:Z1*X1" },
-            { name: "倒品（2+1）", src: "X1*Z1:W24" },
-            { name: "㗊（2+2）", src: "X1*Z1:Z1*X1" },
-            { name: "亖（1+1+1+1）", src: "X1:Z1:X1:Z1" },
-            { name: "𠾅（2+1+2）", src: "X1*Z1:X1:Z1*X1" },
-        ];
-        /** 按 1em 方格绘制一个四开组的层结构 */
+            { name: "吅（2）", src: "D21*G43" },
+            { name: "吕（1+1）", src: "O34:N37" },
+            { name: "三（1+1+1）", src: "N35:N35:N35" },
+            { name: "品（1+2）", src: "D21:G43*X1" },
+            { name: "倒品（2+1）", src: "W24*X1:N1" },
+            { name: "亖（1+1+1+1）", src: "O34:N37:Z9:Y1" },
+        ];        /** 按 1em 方格绘制一个四开组的层结构 */
         function drawVariant(cv, item) {
             if (!cv || !cv.getContext) return;
             const ctx = cv.getContext("2d");
