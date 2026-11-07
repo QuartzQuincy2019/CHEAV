@@ -7699,6 +7699,11 @@ function splitLines(tree) {
             "    background-repeat: space;",       // 整齿等距分布，两端不留半齿
             "    background-position: center;",
             "}",
+            "." + options.encKindClass.F + " .enc-F-l,",
+            "." + options.encKindClass.F + " .enc-F-r {",
+            "    background-size: 100% 0.20em;",   // 竖向边沿 y 平铺
+"}",
+
             "." + options.encKindClass.F + " .enc-F-t { left: 0.20em; right: 0.20em; top: -0.14em; height: 0.14em; }",
             "." + options.encKindClass.F + " .enc-F-b { left: 0.20em; right: 0.20em; bottom: -0.14em; height: 0.14em; }",
             "." + options.encKindClass.F + " .enc-F-l { top: 0.20em; bottom: 0.20em; left: -0.14em; width: 0.14em; --f-angle: 180deg; }",
