@@ -7669,21 +7669,36 @@ function splitLines(tree) {
             "    align-items: center;",
             "    width: 100%;",              // 撑满框宽，否则 inline-flex 收缩到内容宽、靠左
             "}",
-            "." + options.encKindClass.F + " {",   // 齿状框：实线框 + 四边方块齿（齿跨在框线上、向外凸出）
+            "." + options.encKindClass.F + " {",   // 齿状框：实线框 + 框外方块齿（四角各一齿包裹边角）
             "    border: 0.07em solid #000;",          // 框：实线
-            "    background-image:",
-            "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",
-            "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",
-            "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em),",
-            "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em);",
-            "    background-size: 100% 0.14em, 100% 0.14em, 0.14em 100%, 0.14em 100%;",   // 齿厚 0.14em，覆盖框线并向外凸出
-            "    background-position: left top, left bottom, left top, right top;",
-            "    background-repeat: no-repeat;",
+            "    position: relative;",
             "    padding: 0.08em;",
             "    box-sizing: content-box;",
             "}",
-            "." + options.encKindClass.F + v + " {",   // 竖排：同一套四边齿（沿边拉伸，端头比例不变）
-            "    background-size: 100% 0.14em, 100% 0.14em, 0.14em 100%, 0.14em 100%;",
+            "." + options.encKindClass.F + "::before {",   // 齿层：外扩一圈，落在框外侧
+            "    content: \"\";",
+            "    position: absolute;",
+            "    inset: -0.14em;",                  // 外扩到框外（0.07 边框 + 0.07 齿根）
+            "    pointer-events: none;",
+            "    background-image:",
+            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 左上 / 右上角齿
+            "        linear-gradient(#000, #000), linear-gradient(#000, #000),",       // 左下 / 右下角齿
+            "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",   // 上边中段齿
+            "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",   // 下边中段齿
+            "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em),",  // 左边中段齿
+            "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em);",  // 右边中段齿
+            "    background-size:",
+            "        0.14em 0.14em, 0.14em 0.14em, 0.14em 0.14em, 0.14em 0.14em,",       // 角齿：0.14 见方，包裹边角
+            "        100% 0.14em, 100% 0.14em, 0.14em 100%, 0.14em 100%;",
+            "    background-position:",
+            "        left top, right top, left bottom, right bottom,",
+            "        left top, left bottom, left top, right top;",
+            "    background-repeat:",
+            "        no-repeat, no-repeat, no-repeat, no-repeat,",
+            "        repeat-x, repeat-x, repeat-y, repeat-y;",
+            "}",
+            "." + options.encKindClass.F + v + " {",   // 竖排：同一套四边齿
+            "    padding: 0.08em;",
             "}",
             h1 + " {",                      // 裸方框
             "    border: 0.07em solid #000;",   // 与锦旗框同粗
