@@ -507,6 +507,93 @@ MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
             <!-- ============================================ -->
             <section id="render">
                 <h2>5 渲染</h2>
+                <h3>5.0 字形的位置与大小：排版原理</h3>
+                <p>渲染不测量 DOM，也不按像素摆位；所有位置与尺寸都由<b>字号</b>和<b>字体度量</b>推出。
+                   记住三条不变量，其余规则都能推出来：</p>
+                <table>
+                    <tr><th style="width:22%">不变量</th><th>含义</th></tr>
+                    <tr><td class="k">1em 方格</td>
+                        <td>每个字形占一个 <code>fontSize × fontSize</code> 的方格（下称「格」）；组、包围框的外廓也都是 1em。</td></tr>
+                    <tr><td class="k">只缩不放</td>
+                        <td>任何缩放系数 <code>s = min(1, 1em / 需求尺寸)</code> —— 放不下才等比缩小，绝不放大（Faulkner 词典观感）。</td></tr>
+                    <tr><td class="k">单位一律 em</td>
+                        <td>内边距、边框、间距、齿带全部写成 em，随字号缩放；换字号不需要改任何一处。</td></tr>
+                </table>
+
+                <h4>度量从哪来</h4>
+                <p>每个码的墨迹尺寸取自字体 <code>glyf</code> 的 bbox，存在 <code>visuHeight</code> / <code>visuWidth</code> 里，
+                   单位是设计单位（<code>EM_SQUARE = 1000</code>，即 1000 = 1em）。<code>getMetrics(code)</code> 返回
+                   <code>{ height, width }</code>。例如 <code>A1</code> = 999×695（几乎满格），<code>D21</code> = 305×996（扁而宽），
+                   <code>Z1</code> = 395×60（细高条）。</p>
+
+                <h4>横排：一行若干格</h4>
+                <ul>
+                    <li>行容器 <code>.RenderLine</code> 是 flex 行、<code>align-items: flex-end</code>，所以各格<b>底边对齐</b>（同一基线）；</li>
+                    <li>每格宽度 = 该字形的字宽（字体 advance），不改写；相邻格不重叠；</li>
+                    <li>字形在自己的格里默认<b>贴底</b>；需要上下居中时（如独立显示、包围框内），引擎写入
+                        <code>transform: translateY(-(fontSize − 墨迹高)/2)</code>，把墨迹居中到格里；
+                        以 40px 的 <code>A1</code> 为例，墨迹 999/1000 已接近满格，位移只有 0.02px；像 <code>D21</code>（305）则上移约 14px；</li>
+                    <li><code>.hie</code> 是 inline-block，一个字形作为整体参与换行，<b>不会从中间断开</b>。</li>
+                </ul>
+
+                <h4>堆叠组（VRG）：把一个格切成若干层</h4>
+                <p>组的外框永远是 <b>1em 高</b>，层自上而下排列；每层先算出自己的墨迹高与宽（层内元素宽度之和，相邻元素再加
+                   <code>vrgItemGap</code>），然后：</p>
+                <pre>总层高  totalH = Σ 层高 + vrgLayerGap × (层数 − 1)      // 默认 vrgLayerGap = 0.05em
+最大层宽 maxW   = max(各层宽)
+缩放    s      = min(1, 1em / totalH, 1em / maxW)          // 只缩不放
+组盒高  = 1em（justify-content: space-between：首层贴顶、末层贴底）
+组盒宽  = maxW × s
+层内    = 单元素居中；多元素两端对齐（space-between）
+层内字号 = 基准字号 × s</pre>
+                <p>实测几个例子（单位：设计单位，1000 = 1em）：</p>
+                <table>
+                    <tr><th style="width:26%">写法</th><th style="width:24%">层高 / 层宽</th><th style="width:18%">s</th><th>说明</th></tr>
+                    <tr><td class="k">D21:N35</td><td class="k">305/996, 150/983</td><td class="k">1.000</td>
+                        <td>总层高 505、最大层宽 996，都放得下 → 不缩放，组宽 0.996em</td></tr>
+                    <tr><td class="k">Z1*Z1:Z1*Z1</td><td class="k">395/245 ×2</td><td class="k">1.000</td>
+                        <td>四开四格，不缩放；组宽 0.245em（内容窄，盒就窄）</td></tr>
+                    <tr><td class="k">A1:A1:A1</td><td class="k">999/695 ×3</td><td class="k">0.323</td>
+                        <td>总层高 3097 超高 → 整体缩到约三分之一，组宽 0.224em</td></tr>
+                    <tr><td class="k">D21*D21*D21</td><td class="k">305/3238</td><td class="k">0.309</td>
+                        <td>单层太宽 → 缩到 1em 内（组宽正好 1em）</td></tr>
+                </table>
+                <p>注意组盒宽是 <code>maxW × s</code>，所以一个窄组不会白白占满 1em —— 这也是「A1:A1:A1 缩得很小」时
+                   看上去仍紧贴前后符号的原因。</p>
+
+                <h4>竖排：一列若干格</h4>
+                <ul>
+                    <li>列容器 <code>.vline</code> 宽恒为 <b>1em</b>，单位自上而下堆叠、水平居中；</li>
+                    <li>组在竖排中仍是 1em 方格内的排版，只是<b>层变成行</b>（HRG），几何与横排 VRG 完全一致；</li>
+                    <li><code>$</code> 分段即分列，列自左向右排列。</li>
+                </ul>
+
+                <h4>包围框：外廓锁死 1em，内容按类型缩放</h4>
+                <p>包围框不改变所在格的尺寸：外廓恒为 1em，内容按框的种类缩放到固定比例，腾出的空间给边框、内边距与收口件。</p>
+                <table>
+                    <tr><th style="width:20%">框</th><th style="width:16%">内容缩放</th><th style="width:22%">外廓构成</th><th>收口件</th></tr>
+                    <tr><td class="k">王名圈 A</td><td class="k">0.70</td><td class="k">0.70 + 0.16 + 0.06</td><td>框外细座（座 + margin 占位）</td></tr>
+                    <tr><td class="k">塞拉赫框 S</td><td class="k">0.64</td><td class="k">0.64 + 0.22 + 0.14</td><td>框外字体字形尾</td></tr>
+                    <tr><td class="k">裸方框 h1</td><td class="k">0.70</td><td class="k">0.70 + 0.16 + 0.14</td><td>无</td></tr>
+                    <tr><td class="k">堡垒框 F</td><td class="k">0.50</td><td class="k">0.50 + 0.16 + 0.06 + 0.28</td><td>四边雉堞齿（DOM 元素）</td></tr>
+                </table>
+                <p>框外的收口件（座、尾、雉堞）用 <code>margin</code> 预留布局空间，因此不会压到相邻符号，也不改变框内排版。</p>
+
+                <h4>阴影与插入文本</h4>
+                <ul>
+                    <li><b>阴影</b>不改任何尺寸：它给 <code>.sh-cell</code>（高 1em；横排宽随内容、竖排宽 1em）加四层 <code>50%×50%</code>
+                        的背景，纯绘制、不参与布局与度量；</li>
+                    <li><b>插入文本</b>字号 = <code>textScale × 基准字号</code>（默认 0.4，40px → 16px），写成绝对 px，
+                        垂直居中（<code>align-self: center</code>），不随容器 font-size 变化；</li>
+                    <li><b>连字</b>的盒宽 = 各部件右端的最大值；部件用绝对定位按 <code>dx / dy / scale</code> 摆在方块内，
+                        不参与常规流。</li>
+                </ul>
+                <div class="note">
+                    <b>一句话总结：</b>字号决定格，度量决定格内怎么摆，<code>min(1, …)</code> 决定要不要缩，
+                    <code>em</code> 决定换字号时为什么不用改任何数值。
+                </div>
+
+
 
                 <h3><code>MdCRndr.renderText(el, mdC, fontSize?) → { tree, invalid }</code></h3>
                 <p><b>本引擎唯一的文本入口</b>：解析纯 MdC 渲染串并渲染到 <code>el</code>。多个段（<code>$</code> 分隔）会依次追加为同级元素。即使存在非法片段，也会把可解析部分渲染出来，非法片段列在返回值的 <code>invalid</code> 中。</p>
