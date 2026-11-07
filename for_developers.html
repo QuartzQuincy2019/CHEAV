@@ -609,6 +609,30 @@ MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
                    并说明这条规则<b>为什么</b>存在。看懂这 7 步，横排的行为就不用再猜。</p>
                 <div class="steps" id="layoutSteps"></div>
 
+                <h4>⑤ 补充：<code>s = min(1, 1em / totalH, 1em / maxW)</code> 是怎么来的</h4>
+                <p>组要装进<b>一个 1em 方格</b>，于是有两个互相独立的约束：<b>高不超过 1em</b>、<b>宽不超过 1em</b>。
+                   设未缩放时的内容高为 <code>totalH</code>、最宽层为 <code>maxW</code>，等比缩放系数为 <code>s</code>：</p>
+                <table>
+                    <tr><th style="width:30%">约束</th><th style="width:34%">不等式</th><th>解出</th></tr>
+                    <tr><td class="k">高度不得超过 1em</td><td class="k">s × totalH ≤ 1em</td><td class="k">s ≤ 1em / totalH</td></tr>
+                    <tr><td class="k">宽度不得超过 1em</td><td class="k">s × maxW ≤ 1em</td><td class="k">s ≤ 1em / maxW</td></tr>
+                    <tr><td class="k">只缩不放</td><td class="k">s ≤ 1</td><td class="k">s ≤ 1</td></tr>
+                </table>
+                <p><code>s</code> 必须<b>同时</b>满足这三条，所以取三者的<b>最小值</b>：</p>
+                <pre>s = min(1, 1em / totalH, 1em / maxW)</pre>
+                <p>三点说明：</p>
+                <ul>
+                    <li><b>为什么取 min 而不是分别压 x/y</b>：等比缩放才不破坏字形比例；分别压扁会让符号变形，这正是要避免的；</li>
+                    <li><b>哪一个约束生效</b>：谁更"超标"谁生效 —— 高瘦的组合由 <code>1em/totalH</code> 决定，
+                        宽扁的组合由 <code>1em/maxW</code> 决定；两者都不超标时 <code>s = 1</code>（不放大）；</li>
+                    <li><b>缩放后</b>：高 = <code>totalH × s</code>、宽 = <code>maxW × s</code>，至少有一项正好等于 1em，
+                        另一项则 ≤ 1em（留白由 <code>space-between</code> 分配）。</li>
+                </ul>
+                <figure class="diagram">
+                    <canvas id="formulaCanvas" width="600" height="260"></canvas>
+                    <figcaption>两个典型：A1:A1:A1 由<b>高度</b>约束决定；D21*D21*D21 由<b>宽度</b>约束决定（1em 参照条为虚线）</figcaption>
+                </figure>
+
                 <h3>5.2 VRG 的类型：吅 · 吕 · 三 · 品 · 倒品 · 㗊 · 亖 · 𠾅</h3>
                 <p>MdC 里没有「品」「倒品」这样的专门记号 —— 四开组的形态完全由<b>层结构</b>决定：
                    <code>*</code> 同层并列、<code>: 换层</code>。习惯上按<b>层内格数的组合</b>起类比名（借汉字字形记忆，
@@ -1196,6 +1220,85 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
                 }
                 if (!el.title) el.title = (pron ? pron + " · " : "") + mdC;
             }
+        }
+
+        // ------------------------------------------------------------
+        // 「⑤ 补充」公式图：两条约束条 + 1em 参照 + 取 min 的结论
+        // ------------------------------------------------------------
+        function drawFormulaCanvas() {
+            const cv = document.getElementById("formulaCanvas");
+            if (!cv || !cv.getContext) return;
+            const ctx = cv.getContext("2d");
+            const W = cv.width, H = cv.height;
+            ctx.clearRect(0, 0, W, H);
+
+            const PX_PER_EM = 40;                       // 1em = 40px
+            const panels = [
+                {
+                    x: 16, title: "A1:A1:A1", totalH: 3097, maxW: 695, s: 0.3229,
+                    verdict: "高度约束生效（高瘦）",
+                },
+                {
+                    x: 310, title: "D21*D21*D21", totalH: 305, maxW: 3238, s: 0.3088,
+                    verdict: "宽度约束生效（宽扁）",
+                },
+            ];
+
+            for (const p of panels) {
+                const x0 = p.x;
+                cvText(ctx, x0, 20, p.title, { size: 12.5, bold: true, color: "#22303f" });
+
+                const barX = x0, barW = 250;
+                const row = (y, label, em, color) => {
+                    const w = Math.min(barW, Math.max(4, em * PX_PER_EM));
+                    const clipped = em * PX_PER_EM > barW;
+                    ctx.save();
+                    ctx.fillStyle = color;
+                    ctx.fillRect(barX, y, w, 14);
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(barX, y, w, 14);
+                    ctx.restore();
+                    cvText(ctx, barX + w + 6, y + 11, label + (clipped ? " …" : ""), { size: 10, color: "#55606d" });
+                    return w;
+                };
+
+                // 1em 参照（虚线）
+                ctx.save();
+                ctx.strokeStyle = "#888"; ctx.setLineDash([4, 3]); ctx.lineWidth = 1.2;
+                ctx.strokeRect(barX, 124, PX_PER_EM, 14);
+                ctx.restore();
+                cvText(ctx, barX + PX_PER_EM + 6, 135, "1em 参照", { size: 10, color: "#777" });
+
+                row(44, "totalH " + p.totalH + " = " + (p.totalH / 1000).toFixed(2) + "em", p.totalH / 1000, "rgba(181,43,54,0.55)");
+                row(84, "maxW " + p.maxW + " = " + (p.maxW / 1000).toFixed(2) + "em", p.maxW / 1000, "rgba(59,111,212,0.55)");
+
+                // 三行候选值
+                const rH = 1000 / p.totalH, rW = 1000 / p.maxW;
+                const lines = [
+                    "1em / totalH = " + (rH >= 100 ? ">1" : rH.toFixed(3)) + (rH < 1 ? "  ← 生效" : ""),
+                    "1em / maxW  = " + (rW >= 100 ? ">1" : rW.toFixed(3)) + (rW < 1 ? "  ← 生效" : ""),
+                    "s = min(1, " + (rH >= 100 ? ">1" : rH.toFixed(3)) + ", " + (rW >= 100 ? ">1" : rW.toFixed(3)) + ") = " + p.s.toFixed(3),
+                ];
+                lines.forEach((ln, i) => {
+                    cvText(ctx, x0, 168 + i * 17, ln, {
+                        size: 11,
+                        color: i === 2 ? "#b26a00" : "#55606d",
+                        bold: i === 2,
+                    });
+                });
+
+                // 缩放结果
+                const fh = (p.totalH * p.s) / 1000, fw = (p.maxW * p.s) / 1000;
+                cvText(ctx, x0, 232, "缩放后：高 " + fh.toFixed(2) + "em · 宽 " + fw.toFixed(2) + "em", { size: 10.5, color: "#1f7a3d", bold: true });
+                cvText(ctx, x0, 248, p.verdict, { size: 10.5, color: "#b26a36" });
+            }
+
+            // 中间分隔线
+            ctx.save();
+            ctx.strokeStyle = "#e6e6e6"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(300, 12); ctx.lineTo(300, H - 12); ctx.stroke();
+            ctx.restore();
         }
 
         // ------------------------------------------------------------
@@ -1969,6 +2072,7 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             try { drawShadowCanvas(); } catch (e) { /* 同上 */ }
             try { buildLayoutSteps(); } catch (e) { /* 同上 */ }
             try { buildVariantCanvases(); } catch (e) { /* 同上 */ }
+            try { drawFormulaCanvas(); } catch (e) { /* 同上 */ }
         }
 
         // ============================================================
