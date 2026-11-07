@@ -7685,8 +7685,8 @@ function splitLines(tree) {
             "." + options.encKindClass.F + " {",   // 齿状框：细框线 + 外圈齿（由真实 DOM 元素绘制）
             "    border: 0.03em solid #000;",
             "    position: relative;",
-            "    padding: 0.08em;",
-            "    box-sizing: content-box;",
+                        "    padding: 0.08em;",
+            "    margin: 0.14em;",   // 为框外齿带预留布局空间，避免溢出容器  "    box-sizing: content-box;",
             "}",
             "." + options.encKindClass.F + " .enc-F-edge,",
             "." + options.encKindClass.F + " .enc-F-corner {",
