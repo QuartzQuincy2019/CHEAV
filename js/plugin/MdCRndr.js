@@ -7704,10 +7704,10 @@ function splitLines(tree) {
             "    background-size: 100% 0.24em;",   // 竖向边沿 y 平铺
 "}",
 
-            "." + options.encKindClass.F + " .enc-F-t { left: 0.24em; right: 0.24em; top: -0.08em; height: 0.08em; }",
-            "." + options.encKindClass.F + " .enc-F-b { left: 0.24em; right: 0.24em; bottom: -0.08em; height: 0.08em; }",
-            "." + options.encKindClass.F + " .enc-F-l { top: 0.24em; bottom: 0.24em; left: -0.08em; width: 0.08em; --f-angle: 180deg; }",
-            "." + options.encKindClass.F + " .enc-F-r { top: 0.24em; bottom: 0.24em; right: -0.08em; width: 0.08em; --f-angle: 180deg; }",
+            "." + options.encKindClass.F + " .enc-F-t { left: 0.24em; right: 0.24em; top: -0.05em; height: 0.08em; }",
+            "." + options.encKindClass.F + " .enc-F-b { left: 0.24em; right: 0.24em; bottom: -0.05em; height: 0.08em; }",
+            "." + options.encKindClass.F + " .enc-F-l { top: 0.24em; bottom: 0.24em; left: -0.05em; width: 0.08em; --f-angle: 180deg; }",
+            "." + options.encKindClass.F + " .enc-F-r { top: 0.24em; bottom: 0.24em; right: -0.05em; width: 0.08em; --f-angle: 180deg; }",
             "." + options.encKindClass.F + " .enc-F-corner {",   // 角：0.14em 方块 + 两向臂 = L
             "    width: 0.14em;",
             "    height: 0.14em;",
