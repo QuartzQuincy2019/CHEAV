@@ -98,6 +98,7 @@ Notes:
 - **Vocabulary variants**: entries that are variants of one another **share the same meaning object**, so
   editing one updates the whole family
 - **Settings panel**: rebindable keys, VM page size (1–9), PIC toggle, key-cast toggle (shown only when the plugin is present), reset
+- **Vertical body text**: the render area can be switched to vertical writing (columns top-to-bottom, ordered right-to-left; a VRG becomes a side-by-side *horizontal rendering group*, HRG), while the input buffer and the preview stay horizontal
 - **Key cast**: a translucent overlay for screen recording (recent-key history plus the current
   combination); usable as a standalone embed as well
 - **Warnings and tolerance**: invalid fragments turn the border red and rendering is aborted (the previous

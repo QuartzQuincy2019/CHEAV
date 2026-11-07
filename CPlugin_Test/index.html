@@ -330,11 +330,13 @@
         <label>字号 <input type="range" id="size" min="20" max="96" step="2" value="40"><span
                 id="sizeVal">40px</span></label>
         <label><input type="checkbox" id="ligDebug"> 连字调试边框</label>
+        <label><input type="checkbox" id="vertical"> 竖排（VRG → HRG）</label>
         <span class="samples">
             <button type="button" data-mdc="S34-N35:AA1">S34-N35:AA1</button>
             <button type="button" data-mdc="G20-M17-Z4a:D54-D21:G43">G20-M17-Z4a:D54-D21:G43</button>
             <button type="button" data-mdc="W24:X1*W24:N1">W24:X1*W24:N1</button>
             <button type="button" data-mdc="A1*A1*A1*A1*A1*A1">A1*A1*A1*A1*A1*A1</button>
+            <button type="button" data-mdc="R11-D21-M17*M17-V31-A53">R11-D21-M17*M17-V31-A53（竖排示例）</button>
             <button type="button" data-mdc="F35-{I10-D46}-G43">F35-{I10-D46}-G43</button>
             <button type="button" data-mdc="{Q3-G43}-{X1-G43}-{X1-G43-X1}">{Q3-G43}-{X1-G43}-{X1-G43-X1}</button>
             <button type="button" data-mdc="D21-$-D46">D21-$-D46（换行）</button>
@@ -369,6 +371,7 @@
         const sizeEl = document.getElementById("size");
         const sizeVal = document.getElementById("sizeVal");
         const ligDebug = document.getElementById("ligDebug");
+        const vertical = document.getElementById("vertical");
         const proseBox = document.getElementById("ProseBox");
         const inlineScale = document.getElementById("inlineScale");
         const inlineScaleVal = document.getElementById("inlineScaleVal");
@@ -430,11 +433,15 @@
 
             const result = MdCRndr.parse(text);            // { tree, invalid }
             out.innerHTML = "";
-            for (const line of MdCRndr.splitLines(result.tree)) {
-                const row = document.createElement("div");
-                row.className = "RenderLine";
-                MdCRndr.render(row, line, size);           // 渲染单位树到行容器
-                out.appendChild(row);
+            if (document.getElementById("vertical").checked) {
+                MdCRndr.renderVerticalText(out, text, size);   // 竖排：自上而下成列，VRG → HRG
+            } else {
+                for (const line of MdCRndr.splitLines(result.tree)) {
+                    const row = document.createElement("div");
+                    row.className = "RenderLine";
+                    MdCRndr.render(row, line, size);       // 渲染单位树到行容器
+                    out.appendChild(row);
+                }
             }
 
             if (result.invalid.length) {
@@ -455,6 +462,7 @@
             MdCRndr.set({ ligatureDebug: ligDebug.checked });
             draw();
         });
+        vertical.addEventListener("change", draw);
         inlineScale.addEventListener("input", renderInline);
         alignMode.addEventListener("change", renderInline);
         showGloss.addEventListener("change", renderInline);

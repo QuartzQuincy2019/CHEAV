@@ -584,6 +584,16 @@ MdCRndr.internals.ligatureWidth("X1-G43");</pre>
                 <p>堆叠组是 <code>inline-flex</code>，其基线取<b>首层</b>基线；若不补偿，整盒会沉到正文基线以下。引擎按 <code>fontSize − 首层高</code> 写入 <code>vertical-align</code>，使盒底（= 末层基线）落在正文基线上。在 flex 排版中 <code>vertical-align</code> 被忽略，因此对块级渲染区无影响。</p>
                 <h4>插入文本</h4>
                 <p>字号为 <code>textScale × 基准字号</code>（默认 0.4），引擎写成<b>绝对 px</b> 内联样式，因而不依赖宿主容器的 <code>font-size</code>；上下居中由 <code>align-self: center</code> 提供。</p>
+                <h4>竖排：VRG → HRG（水平渲染组）</h4>
+                <p>竖排时整个坐标系转 90°：文字<b>自上而下成列</b>，<code>$</code> 分段即分列，列<b>自右向左</b>排列。
+                    横排中上下堆叠的 VRG 在竖排中变为<b>左右并列</b>的 HRG，两者是同一套几何的转置：</p>
+                <pre>横排 VRG：层自上而下，层内元素左右并列     竖排 HRG：层自左向右（成为"列"），列内元素自上而下
+s = min(1, 1em / 总层高, 1em / 最大层宽)    s = min(1, 1em / 总层宽, 1em / 最大层高)</pre>
+                <p>即 HRG 的"层"就是 VRG 的层，只是排版方向转置：组高固定 1 em，组宽 = 总层宽 × s；
+                    列与列两端对齐（<code>space-between</code>），单符号列居中。</p>
+                <p>入口：<code>MdCRndr.renderVerticalText(el, text, size)</code>，或运行期 <code>MdCRndr.set({ vertical: true })</code>。
+                    CHEAV 中该开关只作用于<b>正文渲染区</b>（设置面板「竖排」）；输入框、IB 预览与候选仍走横排的
+                    <code>renderText</code>。<code>&lt;文本&gt;</code> 片段在竖排中改为 <code>writing-mode: vertical-rl</code>。</p>
             </section>
 
             <!-- ============================================ -->
@@ -594,6 +604,10 @@ MdCRndr.internals.ligatureWidth("X1-G43");</pre>
                     <tr><th style="width:22%">类名（默认）</th><th style="width:20%">配置键</th><th>作用</th></tr>
                 </table>
                 <pre>.hie        { display:inline-block; line-height:1; font-family:"MdCRndr","NewGardiner",sans-serif }
+.vtext      { display:inline-flex; flex-direction:row-reverse; align-items:flex-start }
+.vline      { display:flex; flex-direction:column; align-items:center }
+.hrg        { display:inline-flex; flex-direction:row; align-items:flex-start; justify-content:space-between }
+.hrg-col    { display:flex; flex-direction:column; align-items:center; overflow:visible }
 .vrg        { display:inline-flex; flex-direction:column }
 .vrg-layer  { display:flex; align-items:flex-end; overflow:visible; white-space:nowrap }
 .lig        { position:relative; display:inline-block; vertical-align:bottom; line-height:1 }
@@ -835,7 +849,8 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             set: "运行期修改配置并重建样式",
             config: "返回生效配置的副本",
             render: "把单位树渲染到元素",
-            renderText: "解析纯 MdC 并渲染（唯一文本入口）",
+            renderText: "解析纯 MdC 并渲染（横排；输入框、预览、候选用它）",
+            renderVerticalText: "解析纯 MdC 并以竖排渲染（自上而下成列，VRG → HRG；仅正文渲染区）",
             parse: "解析 MdC → { tree, invalid }",
             splitLines: "按 $ 把顶层序列切分为多段",
             detectInputMode: "判断码形式：Gardiner / Hex / Default",
@@ -865,6 +880,10 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             renderVRG: "渲染堆叠组",
             renderLayerUnit: "渲染层内单位（字符 / 嵌套组 / 连字 / 文本）",
             renderLigature: "渲染连字",
+            hrgBoxWidth: "水平渲染组盒宽（含缩放）",
+            renderHRG: "渲染水平渲染组（竖排中的 VRG）",
+            renderLayerUnitV: "渲染竖排列内单位（字符 / 嵌套 HRG / 连字 / 文本）",
+            renderVertical: "竖排整块渲染（$ 分段成列，列自右向左）",
             buildCss: "生成注入的样式文本",
             injectStyle: "注入 / 重建样式表",
         };
@@ -879,6 +898,8 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             vrgLayerGap: "堆叠组层间距（em 比例）",
             vrgItemGap: "层内元素间距（em 比例）",
             textScale: "插入文本相对基准字号的倍率",
+            vertical: "竖排开关（仅正文渲染区；输入与预览始终横排）",
+            verticalColumnGap: "竖排时列间距（em 比例）",
             inlineBaseline: "行内嵌排时补偿堆叠组基线",
             ligatureDebug: "连字部件显示调试边框",
             glyphClass: "字形类名",

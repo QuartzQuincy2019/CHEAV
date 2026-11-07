@@ -42,6 +42,8 @@
         textScale: 0.4,                     // <文本> 插入文本相对基准字号的倍率
         inlineBaseline: true,               // 行内嵌排：令堆叠组整盒底边落在正文基线上
         ligatureDebug: false,               // 连字各部件显示红色边框（调试）
+        vertical: false,                    // 竖排：自上而下成列，VRG 改为水平渲染组（HRG）
+        verticalColumnGap: 0.3,             // 竖排时列间距（em 比例）
 
         // ---------- 类名（与引擎内部产出保持一致，便于外部覆写样式） ----------
         glyphClass: "hie",
@@ -52,6 +54,10 @@
         textClass: "txt",       // <文本> 插入的文本片段
         unsupportedClass: "unsup",  // 字体不支持的码：方块占位 + 码名
         brClass: "br",          // "$" 手动换行标记
+        vtextClass: "vtext",    // 竖排整块容器
+        vlineClass: "vline",    // 竖排中一列（"$" 分段）
+        hrgClass: "hrg",        // 水平渲染组（竖排中的 VRG）
+        hrgColClass: "hrg-col", // HRG 的一列（= 横排 VRG 的一层）
         lineClass: "",
     };
 
@@ -7005,6 +7011,126 @@ function renderLayerUnit(layer, u, glyphSize) {
     }
 }
 
+// ============================================================================
+// 五之二、竖排排版：VRG → HRG（水平渲染组）
+// ----------------------------------------------------------------------------
+// 竖排时整个坐标系转 90°：文字自上而下成列，"$" 分段为列，列自右向左。
+// 横排中的 VRG（上下堆叠）在竖排中改为 HRG（左右并列）——两者是同一套几何的
+// 转置关系：
+//   横排 VRG：层自上而下，层内元素左右并列，整组收入 1em 见方
+//   竖排 HRG：层自左向右（成为"列"），列内元素自上而下，整组同样收入 1em 见方
+// 仅用于正文渲染区：输入框、预览与候选仍走横排路径（render / renderText）。
+// ============================================================================
+
+/**
+ * 水平渲染组（HRG）的组宽（unit，相对 1em）——与 vrgBoxWidth 同构，宽高互换。
+ * @param {Array[]} layers 二维数组（转置后自左向右为列）
+ * @returns {number}
+ */
+function hrgBoxWidth(layers) {
+    const metrics = layers.map(layerMetrics);
+    const totalW = metrics.reduce((sum, m) => sum + m.w, 0) + vrgLayerGap() * (layers.length - 1);
+    const maxH = Math.max(...metrics.map(m => m.h));
+    const s = Math.min(1, EM_SQUARE / totalW, EM_SQUARE / maxH);
+    return totalW * s;
+}
+
+/**
+ * 渲染水平渲染组（HRG）：竖排中由 VRG 转置而来，多层改为左右并列。
+ * 词典式缩放同样适用：整体超出 1em 方块时等比缩小，不放大。
+ * @param {HTMLElement} parent 父容器
+ * @param {Array[]} layers 已分层的单位（二维数组，转置后自左向右为列）
+ * @param {number} fontSize 基准字号（px）
+ * @returns {HTMLElement}
+ */
+function renderHRG(parent, layers, fontSize) {
+    const scale = fontSize / EM_SQUARE;
+    const N = layers.length;
+    const metrics = layers.map(layerMetrics);
+
+    // 与 renderVRG 同构，只是"总高/最大宽"换成"总宽/最大高"
+    const totalW = metrics.reduce((sum, m) => sum + m.w, 0) + vrgLayerGap() * (N - 1);
+    const maxH = Math.max(...metrics.map(m => m.h));
+    const s = Math.min(1, EM_SQUARE / totalW, EM_SQUARE / maxH);
+
+    const box = document.createElement("span");
+    box.className = options.hrgClass;
+    box.style.height = fontSize + "px";                 // 竖排中的"方块"为 1em 高
+    box.style.width = px(totalW * s * scale) + "px";
+    box.style.justifyContent = "space-between";         // 列与列两端对齐
+
+    for (let i = 0; i < N; i++) {
+        const glyphSize = fontSize * s;                 // 列内单位字号（统一等比缩放）
+        const colW = metrics[i].w * s * scale;          // 列宽 = 缩放后的墨迹宽
+        const col = document.createElement("span");
+        col.className = options.hrgColClass;
+        col.style.width = px(colW) + "px";
+        // 纵向分布：多元素列两端对齐；单符号列居中（与 VRG 的层内规则对称）
+        col.style.justifyContent = layers[i].length > 1 ? "space-between" : "center";
+        for (const u of layers[i]) renderLayerUnitV(col, u, glyphSize);
+        box.appendChild(col);
+    }
+
+    parent.appendChild(box);
+    return box;
+}
+
+/**
+ * 竖排列内单位：与 renderLayerUnit 一一对应，坐标轴换成竖排。
+ * 单层组按序列在列内自上而下；多层组递归渲染为 HRG。
+ * @param {HTMLElement} col 列容器
+ * @param {Object} u 渲染单位
+ * @param {number} size 列内基准字号（px）
+ */
+function renderLayerUnitV(col, u, size) {
+    if (!u) return;
+    if (u.type === "char") {
+        renderGlyph(col, u.code, size, "center");       // 1em 轨道内上下居中
+    } else if (u.type === "vrg") {
+        if (u.layers.length === 1) {
+            for (const x of u.layers[0]) renderLayerUnitV(col, x, size);
+        } else {
+            renderHRG(col, u.layers, size);
+        }
+    } else if (u.type === "lig") {
+        renderLigature(col, u.name, size);
+    } else if (u.type === "text") {
+        // 竖排中的插入文本：文字方向随列（自上而下），字号同横排比例
+        const txt = document.createElement("span");
+        txt.className = options.textClass + " txt-v";
+        txt.textContent = u.text;
+        txt.style.fontSize = px(options.textScale * size) + "px";
+        col.appendChild(txt);
+    } else if (u.type === "unsup") {
+        col.appendChild(makeUnsupported(u.code, size));
+    } else if (u.type === "seq") {
+        for (const x of u.units) renderLayerUnitV(col, x, size);
+    }
+    // newline：在列一级由 splitLines 处理，这里忽略
+}
+
+/**
+ * 竖排整块：每个 "$" 分段一列，列自右向左排列（古埃及竖排惯例）。
+ * @param {HTMLElement} parent 父容器
+ * @param {Object} tree 单位树
+ * @param {number} fontSize 基准字号（px）
+ * @returns {HTMLElement}
+ */
+function renderVertical(parent, tree, fontSize) {
+    const wrap = document.createElement("span");
+    wrap.className = options.vtextClass;
+    wrap.style.setProperty("--mdc-col-gap", px(options.verticalColumnGap * fontSize) + "px");
+    for (const line of splitLines(tree)) {
+        const col = document.createElement("span");
+        col.className = options.vlineClass;
+        wrap.appendChild(col);
+        const units = line && line.type === "seq" ? line.units : [line];
+        for (const u of units) renderLayerUnitV(col, u, fontSize);
+    }
+    parent.appendChild(wrap);
+    return wrap;
+}
+
 /**
  * 字体不支持的码：画一个方块占位并把码写在框内，作为普通字符参与排版
  * （行内、堆叠组层内、连字前后均可）。字号随码长度收缩，保证码名完整可见。
@@ -7416,6 +7542,34 @@ function splitLines(tree) {
             + '    white-space: nowrap;\n'
             + '    overflow: hidden;\n'
             + '}\n\n'
+            + '.' + options.vtextClass + ' {\n'
+            + '    display: inline-flex;\n'
+            + '    flex-direction: row-reverse;\n'          // 列自右向左
+            + '    align-items: flex-start;\n'
+            + '    gap: var(--mdc-col-gap, 0.3em);\n'
+            + '}\n\n'
+            + '.' + options.vlineClass + ' {\n'
+            + '    display: flex;\n'
+            + '    flex-direction: column;\n'
+            + '    align-items: center;\n'
+            + '}\n\n'
+            + '.' + options.hrgClass + ' {\n'
+            + '    display: inline-flex;\n'
+            + '    flex-direction: row;\n'
+            + '    align-items: flex-start;\n'
+            + '    justify-content: space-between;\n'
+            + '}\n\n'
+            + '.' + options.hrgColClass + ' {\n'
+            + '    display: flex;\n'
+            + '    flex-direction: column;\n'
+            + '    align-items: center;\n'
+            + '    overflow: visible;\n'
+            + '}\n\n'
+            + '.' + options.textClass + '.txt-v {\n'
+            + '    writing-mode: vertical-rl;\n'
+            + '    text-orientation: mixed;\n'
+            + '    align-self: center;\n'
+            + '}\n\n'
             + '.' + options.ligDebugClass + ' {\n'
             + '    outline: 1px solid red;\n'
             + '    background: rgba(255, 0, 0, 0.08);\n'
@@ -7464,12 +7618,18 @@ function splitLines(tree) {
         render: function (el, tree, fontSize) {
             return render(el, tree, fontSize === undefined ? options.fontSize : fontSize);
         },
-        /** 解析纯 MdC 渲染串并渲染到元素（本引擎唯一的文本入口）。 */
+        /** 解析纯 MdC 渲染串并渲染到元素（横排；输入框、预览、候选用它）。 */
         renderText: function (el, text, fontSize) {
             const r = parseInput(text);
             for (const line of splitLines(r.tree)) {
                 render(el, line, fontSize === undefined ? options.fontSize : fontSize);
             }
+            return r;
+        },
+        /** 解析纯 MdC 渲染串并以**竖排**渲染到元素（自上而下成列，VRG → HRG）。仅用于正文渲染区。 */
+        renderVerticalText: function (el, text, fontSize) {
+            const r = parseInput(text);
+            renderVertical(el, r.tree, fontSize === undefined ? options.fontSize : fontSize);
             return r;
         },
 
@@ -7511,6 +7671,10 @@ function splitLines(tree) {
             renderVRG: renderVRG,
             renderLayerUnit: renderLayerUnit,
             renderLigature: renderLigature,
+            hrgBoxWidth: hrgBoxWidth,
+            renderHRG: renderHRG,
+            renderLayerUnitV: renderLayerUnitV,
+            renderVertical: renderVertical,
             buildCss: buildCss,
             injectStyle: injectStyle,
         },

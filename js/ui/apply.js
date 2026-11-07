@@ -68,6 +68,11 @@
         }
         input.classList.remove("invalid");
         box.innerHTML = "";
+        if (SETTINGS.verticalText) {
+            // 竖排：仅正文渲染区（输入框、预览与候选保持横排）
+            MdCRndr.renderVerticalText(box, input.value, SIZE);
+            return;
+        }
         for (const line of splitLines(tree)) {
             const seg = document.createElement("span");
             seg.className = "RenderLine";
@@ -699,6 +704,7 @@
         ["key", ["optionKeys", "GM", "prev"], "settingsGmOptPrev"],
         ["key", ["optionKeys", "GM", "next"], "settingsGmOptNext"],
         ["bool", ["picEnabled"], "settingsPic"],
+        ["bool", ["verticalText"], "settingsVertical"],
         ["bool", ["keyCastEnabled"], "settingsKeyCast"],
     ];
 
@@ -768,6 +774,7 @@
                     updateIBPreview();
                     updateKeyCast();
                     renderAll();
+                    refresh();      // 竖排等显示类开关需重绘正文渲染区
                 });
                 row.appendChild(cb);
             }
@@ -784,6 +791,7 @@
             updateIBPreview();
             updateKeyCast();
             renderAll();
+            refresh();          // 恢复默认后重绘正文（含竖排开关复位）
         });
         settingsBody.appendChild(reset);
     }
