@@ -8,6 +8,7 @@
 > （GitHub Pages，无需安装；本地使用见下）
 
 - 版本：**2.0.0**（2025-12-27 起）
+- 最新：**2.0.0**（2026-11-07）
 - 作者：**Quincy K. / Quartz Studio ©2019-2026**
 - 渲染引擎为单文件插件 [`js/plugin/MdCRndr.js`](js/plugin/MdCRndr.js)，可独立嵌入其它项目
 
