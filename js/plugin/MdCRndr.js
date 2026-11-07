@@ -6845,13 +6845,13 @@ function applyShadow(el, digits) {
     return el;
 }
 /**
- * 生成一个 1em 见方的"格"（.sh-cell），把渲染动作放进格内，再给格加阴影。
+ * 生成一个高 1em 的"格"（.sh-cell），把渲染动作放进格内，再给格加阴影。
+ * 宽度**不**固定为 1em：窄字形（如 Z3）保持自然宽度，避免右侧留白。
  * 横排贴底、竖排居中，与普通字形的基线位置一致；阴影按此格划分四象限。
  */
 function renderInShadedCell(parent, fontSize, digits, draw, alignEnd) {
     const cell = document.createElement("span");
     cell.className = "sh-cell";
-    cell.style.width = px(fontSize) + "px";
     cell.style.height = px(fontSize) + "px";
     cell.style.alignItems = alignEnd ? "flex-end" : "center";
     parent.appendChild(cell);
@@ -7858,7 +7858,7 @@ function splitLines(tree) {
             + '    display: inline-flex;\n'
             + '    flex-direction: column;\n'
             + '}\n\n'
-            + '.sh-cell {\n'                                  // 阴影格：1em 见方，阴影按此格划分四象限
+            + '.sh-cell {\n'                                  // 阴影格：高 1em、宽随字形自然宽度
             + '    display: inline-flex;\n'
             + '    justify-content: center;\n'
             + '    flex: 0 0 auto;\n'
