@@ -136,6 +136,14 @@
             font-family: Consolas, "Courier New", monospace;
         }
 
+        /* API 一览：函数签名较长，允许在单元格内换行（保持等宽字体） */
+        #apiTable td.k,
+        #internalsTable td.k {
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.6;
+        }
+
         .demo {
             margin: 12px 0;
             padding: 10px 14px;
@@ -322,15 +330,16 @@ js/ui/apply.js            ← 最后（需 DOM 就绪）</pre>
             <!-- ============================================ -->
             <section id="api">
                 <h2>3 API 一览（运行时生成，按字典序排列）</h2>
-                <p>下表由页面加载后直接枚举插件对象生成，因此永远与实现一致；成员按<b>字典序</b>排列（大小写不敏感），
-                   新增或改名会自动反映到表里，无需手工维护。</p>
+                <p>下表由页面加载后直接枚举插件对象生成，因此永远与实现一致；成员按<b>字典序</b>排列（大小写不敏感），新增或改名会自动反映到表里，无需手工维护。<br>
+                    <b>函数型成员</b>以 TypeScript 风格展示参数列表（<code>?</code> 表示可选），第二列为返回类型；
+                    <code>HTMLElement</code> / <code>UnitTree</code> / <code>Config</code> 等为示意类型名。</p>
                 <h4><code>MdCRndr</code> 顶层成员</h4>
                 <table id="apiTable">
-                    <tr><th style="width:26%">成员</th><th style="width:14%">类型</th><th>说明</th></tr>
+                    <tr><th style="width:52%">成员（函数以 TypeScript 签名展示）</th><th style="width:22%">返回 / 类型</th><th>说明</th></tr>
                 </table>
                 <h4><code>MdCRndr.internals</code>（高级用法）</h4>
                 <table id="internalsTable">
-                    <tr><th style="width:30%">成员</th><th style="width:14%">类型</th><th>说明</th></tr>
+                    <tr><th style="width:52%">成员（函数以 TypeScript 签名展示）</th><th style="width:22%">返回 / 类型</th><th>说明</th></tr>
                 </table>
                 <h4>实时求值</h4>
                 <table id="evalTable">
@@ -879,6 +888,43 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
         // ============================================================
         // §3 API 一览：全部由运行时枚举生成
         // ============================================================
+        /** 函数型 API 的 TypeScript 风格签名与返回类型（非函数成员不在此表）。 */
+        const API_SIG = {
+            config: { sig: "config()", ret: "Config" },
+            init: { sig: "init(options?: Partial<Config>)", ret: "MdCRndr" },
+            set: { sig: "set(options: Partial<Config>)", ret: "MdCRndr" },
+            render: { sig: "render(el: HTMLElement, tree: UnitTree, fontSize?: number)", ret: "void" },
+            renderText: { sig: "renderText(el: HTMLElement, text: string, fontSize?: number)", ret: "{ tree: UnitTree; invalid: string[] }" },
+            renderVerticalText: { sig: "renderVerticalText(el: HTMLElement, text: string, fontSize?: number)", ret: "{ tree: UnitTree; invalid: string[] }" },
+            parse: { sig: "parse(text: string)", ret: "{ tree: UnitTree; invalid: string[] }" },
+            splitLines: { sig: "splitLines(tree: UnitTree)", ret: "SeqUnit[]" },
+            detectInputMode: { sig: "detectInputMode(code: string)", ret: "\"Gardiner\" | \"Hex\" | \"Default\"" },
+            decodeCode: { sig: "decodeCode(code: string)", ret: "string | null" },
+            charOf: { sig: "charOf(gardinerCode: string)", ret: "string | null" },
+            codeOf: { sig: "codeOf(hierograph: string)", ret: "string | undefined" },
+            canonicalCode: { sig: "canonicalCode(code: string)", ret: "string" },
+            canonicalize: { sig: "canonicalize(text: string)", ret: "string" },
+            defineLigature: { sig: "defineLigature(name: string, parts: LigaturePart[], pron?: string)", ret: "Ligature" },
+        };
+        const INTERNALS_SIG = {
+            buildCss: { sig: "buildCss()", ret: "string" },
+            getMetrics: { sig: "getMetrics(code: string)", ret: "{ height: number; width: number }" },
+            injectStyle: { sig: "injectStyle()", ret: "void" },
+            layerMetrics: { sig: "layerMetrics(line: Unit[])", ret: "{ h: number; w: number }" },
+            ligatureWidth: { sig: "ligatureWidth(name: string)", ret: "number" },
+            makeUnsupported: { sig: "makeUnsupported(code: string, size: number)", ret: "HTMLElement" },
+            px: { sig: "px(v: number)", ret: "number" },
+            renderGlyph: { sig: "renderGlyph(parent: HTMLElement, code: string, fontSize: number, align?: \"center\")", ret: "HTMLElement | null" },
+            renderHRG: { sig: "renderHRG(parent: HTMLElement, layers: Unit[][], fontSize: number)", ret: "HTMLElement" },
+            renderLayerUnit: { sig: "renderLayerUnit(layer: HTMLElement, u: Unit, glyphSize: number)", ret: "void" },
+            renderLayerUnitV: { sig: "renderLayerUnitV(col: HTMLElement, u: Unit, size: number)", ret: "void" },
+            renderLigature: { sig: "renderLigature(parent: HTMLElement, name: string, fontSize: number)", ret: "HTMLElement" },
+            renderVertical: { sig: "renderVertical(parent: HTMLElement, tree: UnitTree, fontSize: number)", ret: "HTMLElement" },
+            renderVRG: { sig: "renderVRG(parent: HTMLElement, layers: Unit[][], fontSize: number)", ret: "HTMLElement" },
+            unitMetrics: { sig: "unitMetrics(u: Unit)", ret: "{ h: number; w: number }" },
+            vrgBoxWidth: { sig: "vrgBoxWidth(layers: Unit[][])", ret: "number" },
+        };
+
         const API_DOC = {
             DEFAULTS: "默认配置对象（只读参考）",
             init: "初始化：应用配置并注入样式（幂等）",
@@ -976,13 +1022,27 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
 
         function buildTables() {
             // §3 API（按字典序排列，运行时枚举，新增成员自动出现）
+            //   函数：成员列展示 TypeScript 风格签名（含参数与可选标记），类型列展示返回类型；
+            //   非函数：成员列展示名字，类型列展示 typeof。
             const apiTable = document.getElementById("apiTable");
             for (const k of sortedKeys(MdCRndr)) {
-                addRow(apiTable, [{ text: k, mono: true }, typeof MdCRndr[k], API_DOC[k] || ""]);
+                const v = MdCRndr[k];
+                const sig = typeof v === "function" ? API_SIG[k] : null;
+                addRow(apiTable, [
+                    { text: sig ? sig.sig : k, mono: true },
+                    sig ? sig.ret : typeof v,
+                    API_DOC[k] || "",
+                ]);
             }
             const inTable = document.getElementById("internalsTable");
             for (const k of sortedKeys(MdCRndr.internals)) {
-                addRow(inTable, [{ text: k, mono: true }, typeof MdCRndr.internals[k], INTERNALS_DOC[k] || ""]);
+                const v = MdCRndr.internals[k];
+                const sig = typeof v === "function" ? INTERNALS_SIG[k] : null;
+                addRow(inTable, [
+                    { text: sig ? sig.sig : k, mono: true },
+                    sig ? sig.ret : typeof v,
+                    INTERNALS_DOC[k] || "",
+                ]);
             }
 
             // §4 DEFAULTS
