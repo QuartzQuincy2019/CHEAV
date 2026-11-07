@@ -55,7 +55,7 @@
         unsupportedClass: "unsup",  // 字体不支持的码：方块占位 + 码名
         brClass: "br",          // "$" 手动换行标记
         encClass: "enc",        // 包围框（王名圈 / 锦旗框 / 方框）
-        encKindClass: { A: "enc-A", S: "enc-S", h1: "enc-h1" },   // 按种类区分的类名
+        encKindClass: { A: "enc-A", S: "enc-S", h1: "enc-h1", F: "enc-F" },   // 按种类区分的类名
         encVerticalClass: "enc-v",   // 竖排朝向
         vtextClass: "vtext",    // 竖排整块容器
         vlineClass: "vline",    // 竖排中一列（"$" 分段）
@@ -7131,7 +7131,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     // 框随内容拉伸：横排时内容横向排布，竖排时纵向排布（形状本身只由内容尺寸决定）
     // 框内字形按 JSesh 惯例略小于框外，使框体本身不显得拥挤
     // 锦旗框底部要留下宫墙纹，内容再小一档；其余按通用比例
-    const innerSize = fontSize * (u.kind === "S" ? 0.64 : ENC_CONTENT_SCALE);
+    const innerSize = fontSize * (u.kind === "S" ? 0.64 : ENC_CONTENT_SCALE);   // F 与 h1 用通用 0.70
     if (vertical) {
         for (const x of (u.units || [])) renderLayerUnitV(inner, x, innerSize);
     } else {
@@ -7265,7 +7265,7 @@ function render(parent, tree, fontSize) {
 function parseInput(text) {
     const invalid = [];
     // 包围框种类（按顺序匹配前缀）：<- … ->（王名圈）、<S- … ->（锦旗框）、<h1- … -h1>（方框）
-    const ENC_OPENERS = [["h1", "<h1-", "-h1>"], ["S", "<S-", "->"], ["A", "<-", "->"]];
+    const ENC_OPENERS = [["h1", "<h1-", "-h1>"], ["S", "<S-", "->"], ["F", "<F-", "->"], ["A", "<-", "->"]];
 
     // 预处理：外部空白宽容剔除；"<>" 文本区内部保留空白（含空格）。
     // "<" 进入文本区、"<" 前带 "\" 转义不进入；">" 退出文本区（"\>" 转义不退出）。
@@ -7668,6 +7668,22 @@ function splitLines(tree) {
             "    flex-direction: column;",
             "    align-items: center;",
             "    width: 100%;",              // 撑满框宽，否则 inline-flex 收缩到内容宽、靠左
+            "}",
+            "." + options.encKindClass.F + " {",   // 齿状框：四边方块齿（精确段长/间隔，对应 E45D/E463 延伸段）
+            "    border: 0.07em solid transparent;",  // 保留盒模型，实际边线由背景绘制
+            "    background-image:",
+            "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",
+            "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",
+            "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em),",
+            "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em);",
+            "    background-size: 100% 0.07em, 100% 0.07em, 0.07em 100%, 0.07em 100%;",
+            "    background-position: left top, left bottom, left top, right top;",
+            "    background-repeat: no-repeat;",
+            "    padding: 0.08em;",
+            "    box-sizing: content-box;",
+            "}",
+            "." + options.encKindClass.F + v + " {",   // 竖排：同一套四边齿（沿边拉伸，端头比例不变）
+            "    background-size: 100% 0.07em, 100% 0.07em, 0.07em 100%, 0.07em 100%;",
             "}",
             h1 + " {",                      // 裸方框
             "    border: 0.07em solid #000;",   // 与锦旗框同粗

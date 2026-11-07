@@ -545,7 +545,7 @@ MdCRndr.internals.ligatureWidth("X1-G43");</pre>
                 </table>
 <div class="note">
                     <b>包围框（MdC 扩展）：</b><code>&lt;- … -&gt;</code>（王名圈）、<code>&lt;S- … -&gt;</code>（锦旗框）、
-                    <code>&lt;h1- … -h1&gt;</code>（裸方框）。解析为 <code>{ type:"enc", kind, units }</code>，
+                    <code>&lt;h1- … -h1&gt;</code>（裸方框）、<code>&lt;F- … -&gt;</code>（齿状框，四边方块齿，段长 0.12em / 间隔 0.20em）。解析为 <code>{ type:"enc", kind, units }</code>，
                     嵌套计入 <code>invalid</code>；渲染为 <code>.enc</code> + <code>.enc-A / .enc-S / .enc-h1</code>，竖排加 <code>.enc-v</code>。
                     几何全部用 em 推导（stroke 0.05 / 0.07，内容 0.70 / 0.64，外廓恒为 1em），不做测量、不做重复拼贴。
                     竖排列序为<b>自左向右</b>（<code>.vtext</code> 用 <code>flex-direction: row</code>），列内自上而下。
