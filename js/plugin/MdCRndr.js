@@ -7704,10 +7704,10 @@ function splitLines(tree) {
             "    background-size: 100% 0.24em;",   // 竖向边沿 y 平铺
 "}",
 
-            "." + options.encKindClass.F + " .enc-F-t { left: 0.24em; right: 0.24em; top: -0.12em; height: 0.10em; }",
-            "." + options.encKindClass.F + " .enc-F-b { left: 0.24em; right: 0.24em; bottom: -0.12em; height: 0.10em; }",
-            "." + options.encKindClass.F + " .enc-F-l { top: 0.24em; bottom: 0.24em; left: -0.12em; width: 0.10em; --f-angle: 180deg; }",
-            "." + options.encKindClass.F + " .enc-F-r { top: 0.24em; bottom: 0.24em; right: -0.12em; width: 0.10em; --f-angle: 180deg; }",
+            "." + options.encKindClass.F + " .enc-F-t { left: 0.24em; right: 0.24em; top: -0.09em; height: 0.10em; }",
+            "." + options.encKindClass.F + " .enc-F-b { left: 0.24em; right: 0.24em; bottom: -0.09em; height: 0.10em; }",
+            "." + options.encKindClass.F + " .enc-F-l { top: 0.24em; bottom: 0.24em; left: -0.09em; width: 0.10em; --f-angle: 180deg; }",
+            "." + options.encKindClass.F + " .enc-F-r { top: 0.24em; bottom: 0.24em; right: -0.09em; width: 0.10em; --f-angle: 180deg; }",
             "." + options.encKindClass.F + " .enc-F-corner {",   // 角：0.14em 方块 + 两向臂 = L
             "    width: 0.14em;",
             "    height: 0.14em;",
@@ -7725,10 +7725,10 @@ function splitLines(tree) {
             "    box-sizing: border-box;",   // 竖排固定 1em 宽，短边才有齿位
             "}",
 
-            "." + options.encKindClass.F + " .enc-F-tl { left: -0.12em; top: -0.12em; }",
-            "." + options.encKindClass.F + " .enc-F-tr { right: -0.12em; top: -0.12em; }",
-            "." + options.encKindClass.F + " .enc-F-bl { left: -0.12em; bottom: -0.12em; }",
-            "." + options.encKindClass.F + " .enc-F-br { right: -0.12em; bottom: -0.12em; }",
+            "." + options.encKindClass.F + " .enc-F-tl { left: -0.09em; top: -0.09em; }",
+            "." + options.encKindClass.F + " .enc-F-tr { right: -0.09em; top: -0.09em; }",
+            "." + options.encKindClass.F + " .enc-F-bl { left: -0.09em; bottom: -0.09em; }",
+            "." + options.encKindClass.F + " .enc-F-br { right: -0.09em; bottom: -0.09em; }",
             "." + options.encKindClass.F + " .enc-F-tl::before, .enc-F-tr::before { top: 0; }",
             "." + options.encKindClass.F + " .enc-F-bl::before, .enc-F-br::before { bottom: 0; }",
             "." + options.encKindClass.F + " .enc-F-tl::before, .enc-F-bl::before { left: 0; }",
