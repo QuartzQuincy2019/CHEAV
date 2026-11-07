@@ -1255,8 +1255,25 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
                 ly += hPx + gapPx;
             });
 
+            // 层间距标注：在组盒右侧画一条细竖线 + 双箭头 + 「gap」
+            if (layers.length > 1 && gapPx >= 4) {
+                const gx = bx + boxPx + 34;
+                const gTop = y0 + drawH[0], gBot = gTop + gapPx;
+                ctx.save();
+                ctx.strokeStyle = "#b26a36";
+                ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(gx, gTop); ctx.lineTo(gx, gBot); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(gx - 3, gTop); ctx.lineTo(gx + 3, gTop); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(gx - 3, gBot); ctx.lineTo(gx + 3, gBot); ctx.stroke();
+                ctx.restore();
+                cvText(ctx, gx + 6, (gTop + gBot) / 2 + 3, "gap", { size: 9, color: "#b26a36" });
+                cvText(ctx, gx + 6, (gTop + gBot) / 2 + 14, Math.round(gapPx) + "px", { size: 9, color: "#b26a36" });
+            }
+
             cvText(ctx, W / 2, H - 26, item.name + "   " + item.src, { align: "center", size: 12, bold: true, color: "#22303f" });
-            cvText(ctx, W / 2, H - 8, "组宽 " + (boxW / 1000).toFixed(3) + "em · s = " + s.toFixed(3), { align: "center", size: 11, color: "#6b6b6b" });
+            cvText(ctx, W / 2, H - 8, "组宽 " + (boxW / 1000).toFixed(3) + "em · s = " + s.toFixed(3)
+                + (layers.length > 1 ? " · gap " + Math.round(gapPx) + "px" : ""),
+                { align: "center", size: 11, color: "#6b6b6b" });
         }
 
         function buildVariantCanvases() {
@@ -1483,28 +1500,32 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
                 why: "每个字形是 <code>inline-block</code>，排版时作为<b>整体</b>参与换行。"
                    + "若把一行拆成文本流（右图），行尾的字形会被切成两半——在圣书体里这等于把符号写坏了。",
                 ok(ctx, W, H) {
-                    const y0 = 26, y1 = 110;
-                    for (let i = 0; i < 4; i++) cvCell(ctx, 30 + i * (CELL * 0.66 + 6), y0, INK.A1, "bottom");
-                    cvFrame(ctx, 30 + 2 * (CELL * 0.66 + 6) - 3, y0 - 3, CELL * 0.66 + 6, CELL + 6, "#1f7a3d", [4, 3]);
-                    cvText(ctx, 30, y1 - 12, "第 1 行（放不下的整字移到下一行）", { size: 11 });
-                    for (let i = 0; i < 3; i++) cvCell(ctx, 30 + i * (CELL * 0.66 + 6), y1, INK.A1, "bottom");
-                    cvText(ctx, W / 2, H - 8, "整字换行", { align: "center", color: "#1f7a3d", bold: true });
+                    const step = 70, y0 = 18, y1 = 104;      // 步长 > 格宽，保证不叠
+                    for (let i = 0; i < 3; i++) cvCell(ctx, 26 + i * step, y0, INK.A1, "bottom");
+                    // 第 4 个位置放不下 → 虚线示意"整块移到下一行"
+                    cvFrame(ctx, 26 + 3 * step, y0, CELL, CELL, "#b26a36", [5, 4]);
+                    cvText(ctx, 26 + 3 * step + CELL / 2, y0 + CELL / 2 + 4, "放不下", { align: "center", size: 10, color: "#b26a36" });
+                    cvArrow(ctx, 26 + 3 * step + CELL / 2, y0 + CELL + 2, 26 + CELL / 2, y1 - 6, "#b26a36");
+                    cvText(ctx, 26, y0 + CELL + 16, "第 1 行：整字放不下 → 整体移到下一行", { size: 10.5 });
+                    for (let i = 0; i < 3; i++) cvCell(ctx, 26 + i * step, y1, INK.A1, "bottom");
+                    cvText(ctx, W / 2, H - 6, "整字换行", { align: "center", color: "#1f7a3d", bold: true, size: 11.5 });
                 },
                 bad(ctx, W, H) {
-                    const y0 = 26, y1 = 110, step = CELL * 0.66 + 6;
-                    for (let i = 0; i < 4; i++) {
-                        const x = 30 + i * step;
-                        const w = i === 3 ? 22 : CELL * 0.66;      // 行尾被截断
-                        cvFrame(ctx, x, y0, w, CELL, "#6d8fd1");
-                        cvInk(ctx, x + 4, y0 + 4, Math.max(4, w - 8), CELL - 8);
-                    }
-                    ctx.save();
-                    ctx.strokeStyle = "#b52b36"; ctx.lineWidth = 2;
-                    ctx.beginPath(); ctx.moveTo(30 + 3 * step + 24, y0 - 4); ctx.lineTo(30 + 3 * step + 24, y0 + CELL + 4); ctx.stroke();
+                    const step = 70, y0 = 18, y1 = 104;
+                    for (let i = 0; i < 3; i++) cvCell(ctx, 26 + i * step, y0, INK.A1, "bottom");
+                    // 行尾被截断：只画出半个格
+                    const cutX = 26 + 3 * step;
+                    cvFrame(ctx, cutX, y0, 24, CELL, "#b52b36");
+                    cvInk(ctx, cutX + 3, y0 + 6, 18, CELL - 12);
+                    ctx.save(); ctx.strokeStyle = "#b52b36"; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(cutX + 24, y0 - 4); ctx.lineTo(cutX + 24, y0 + CELL + 4); ctx.stroke();
                     ctx.restore();
-                    cvText(ctx, 30, y1 - 12, "第 1 行（行尾字形被切断）", { size: 11, color: "#b52b36" });
-                    for (let i = 0; i < 3; i++) cvCell(ctx, 30 + i * step, y1, INK.A1, "bottom");
-                    cvText(ctx, W / 2, H - 8, "文本流换行：符号被劈开", { align: "center", color: "#b52b36", bold: true });
+                    cvText(ctx, 26, y0 + CELL + 16, "第 1 行：行尾字形被切掉一半", { size: 10.5, color: "#b52b36" });
+                    // 第 2 行从"剩余的一半"继续
+                    cvFrame(ctx, 26, y1, 24, CELL, "#b52b36");
+                    cvInk(ctx, 29, y1 + 6, 18, CELL - 12);
+                    for (let i = 1; i < 3; i++) cvCell(ctx, 26 + i * step, y1, INK.A1, "bottom");
+                    cvText(ctx, W / 2, H - 6, "文本流换行：符号被劈开", { align: "center", color: "#b52b36", bold: true, size: 11.5 });
                 },
             },
         ];
