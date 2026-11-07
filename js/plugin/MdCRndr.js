@@ -7673,6 +7673,7 @@ function splitLines(tree) {
             "    border: 0.03em solid #000;",          // 框：细线（JSesh 观感）
             "    position: relative;",
             "    padding: 0.12em;",                    // 0.70 + 0.24 + 0.06 = 1em
+            "    margin: 0.14em;",                    // 为框外的齿带预留布局空间（齿不再溢出）
             "    box-sizing: content-box;",
             "}",
             "." + options.encKindClass.F + "::before {",   // 齿层：外扩一圈，落在框外侧
