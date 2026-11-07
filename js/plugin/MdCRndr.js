@@ -7125,6 +7125,19 @@ function renderEnclosure(parent, u, fontSize, vertical) {
         + (vertical ? " " + options.encVerticalClass : "");
     box.style.fontSize = fontSize + "px";
     box.title = "包围框：" + u.kind;
+    // F 框：四边齿 + 四角 L 形齿，用真实元素生成（四角共用同一 class，几何必然全等）
+    if (u.kind === "F") {
+        for (const side of ["t", "b", "l", "r"]) {
+            const e = document.createElement("span");
+            e.className = "enc-F-edge enc-F-" + side;
+            box.appendChild(e);
+        }
+        for (const corner of ["tl", "tr", "bl", "br"]) {
+            const c = document.createElement("span");
+            c.className = "enc-F-corner enc-F-" + corner;
+            box.appendChild(c);
+        }
+    }
     const inner = document.createElement("span");
     inner.className = "enc-body";
     box.appendChild(inner);
@@ -7669,30 +7682,50 @@ function splitLines(tree) {
             "    align-items: center;",
             "    width: 100%;",              // 撑满框宽，否则 inline-flex 收缩到内容宽、靠左
             "}",
-            "." + options.encKindClass.F + " {",   // 齿状框：整体由 9 宫格 SVG 经 border-image 绘制（四角必然相同）
-            "    border: 0.14em solid transparent;",   // 齿带宽度 = 边框宽度，画面全部来自 border-image",
-            "    border-image-source: url(\"data:image/svg+xml;utf8," + encodeURIComponent(
-                    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'>"
-                  + "<path d='M0 0H24V12H12V24H0Z' fill='%23000'/>"                 /* 左上 L */
-                  + "<path d='M72 0H96V24H84V12H72Z' fill='%23000'/>"                /* 右上 L */
-                  + "<path d='M0 72H12V84H24V96H0Z' fill='%23000'/>"                 /* 左下 L */
-                  + "<path d='M96 72V96H72V84H84V72Z' fill='%23000'/>"               /* 右下 L */
-                  + "<rect x='24' y='0' width='12' height='12' fill='%23000'/>"      /* 上边齿（一片，round 平铺） */
-                  + "<rect x='24' y='84' width='12' height='12' fill='%23000'/>"     /* 下边齿 */
-                  + "<rect x='0' y='24' width='12' height='12' fill='%23000'/>"      /* 左边齿 */
-                  + "<rect x='84' y='24' width='12' height='12' fill='%23000'/>"     /* 右边齿 */
-                  + "<path d='M12 12H84V84H12Z M18 18H78V78H18Z' fill='%23000' fill-rule='evenodd'/>"  /* 细框线 */
-                  + "</svg>") + "\");",
-            "    border-image-slice: 24 fill;",        // 四角 24/96 固定，四边中段由 round 等分平铺
-            "    border-image-width: 0.14em;",
-            "    border-image-repeat: round;",
+            "." + options.encKindClass.F + " {",   // 齿状框：细框线 + 外圈齿（由真实 DOM 元素绘制）
+            "    border: 0.03em solid #000;",
             "    position: relative;",
-            "    padding: 0.08em;",                    // 内容 0.50 由 kind 单独控制
+            "    padding: 0.08em;",
             "    box-sizing: content-box;",
             "}",
-            "." + options.encKindClass.F + v + " {",   // 竖排：同一张九宫格，四角与四边自动适配
-            "    padding: 0.08em;",
+            "." + options.encKindClass.F + " .enc-F-edge,",
+            "." + options.encKindClass.F + " .enc-F-corner {",
+            "    position: absolute;",
+            "    pointer-events: none;",
+            "    background-color: #000;",
             "}",
+            "." + options.encKindClass.F + " .enc-F-edge {",   // 边：齿带 0.14em，相位居中 → 左右/上下对称
+            "    background-image: repeating-linear-gradient(var(--f-angle, 90deg), #000 0 0.12em, transparent 0.12em 0.20em);",
+            "    background-position: center;",
+            "}",
+            "." + options.encKindClass.F + " .enc-F-t { left: 0; right: 0; top: -0.14em; height: 0.14em; }",
+            "." + options.encKindClass.F + " .enc-F-b { left: 0; right: 0; bottom: -0.14em; height: 0.14em; }",
+            "." + options.encKindClass.F + " .enc-F-l { top: 0; bottom: 0; left: -0.14em; width: 0.14em; --f-angle: 180deg; }",
+            "." + options.encKindClass.F + " .enc-F-r { top: 0; bottom: 0; right: -0.14em; width: 0.14em; --f-angle: 180deg; }",
+            "." + options.encKindClass.F + " .enc-F-corner {",   // 角：0.14em 方块 + 两向臂 = L
+            "    width: 0.14em;",
+            "    height: 0.14em;",
+            "}",
+            "." + options.encKindClass.F + " .enc-F-corner::before,",
+            "." + options.encKindClass.F + " .enc-F-corner::after {",
+            "    content: \"\";",
+            "    position: absolute;",
+            "    background-color: #000;",
+            "}",
+            "." + options.encKindClass.F + " .enc-F-corner::before { width: 0.34em; height: 0.14em; }",
+            "." + options.encKindClass.F + " .enc-F-corner::after { width: 0.14em; height: 0.34em; }",
+            "." + options.encKindClass.F + " .enc-F-tl { left: -0.14em; top: -0.14em; }",
+            "." + options.encKindClass.F + " .enc-F-tr { right: -0.14em; top: -0.14em; }",
+            "." + options.encKindClass.F + " .enc-F-bl { left: -0.14em; bottom: -0.14em; }",
+            "." + options.encKindClass.F + " .enc-F-br { right: -0.14em; bottom: -0.14em; }",
+            "." + options.encKindClass.F + " .enc-F-tl::before, .enc-F-tr::before { top: 0; }",
+            "." + options.encKindClass.F + " .enc-F-bl::before, .enc-F-br::before { bottom: 0; }",
+            "." + options.encKindClass.F + " .enc-F-tl::before, .enc-F-bl::before { left: 0; }",
+            "." + options.encKindClass.F + " .enc-F-tr::before, .enc-F-br::before { right: 0; }",
+            "." + options.encKindClass.F + " .enc-F-tl::after, .enc-F-tr::after { top: 0; }",
+            "." + options.encKindClass.F + " .enc-F-bl::after, .enc-F-br::after { bottom: 0; }",
+            "." + options.encKindClass.F + " .enc-F-tl::after, .enc-F-bl::after { left: 0; }",
+            "." + options.encKindClass.F + " .enc-F-tr::after, .enc-F-br::after { right: 0; }",
             h1 + " {",                      // 裸方框
             "    border: 0.07em solid #000;",   // 与锦旗框同粗
             "    padding: 0.08em;",             // 0.70 内容 + 0.16 内边距 + 0.14 边框 = 1em
