@@ -136,6 +136,14 @@
             font-family: Consolas, "Courier New", monospace;
         }
 
+        /* API 一览：函数签名的 IDE 风格着色（VS Code 浅色主题色板） */
+        .sig-fn   { color: #795e26; }                     /* 函数名 */
+        .sig-var  { color: #001080; }                     /* 参数名 / 属性名 */
+        .sig-type { color: #267f99; }                     /* 类型名 */
+        .sig-str  { color: #a31515; }                     /* 字符串字面量 */
+        .sig-punc { color: #6b6b6b; }                     /* 标点 */
+        .sig-ret  { font-family: Consolas, "Courier New", monospace; }
+
         /* API 一览：函数签名较长，允许在单元格内换行（保持等宽字体） */
         #apiTable td.k,
         #internalsTable td.k {
@@ -1003,11 +1011,70 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             brClass: "换行标记（.br）",
         };
 
+        /**
+         * 把 TypeScript 风格签名切成带 class 的片段，供 IDE 风格着色。
+         * 规则：第一个标识符 = 函数名；后面紧跟 ":" 的标识符 = 参数名 / 属性名；其余标识符 = 类型。
+         */
+        function tokenizeSig(src, firstIsFn) {
+            const firstAsFn = firstIsFn !== false;      // 返回类型单元格传 false
+            const out = [];
+            let i = 0;
+            let seenName = false;
+            const push = (text, cls) => { if (text) out.push({ text: text, cls: cls }); };
+            while (i < src.length) {
+                const ch = src[i];
+                if (ch === '"') {                                   // 字符串字面量
+                    let j = i + 1;
+                    while (j < src.length && src[j] !== '"') j++;
+                    push(src.slice(i, Math.min(j + 1, src.length)), "sig-str");
+                    i = j + 1;
+                    continue;
+                }
+                if (/[A-Za-z_$]/.test(ch)) {                        // 标识符
+                    let j = i;
+                    while (j < src.length && /[\w$]/.test(src[j])) j++;
+                    const word = src.slice(i, j);
+                    // 参数名 / 属性名：后面紧跟 ":"，或可选标记 "?:"
+                    let k = j;
+                    while (k < src.length && src[k] === " ") k++;
+                    const isKey = src[k] === ":" || (src[k] === "?" && src[k + 1] === ":");
+                    let cls = isKey ? "sig-var" : "sig-type";
+                    if (!seenName) { seenName = true; if (firstAsFn) cls = "sig-fn"; }
+                    push(word, cls);
+                    i = j;
+                    continue;
+                }
+                push(ch, "sig-punc");                               // 标点（含 ? : , | [ ] { } ;）
+                i++;
+            }
+            return out;
+        }
+
         function addRow(table, cells) {
             const tr = document.createElement("tr");
             for (const c of cells) {
                 const td = document.createElement("td");
-                if (c && c.mono) { td.className = "k"; td.textContent = c.text; }
+                if (c && c.sig !== undefined) {
+                    // 函数签名：按 token 着色（IDE 风格）
+                    td.className = "k";
+                    for (const tk of tokenizeSig(c.sig)) {
+                        const sp = document.createElement("span");
+                        sp.className = tk.cls;
+                        sp.textContent = tk.text;
+                        td.appendChild(sp);
+                    }
+                } else if (c && c.ret !== undefined) {
+                    // 返回类型：整体按类型着色
+                    td.className = "k sig-ret";
+                    const sp = document.createElement("span");
+                    for (const tk of tokenizeSig(c.ret, false)) {
+                        const s2 = document.createElement("span");
+                        s2.className = tk.cls;
+                        s2.textContent = tk.text;
+                        sp.appendChild(s2);
+                    }
+                    td.appendChild(sp);
+                } else if (c && c.mono) { td.className = "k"; td.textContent = c.text; }
                 else td.textContent = c;
                 tr.appendChild(td);
             }
@@ -1029,8 +1096,8 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
                 const v = MdCRndr[k];
                 const sig = typeof v === "function" ? API_SIG[k] : null;
                 addRow(apiTable, [
-                    { text: sig ? sig.sig : k, mono: true },
-                    sig ? sig.ret : typeof v,
+                    sig ? { sig: sig.sig } : { text: k, mono: true },
+                    sig ? { ret: sig.ret } : typeof v,
                     API_DOC[k] || "",
                 ]);
             }
@@ -1039,8 +1106,8 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
                 const v = MdCRndr.internals[k];
                 const sig = typeof v === "function" ? INTERNALS_SIG[k] : null;
                 addRow(inTable, [
-                    { text: sig ? sig.sig : k, mono: true },
-                    sig ? sig.ret : typeof v,
+                    sig ? { sig: sig.sig } : { text: k, mono: true },
+                    sig ? { ret: sig.ret } : typeof v,
                     INTERNALS_DOC[k] || "",
                 ]);
             }
