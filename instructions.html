@@ -223,6 +223,7 @@
     <div class="wrap">
         <nav>
             <b>目录</b>
+            <a href="#overview">0 界面总览</a>
             <a href="#quick">1 快速上手</a>
             <a href="#ui">2 界面一览</a>
             <a href="#syntax">3 MdC 输入语法</a>
@@ -238,10 +239,24 @@
         </nav>
 
         <main>
+
+            <!-- ================================================== -->
+            <section id="overview">
+                <h2>0 界面总览</h2>
+                <p>下图是 CHEAV 的完整界面，红框与文字是说明用的标注，实际页面没有这些标记。</p>
+                <figure class="shot">
+                    <img src="img/interface.png" alt="CHEAV 界面分区：缓冲区、缓冲区预览、匹配区（词汇 / 声符·意符 / Gardiner Code）、正文区、渲染区、设置面板">
+                    <figcaption>CHEAV 界面分区</figcaption>
+                </figure>
+
+                <p>第 1 节先走一遍最常用的两条路径（输入单字符、选中一个词），第 2 节再逐区说明。</p>
+            </section>
+
             <!-- ================================================== -->
             <section id="quick">
                 <h2>1 快速上手</h2>
-                <p>打开 <code>index.html</code>，把光标放进 <b>缓冲区</b>（第一个大输入框），依次做三件事：</p>
+                <h3>1.1 输入单个字符（nfr）</h3>
+                <p>打开 <code>index.html</code>，把光标放进 <b>缓冲区</b>（页首的输入框），依次做三件事：</p>
                 <table>
                     <tr>
                         <th style="width:38%">操作</th>
@@ -268,16 +283,47 @@
                     <b>一句话理解：</b>左边输入框负责「找到想要的字」，<kbd>Tab</kbd> 把它放进缓冲区，
                     <kbd>Enter</kbd> 再把缓冲区送进正文；正文下方是只读的渲染结果。
                 </div>
+
+                <h3>1.2 选择一个词（sA）</h3>
+                <p>要输入的不是单个字符而是一个<b>词</b>时，做法完全一样，只是候选会在<b>词汇匹配</b>里列出多条读音相同的词，
+                   需要你挑出正确的那一条。以 <code>sA</code>（儿子）为例：</p>
+                <table>
+                    <tr>
+                        <th style="width:34%">操作</th>
+                        <th>说明</th>
+                    </tr>
+                    <tr>
+                        <td class="k">在缓冲区输入 <code>sA</code></td>
+                        <td>词汇匹配区列出所有读音为 <code>sA</code> 的词条，每行自左至右为：<b>发音</b> / <b>字形</b> / <b>码串 + 释义</b>。
+                            此处会出现「儿子」（<code>G39-A1</code>）、「土地度量」（<code>G39</code>）、「拉之子」（<code>{G39-N5}</code>）等。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">按 <kbd>↓</kbd> / <kbd>↑</kbd></td>
+                        <td>在候选行之间移动高亮，直到选中释义为「儿子」、码串为 <code>G39-A1</code> 的那一行。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">按 <kbd>Tab</kbd></td>
+                        <td>把该行的码串写入缓冲区（此处得到 <code>G39-A1</code>）。</td>
+                    </tr>
+                    <tr>
+                        <td class="k">按 <kbd>Enter</kbd></td>
+                        <td>送入正文，渲染区随即画出「儿子」这个词的两个字形。</td>
+                    </tr>
+                </table>
+                <div class="demo align-baseline">
+                    <span class="label">结果示例：</span>
+                    <span class="mdc" data-mdc="G39-A1" data-pron="sA">G39-A1</span>
+                </div>
+                <div class="note">
+                    <b>怎么挑：</b>候选行右侧的释义就是判据；同一个读音往往对应多个词，字形与码串也随之不同。
+                    确认后若发现选错，回到缓冲区按 <kbd>Backspace</kbd> 删掉刚写入的码，重新选择即可。
+                </div>
             </section>
 
             <!-- ================================================== -->
             <section id="ui">
                 <h2>2 界面一览</h2>
-                <p>下图是 CHEAV 的完整界面，红框与文字是说明用的标注，实际页面没有这些标记。</p>
-                <figure class="shot">
-                    <img src="img/interface.png" alt="CHEAV 界面分区：缓冲区、缓冲区预览、匹配区（词汇 / 声符·意符 / Gardiner Code）、正文区、渲染区、设置面板">
-                    <figcaption>CHEAV 界面分区</figcaption>
-                </figure>
+                <p>第 0 节的界面图已标出下面这几块区域，这里逐块说明用途（红框与文字是说明用的，实际页面没有这些标记）。</p>
                 <table>
                     <tr>
                         <th style="width:24%">区域</th>
