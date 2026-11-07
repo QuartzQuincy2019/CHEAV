@@ -7270,6 +7270,7 @@ function renderLigature(parent, name, fontSize) {
  * @param {number} fontSize 基准字号（px）
  */
 function render(parent, tree, fontSize) {
+    ensureStyle();
     if (!tree) return;
     if (tree.type === "char") {
         if (tree.shadow) {
@@ -7938,6 +7939,7 @@ function splitLines(tree) {
     }
 
     /** 注入（或重建）样式表；幂等：同 id 已存在则替换内容。 */
+    let styleReady = false;
     function injectStyle() {
         if (!options.injectStyle) return;
         const doc = global.document;
@@ -7949,6 +7951,14 @@ function splitLines(tree) {
             (doc.head || doc.documentElement).appendChild(el);
         }
         el.textContent = buildCss();
+        styleReady = true;
+    }
+    /**
+     * 确保样式已注入。首次渲染时自动调用，这样宿主页面不写 init() 也能正常显示
+     * （@font-face 与全部布局规则都在这里注入）。
+     */
+    function ensureStyle() {
+        if (!styleReady) injectStyle();
     }
 
     // ========================================================================
@@ -7980,14 +7990,16 @@ function splitLines(tree) {
         },
         /** 解析纯 MdC 渲染串并渲染到元素（横排；输入框、预览、候选用它）。 */
         renderText: function (el, text, fontSize) {
+            ensureStyle();
             const r = parseInput(text);
             for (const line of splitLines(r.tree)) {
                 render(el, line, fontSize === undefined ? options.fontSize : fontSize);
             }
             return r;
         },
-        /** 解析纯 MdC 渲染串并以**竖排**渲染到元素（自上而下成列，VRG → HRG）。仅用于正文渲染区。 */
+        /** 解析纯 MdC 渲染串并以**竖排**渲染到元素（自上而下成列，VRG → HRG）。 */
         renderVerticalText: function (el, text, fontSize) {
+            ensureStyle();
             const r = parseInput(text);
             renderVertical(el, r.tree, fontSize === undefined ? options.fontSize : fontSize);
             return r;
