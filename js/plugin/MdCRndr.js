@@ -7144,7 +7144,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     // 框随内容拉伸：横排时内容横向排布，竖排时纵向排布（形状本身只由内容尺寸决定）
     // 框内字形按 JSesh 惯例略小于框外，使框体本身不显得拥挤
     // 锦旗框底部要留下宫墙纹，内容再小一档；其余按通用比例
-    const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.62 : ENC_CONTENT_SCALE);   // F 总高 1em = 内容 0.62 + 内边距 0.16 + 边框 0.06 + 框外齿带 0.16
+    const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.54 : ENC_CONTENT_SCALE);   // F 总高 1em = 内容 0.62 + 内边距 0.16 + 边框 0.06 + 框外齿带 0.16
     if (vertical) {
         for (const x of (u.units || [])) renderLayerUnitV(inner, x, innerSize);
     } else {
@@ -7686,7 +7686,7 @@ function splitLines(tree) {
             "    border: 0.03em solid #000;",
             "    position: relative;",
                         "    padding: 0.08em;",
-            "    margin: 0.08em;",   // 为框外齿带预留布局空间，避免溢出容器  "    box-sizing: content-box;",
+            "    margin: 0.12em;",   // 为框外齿带预留布局空间，避免溢出容器  "    box-sizing: content-box;",
             "}",
             "." + options.encKindClass.F + " .enc-F-edge,",
             "." + options.encKindClass.F + " .enc-F-corner {",
@@ -7704,10 +7704,10 @@ function splitLines(tree) {
             "    background-size: 100% 0.24em;",   // 竖向边沿 y 平铺
 "}",
 
-            "." + options.encKindClass.F + " .enc-F-t { left: 0.24em; right: 0.24em; top: -0.11em; height: 0.08em; }",
-            "." + options.encKindClass.F + " .enc-F-b { left: 0.24em; right: 0.24em; bottom: -0.11em; height: 0.08em; }",
-            "." + options.encKindClass.F + " .enc-F-l { top: 0.24em; bottom: 0.24em; left: -0.11em; width: 0.08em; --f-angle: 180deg; }",
-            "." + options.encKindClass.F + " .enc-F-r { top: 0.24em; bottom: 0.24em; right: -0.11em; width: 0.08em; --f-angle: 180deg; }",
+            "." + options.encKindClass.F + " .enc-F-t { left: 0.24em; right: 0.24em; top: -0.12em; height: 0.10em; }",
+            "." + options.encKindClass.F + " .enc-F-b { left: 0.24em; right: 0.24em; bottom: -0.12em; height: 0.10em; }",
+            "." + options.encKindClass.F + " .enc-F-l { top: 0.24em; bottom: 0.24em; left: -0.12em; width: 0.10em; --f-angle: 180deg; }",
+            "." + options.encKindClass.F + " .enc-F-r { top: 0.24em; bottom: 0.24em; right: -0.12em; width: 0.10em; --f-angle: 180deg; }",
             "." + options.encKindClass.F + " .enc-F-corner {",   // 角：0.14em 方块 + 两向臂 = L
             "    width: 0.14em;",
             "    height: 0.14em;",
@@ -7718,12 +7718,12 @@ function splitLines(tree) {
             "    position: absolute;",
             "    background-color: #000;",
             "}",
-            "." + options.encKindClass.F + " .enc-F-corner::before { width: 0.24em; height: 0.08em; }",
-            "." + options.encKindClass.F + " .enc-F-corner::after { width: 0.08em; height: 0.24em; }",
-            "." + options.encKindClass.F + " .enc-F-tl { left: -0.11em; top: -0.11em; }",
-            "." + options.encKindClass.F + " .enc-F-tr { right: -0.11em; top: -0.11em; }",
-            "." + options.encKindClass.F + " .enc-F-bl { left: -0.11em; bottom: -0.11em; }",
-            "." + options.encKindClass.F + " .enc-F-br { right: -0.11em; bottom: -0.11em; }",
+            "." + options.encKindClass.F + " .enc-F-corner::before { width: 0.24em; height: 0.10em; }",
+            "." + options.encKindClass.F + " .enc-F-corner::after { width: 0.10em; height: 0.24em; }",
+            "." + options.encKindClass.F + " .enc-F-tl { left: -0.12em; top: -0.12em; }",
+            "." + options.encKindClass.F + " .enc-F-tr { right: -0.12em; top: -0.12em; }",
+            "." + options.encKindClass.F + " .enc-F-bl { left: -0.12em; bottom: -0.12em; }",
+            "." + options.encKindClass.F + " .enc-F-br { right: -0.12em; bottom: -0.12em; }",
             "." + options.encKindClass.F + " .enc-F-tl::before, .enc-F-tr::before { top: 0; }",
             "." + options.encKindClass.F + " .enc-F-bl::before, .enc-F-br::before { bottom: 0; }",
             "." + options.encKindClass.F + " .enc-F-tl::before, .enc-F-bl::before { left: 0; }",
