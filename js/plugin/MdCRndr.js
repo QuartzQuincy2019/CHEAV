@@ -7673,14 +7673,14 @@ function splitLines(tree) {
             "    border: 0.14em solid transparent;",   // 齿带宽度 = 边框宽度，画面全部来自 border-image",
             "    border-image-source: url(\"data:image/svg+xml;utf8," + encodeURIComponent(
                     "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'>"
-                  + "<path d='M0 0H24V12H12V24H0Z' fill='%23000'/>"                 /* 左上 L */
-                  + "<path d='M72 0H96V24H84V12H72Z' fill='%23000'/>"                /* 右上 L */
-                  + "<path d='M0 72H12V84H24V96H0Z' fill='%23000'/>"                 /* 左下 L */
-                  + "<path d='M96 72V96H72V84H84V72Z' fill='%23000'/>"               /* 右下 L */
-                  + "<rect x='24' y='0' width='12' height='12' fill='%23000'/>"      /* 上边齿（一片，round 平铺） */
-                  + "<rect x='24' y='84' width='12' height='12' fill='%23000'/>"     /* 下边齿 */
-                  + "<rect x='0' y='24' width='12' height='12' fill='%23000'/>"      /* 左边齿 */
-                  + "<rect x='84' y='24' width='12' height='12' fill='%23000'/>"     /* 右边齿 */
+                  + "<path d='M0 0H24V15H15V24H0Z' fill='%23000'/>"                 /* 左上 L */
+                  + "<path d='M72 0H96V24H81V15H72Z' fill='%23000'/>"                /* 右上 L */
+                  + "<path d='M0 72H15V81H24V96H0Z' fill='%23000'/>"                 /* 左下 L */
+                  + "<path d='M96 72V96H72V81H81V72Z' fill='%23000'/>"               /* 右下 L */
+                  + "<rect x='24' y='0' width='12' height='15' fill='%23000'/>"      /* 上边齿（一片，round 平铺） */
+                  + "<rect x='24' y='81' width='12' height='15' fill='%23000'/>"     /* 下边齿 */
+                  + "<rect x='0' y='24' width='15' height='12' fill='%23000'/>"      /* 左边齿 */
+                  + "<rect x='81' y='24' width='15' height='12' fill='%23000'/>"     /* 右边齿 */
                   + "<path d='M15 15H81V81H15Z M21 21H75V75H21Z' fill='%23000' fill-rule='evenodd'/>"  /* 细框线 */
                   + "</svg>") + "\");",
             "    border-image-slice: 24 fill;",        // 四角 24/96 固定，四边中段由 round 等分平铺
