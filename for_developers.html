@@ -625,7 +625,8 @@ MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
                     </tr>
                     <tr><td class="k"><b>吅</b></td><td class="k">2</td><td class="k"><code>D21*G43</code></td>
                         <td class="k">999×1796</td><td class="k">0.557</td><td class="k">1.000em</td>
-                        <td>单层两格并列；两个都宽 → 缩到 0.557</td></tr>
+                        <td>单层两格。<b>横排顶层按序列展开</b>（两字各 1em、无组盒、不缩放）；
+                        只有嵌进多层组时才是 1em 方格内的一个单位（此时 s=0.557）。数值为该情形</td></tr>
                     <tr><td class="k"><b>吕</b></td><td class="k">1+1</td><td class="k"><code>O34:N37</code></td>
                         <td class="k">162×997 / 254×1000</td><td class="k">1.000</td><td class="k">1.000em</td>
                         <td>两个宽扁符号上下叠，恰好 1em</td></tr>
@@ -658,6 +659,21 @@ MdCRndr.set({ ligatureDebug: true });   // 显示连字各部件边框</pre>
                     <div class="canvas-wrap" id="variantCanvases"></div>
                     <figcaption>六种典型类型的层结构（方框为 1em 方格，色块按真实层高与组宽绘制；虚线表示层内分格）</figcaption>
                 </figure>
+
+                <h4>单层组的两副面孔（吅 这类 "2"）</h4>
+                <p>只有一层的组（如 <code>D21*G43</code>）在<b>横排</b>下有两种完全不同的表现，这点很容易踩坑：</p>
+                <table>
+                    <tr><th style="width:26%">场合</th><th style="width:26%">DOM</th><th>表现</th></tr>
+                    <tr><td class="k">横排顶层</td><td class="k">2 个 <code>.hie</code>，无 <code>.vrg</code></td>
+                        <td>退化为<b>普通序列</b>：两个字各占 1em、顺序排开，<b>不生成组盒、不缩放</b>。
+                            所以 <code>D21*G43</code> 与 <code>D21-G43</code> 在顶层渲染结果完全相同</td></tr>
+                    <tr><td class="k">嵌在多层组内</td><td class="k"><code>.vrg-layer</code> 内</td>
+                        <td>作为该组的一层，按组的 <code>s</code> 缩放；此时才受 1em 方格约束（<code>D21*G43</code> 的 s = 0.557）</td></tr>
+                    <tr><td class="k">竖排</td><td class="k">1 个 <code>.hrg</code></td>
+                        <td>始终生成盒：竖排需要知道"哪些单位属同一行"，因此单层组不会被展开</td></tr>
+                </table>
+                <p>换句话说：<code>*</code> 在顶层只是"顺序无所谓"的写法；要让它成为真正的四开组，必须让它处在<b>多层</b>组里
+                   （例如 <code>D21*G43:N35</code>），或放进竖排。</p>
 
                 <h4>层与层为什么不会重叠</h4>
                 <p>组内布局用的是 <code>justify-content: space-between</code>：<b>首层贴顶、末层贴底，中间各层把剩余空间等分</b>。
@@ -1187,7 +1203,7 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
         // 用真实层高与组宽在 1em 方格内绘制（缩放后）
         // ------------------------------------------------------------
         const VRG_VARIANTS = [
-            { name: "吅（2）", src: "D21*G43" },
+            { name: "吅（2）", src: "D21*G43", single: true },
             { name: "吕（1+1）", src: "O34:N37" },
             { name: "三（1+1+1）", src: "N35:N35:N35" },
             { name: "品（1+2）", src: "D21:G43*X1" },
@@ -1199,6 +1215,23 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             const ctx = cv.getContext("2d");
             const W = cv.width, H = cv.height;
             ctx.clearRect(0, 0, W, H);
+
+            // 顶层单层组（如 D21*G43 的 "2"）：横排时不生成组盒，按普通序列展开
+            if (item.single) {
+                const y0s = 40, gapC = 10, n = 2;
+                const totalW = n * CELL + (n - 1) * gapC;
+                const x0s = (W - totalW) / 2;
+                for (let i = 0; i < n; i++) {
+                    const cx = x0s + i * (CELL + gapC);
+                    cvFrame(ctx, cx, y0s, CELL, CELL, "#6d8fd1");
+                    cvInk(ctx, cx + 8, y0s + 8, CELL - 16, CELL - 16);
+                    cvText(ctx, cx + CELL / 2, y0s + CELL + 14, i === 0 ? "D21" : "G43", { align: "center", size: 10.5 });
+                }
+                cvText(ctx, W / 2, y0s - 10, "顶层：两字各占 1em，顺序排开", { align: "center", size: 10.5, color: "#6d8fd1" });
+                cvText(ctx, W / 2, H - 26, item.name + "   " + item.src, { align: "center", size: 12, bold: true, color: "#22303f" });
+                cvText(ctx, W / 2, H - 8, "无组盒、不缩放；嵌进多层组时才按 1em 收拢", { align: "center", size: 10.5, color: "#6b6b6b" });
+                return;
+            }
 
             const side = 120, x0 = (W - side) / 2, y0 = 26;
             cvFrame(ctx, x0, y0, side, side, "#6d8fd1");
@@ -1256,8 +1289,8 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
             });
 
             // 层间距标注：在组盒右侧画一条细竖线 + 双箭头 + 「gap」
-            if (layers.length > 1 && gapPx >= 4) {
-                const gx = bx + boxPx + 34;
+            if (layers.length > 1 && gapPx >= 3) {
+                const gx = W - 20;                       // 固定在画布右缘，避免被裁切
                 const gTop = y0 + drawH[0], gBot = gTop + gapPx;
                 ctx.save();
                 ctx.strokeStyle = "#b26a36";
@@ -1266,8 +1299,9 @@ new Vocabulary("pr2", "O1*Z1", null, "O1"),                     // 变体：可�
                 ctx.beginPath(); ctx.moveTo(gx - 3, gTop); ctx.lineTo(gx + 3, gTop); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(gx - 3, gBot); ctx.lineTo(gx + 3, gBot); ctx.stroke();
                 ctx.restore();
-                cvText(ctx, gx + 6, (gTop + gBot) / 2 + 3, "gap", { size: 9, color: "#b26a36" });
-                cvText(ctx, gx + 6, (gTop + gBot) / 2 + 14, Math.round(gapPx) + "px", { size: 9, color: "#b26a36" });
+                const midY = (gTop + gBot) / 2;
+                cvText(ctx, gx - 6, midY + 2, "gap", { size: 9, color: "#b26a36", align: "end" });
+                cvText(ctx, gx - 6, midY + 12, Math.round(gapPx) + "px", { size: 9, color: "#b26a36", align: "end" });
             }
 
             cvText(ctx, W / 2, H - 26, item.name + "   " + item.src, { align: "center", size: 12, bold: true, color: "#22303f" });
