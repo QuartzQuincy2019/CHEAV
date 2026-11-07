@@ -54,7 +54,7 @@
         textClass: "txt",       // <文本> 插入的文本片段
         unsupportedClass: "unsup",  // 字体不支持的码：方块占位 + 码名
         brClass: "br",          // "$" 手动换行标记
-        encClass: "enc",        // 包围框（王名圈 / 锦旗框 / 方框）
+        encClass: "enc",        // 包围框（王名圈 / 塞拉赫框 / 方框）
         encKindClass: { A: "enc-A", S: "enc-S", h1: "enc-h1", F: "enc-F" },   // 按种类区分的类名
         encVerticalClass: "enc-v",   // 竖排朝向
         vtextClass: "vtext",    // 竖排整块容器
@@ -7163,7 +7163,7 @@ function renderVertical(parent, tree, fontSize) {
     return wrap;
 }
 /**
- * 渲染包围框：王名圈（A）、锦旗框（S）、裸方框（h1）。
+ * 渲染包围框：王名圈（A）、塞拉赫框（S）、裸方框（h1）。
  * 框体由 CSS 绘制（.enc-A / .enc-S / .enc-h1 + .enc-v 竖排朝向），此处只负责容器。
  * @param {HTMLElement} parent 父容器
  * @param {Object} u 单位 { type:"enc", kind, units }
@@ -7177,7 +7177,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
         + (vertical ? " " + options.encVerticalClass : "");
     box.style.fontSize = fontSize + "px";
     box.title = "包围框：" + u.kind;
-    // F 框（堡垒式围框）：四边雉堞齿 + 四角 L 形齿，用真实元素生成（四角共用同一 class，几何必然全等）
+    // F 框（堡垒框）：四边雉堞齿 + 四角 L 形齿，用真实元素生成（四角共用同一 class，几何必然全等）
     if (u.kind === "F") {
         for (const side of ["t", "b", "l", "r"]) {
             const e = document.createElement("span");
@@ -7195,7 +7195,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     box.appendChild(inner);
     // 框随内容拉伸：横排时内容横向排布，竖排时纵向排布（形状本身只由内容尺寸决定）
     // 框内字形按 JSesh 惯例略小于框外，使框体本身不显得拥挤
-    // 锦旗框底部要留下宫墙纹，内容再小一档；其余按通用比例
+    // 塞拉赫框底部要留下宫墙纹，内容再小一档；其余按通用比例
     const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.54 : ENC_CONTENT_SCALE);   // F 总高 1em = 内容 0.62 + 内边距 0.16 + 边框 0.06 + 框外齿带 0.16
     if (vertical) {
         for (const x of (u.units || [])) renderLayerUnitV(inner, x, innerSize);
@@ -7341,7 +7341,7 @@ function render(parent, tree, fontSize) {
  */
 function parseInput(text) {
     const invalid = [];
-    // 包围框种类（按顺序匹配前缀）：<- … ->（王名圈）、<S- … ->（锦旗框）、<h1- … -h1>（方框）
+    // 包围框种类（按顺序匹配前缀）：<- … ->（王名圈）、<S- … ->（塞拉赫框）、<h1- … -h1>（方框）
     const ENC_OPENERS = [["h1", "<h1-", "-h1>"], ["S", "<S-", "->"], ["F", "<F-", "->"], ["A", "<-", "->"]];
 
     // 预处理：外部空白宽容剔除；"<>" 文本区内部保留空白（含空格）。
@@ -7432,7 +7432,7 @@ function parseInput(text) {
         return { type: "lig", name };
     }
 
-    // 包围框：<- … ->（王名圈）、<S- … ->（锦旗框）、<h1- … -h1>（裸方框）。
+    // 包围框：<- … ->（王名圈）、<S- … ->（塞拉赫框）、<h1- … -h1>（裸方框）。
     // 以 "<种类-" 开头，与普通插入文本 <文本> 区分；内容递归按本语法解析。
 
     function parseEnclosure() {
@@ -7463,7 +7463,7 @@ function parseInput(text) {
             i++;
         }
         const inner = end < 0 ? s.slice(from) : s.slice(from, end);
-        // 包围框不允许嵌套（王名圈、锦旗框、方框皆同）——出现即报错
+        // 包围框不允许嵌套（王名圈、塞拉赫框、方框皆同）——出现即报错
         for (const spec of ENC_OPENERS) {
             if (inner.indexOf(spec[1]) >= 0) {
                 invalid.push(open + inner + close + " (包围框不允许嵌套)");
@@ -7681,7 +7681,7 @@ function splitLines(tree) {
     // ========================================================================
     // 六、样式注入（含 @font-face）
     // ========================================================================
-    /** 包围框样式（王名圈 / 锦旗框 / 方框，横排与竖排两种朝向）。 */
+    /** 包围框样式（王名圈 / 塞拉赫框 / 方框，横排与竖排两种朝向）。 */
     function encCss() {
         const e = "." + options.encClass;
         const body = e + "-body";
@@ -7734,7 +7734,7 @@ function splitLines(tree) {
             "    margin-left: -0.025em;",
             "    transform: translateY(100%);",
             "}",
-            S + " {",                       // 锦旗框：矩形 + 底部宫墙纹
+            S + " {",                       // 塞拉赫框：矩形 + 底部宫墙纹
             "    border: 0.07em solid #000;",   // 与尾部笔画同粗
             "    padding: 0.11em 0.08em;",           // 0.64 + 0.22 + 0.14 = 1em
             "    margin-right: 0.996em;",       // 尾墨迹宽 0.996em × 1em
@@ -7774,7 +7774,7 @@ function splitLines(tree) {
             "    align-items: center;",
             "    width: 100%;",              // 撑满框宽，否则 inline-flex 收缩到内容宽、靠左
             "}",
-            "." + options.encKindClass.F + " {",   // 堡垒式围框（F，fortified enclosure）：细框线 + 外圈雉堞齿（由真实 DOM 元素绘制）
+            "." + options.encKindClass.F + " {",   // 堡垒框（F，fortified enclosure）：细框线 + 外圈雉堞齿（由真实 DOM 元素绘制）
             "    border: 0.03em solid #000;",
             "    position: relative;",
                         "    padding: 0.08em;",
@@ -7830,7 +7830,7 @@ function splitLines(tree) {
             "." + options.encKindClass.F + " .enc-F-tl::after, .enc-F-bl::after { left: 0; }",
             "." + options.encKindClass.F + " .enc-F-tr::after, .enc-F-br::after { right: 0; }",
             h1 + " {",                      // 裸方框
-            "    border: 0.07em solid #000;",   // 与锦旗框同粗
+            "    border: 0.07em solid #000;",   // 与塞拉赫框同粗
             "    padding: 0.08em;",             // 0.70 内容 + 0.16 内边距 + 0.14 边框 = 1em
             "    box-sizing: content-box;",
             "}",

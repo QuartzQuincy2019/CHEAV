@@ -395,7 +395,7 @@ js/ui/apply.js            ← 最后（需 DOM 就绪）</pre>
                     <tr><td class="k">text</td><td class="k">{ type:"text", text }</td>
                         <td>插入文本 <code>&lt;…&gt;</code>，按小字号居中显示。</td></tr>
                     <tr><td class="k">enc</td><td class="k">{ type:"enc", kind:"A"|"S"|"h1"|"F", units }</td>
-                        <td>包围框：王名圈 <code>A</code>、锦旗框 <code>S</code>、裸方框 <code>h1</code>、堡垒式围框 <code>F</code>（fortified enclosure）。</td></tr>
+                        <td>包围框：王名圈 <code>A</code>、塞拉赫框 <code>S</code>、裸方框 <code>h1</code>、堡垒框 <code>F</code>（fortified enclosure）。</td></tr>
                     <tr><td class="k">newline / unsup</td><td class="k">{ type:"newline" } / { type:"unsup", code }</td>
                         <td>手动换行标记 / 字体缺失码的占位框。</td></tr>
                     <tr><td class="k">UnitTree</td><td class="k">seq</td>
@@ -697,8 +697,8 @@ MdCRndr.internals.ligatureWidth("X1-G43");</pre>
                     对应角的 <code>background-position</code>，<code>no-repeat</code>；纯背景层，不参与布局与度量。
 </div>
                 <div class="note">
-                    <b>包围框（MdC 扩展）：</b><code>&lt;- … -&gt;</code>（王名圈）、<code>&lt;S- … -&gt;</code>（锦旗框）、
-                    <code>&lt;h1- … -h1&gt;</code>（裸方框）、<code>&lt;F- … -&gt;</code>（堡垒式围框，四边雉堞状方块齿，段长 0.12em / 间隔 0.20em）。解析为 <code>{ type:"enc", kind, units }</code>，
+                    <b>包围框（MdC 扩展）：</b><code>&lt;- … -&gt;</code>（王名圈）、<code>&lt;S- … -&gt;</code>（塞拉赫框）、
+                    <code>&lt;h1- … -h1&gt;</code>（裸方框）、<code>&lt;F- … -&gt;</code>（堡垒框，四边雉堞状方块齿，段长 0.12em / 间隔 0.20em）。解析为 <code>{ type:"enc", kind, units }</code>，
                     嵌套计入 <code>invalid</code>；渲染为 <code>.enc</code> + <code>.enc-A / .enc-S / .enc-h1</code>，竖排加 <code>.enc-v</code>。
                     几何全部用 em 推导（stroke 0.05 / 0.07，内容 0.70 / 0.64，外廓恒为 1em），不做测量、不做重复拼贴。
                     竖排列序为<b>自左向右</b>（<code>.vtext</code> 用 <code>flex-direction: row</code>），列内自上而下。
