@@ -7691,10 +7691,10 @@ function splitLines(tree) {
             "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em),",  // 左边中段齿
             "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em);",  // 右边中段齿
             "    background-size:",
-            "        0.28em 0.14em, 0.14em 0.28em,",        // 角齿 L 形：横臂 0.28x0.14，竖臂 0.14x0.28
-            "        0.28em 0.14em, 0.14em 0.28em,",
-            "        0.28em 0.14em, 0.14em 0.28em,",
-            "        0.28em 0.14em, 0.14em 0.28em,",
+            "        0.20em 0.14em, 0.14em 0.20em,",        // 角齿 L 形：横臂 0.20x0.14，竖臂 0.14x0.20
+            "        0.20em 0.14em, 0.14em 0.20em,",
+            "        0.20em 0.14em, 0.14em 0.20em,",
+            "        0.20em 0.14em, 0.14em 0.20em,",
             "        100% 0.14em, 100% 0.14em, 0.14em 100%, 0.14em 100%;",
             "    background-position:",
             "        left top, left top, right top, right top,",
