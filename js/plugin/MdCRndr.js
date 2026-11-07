@@ -7669,21 +7669,21 @@ function splitLines(tree) {
             "    align-items: center;",
             "    width: 100%;",              // 撑满框宽，否则 inline-flex 收缩到内容宽、靠左
             "}",
-            "." + options.encKindClass.F + " {",   // 齿状框：四边方块齿（精确段长/间隔，对应 E45D/E463 延伸段）
-            "    border: 0.07em solid transparent;",  // 保留盒模型，实际边线由背景绘制
+            "." + options.encKindClass.F + " {",   // 齿状框：实线框 + 四边方块齿（齿跨在框线上、向外凸出）
+            "    border: 0.07em solid #000;",          // 框：实线
             "    background-image:",
             "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",
             "        repeating-linear-gradient(90deg, #000 0 0.12em, transparent 0.12em 0.20em),",
             "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em),",
             "        repeating-linear-gradient(180deg, #000 0 0.12em, transparent 0.12em 0.20em);",
-            "    background-size: 100% 0.07em, 100% 0.07em, 0.07em 100%, 0.07em 100%;",
+            "    background-size: 100% 0.14em, 100% 0.14em, 0.14em 100%, 0.14em 100%;",   // 齿厚 0.14em，覆盖框线并向外凸出
             "    background-position: left top, left bottom, left top, right top;",
             "    background-repeat: no-repeat;",
             "    padding: 0.08em;",
             "    box-sizing: content-box;",
             "}",
             "." + options.encKindClass.F + v + " {",   // 竖排：同一套四边齿（沿边拉伸，端头比例不变）
-            "    background-size: 100% 0.07em, 100% 0.07em, 0.07em 100%, 0.07em 100%;",
+            "    background-size: 100% 0.14em, 100% 0.14em, 0.14em 100%, 0.14em 100%;",
             "}",
             h1 + " {",                      // 裸方框
             "    border: 0.07em solid #000;",   // 与锦旗框同粗
