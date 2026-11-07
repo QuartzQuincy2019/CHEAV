@@ -7131,7 +7131,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     // 框随内容拉伸：横排时内容横向排布，竖排时纵向排布（形状本身只由内容尺寸决定）
     // 框内字形按 JSesh 惯例略小于框外，使框体本身不显得拥挤
     // 锦旗框底部要留下宫墙纹，内容再小一档；其余按通用比例
-    const innerSize = fontSize * (u.kind === "S" ? 0.64 : ENC_CONTENT_SCALE);   // F 与 h1 用通用 0.70
+    const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.50 : ENC_CONTENT_SCALE);   // F 含齿带，内容取 0.50 使总高 1em
     if (vertical) {
         for (const x of (u.units || [])) renderLayerUnitV(inner, x, innerSize);
     } else {
@@ -7672,7 +7672,7 @@ function splitLines(tree) {
             "." + options.encKindClass.F + " {",   // 齿状框：细实线框 + 框外方块齿
             "    border: 0.03em solid #000;",          // 框：细线（JSesh 观感）
             "    position: relative;",
-            "    padding: 0.12em;",                    // 0.70 + 0.24 + 0.06 = 1em
+            "    padding: 0.08em;",                    // 0.50 + 0.16 + 0.06 + 0.28(齿) = 1em
             "    margin: 0.14em;",                    // 为框外的齿带预留布局空间（齿不再溢出）
             "    box-sizing: content-box;",
             "}",
