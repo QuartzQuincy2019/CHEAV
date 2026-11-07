@@ -7720,6 +7720,11 @@ function splitLines(tree) {
             "}",
             "." + options.encKindClass.F + " .enc-F-corner::before { width: 0.24em; height: 0.10em; }",
             "." + options.encKindClass.F + " .enc-F-corner::after { width: 0.10em; height: 0.24em; }",
+            "." + options.encKindClass.F + v + " {",
+            "    width: 1em;",
+            "    box-sizing: border-box;",   // 竖排固定 1em 宽，短边才有齿位
+            "}",
+
             "." + options.encKindClass.F + " .enc-F-tl { left: -0.12em; top: -0.12em; }",
             "." + options.encKindClass.F + " .enc-F-tr { right: -0.12em; top: -0.12em; }",
             "." + options.encKindClass.F + " .enc-F-bl { left: -0.12em; bottom: -0.12em; }",
