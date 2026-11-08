@@ -663,6 +663,16 @@
             return (out.zone1 || out.zone2) ? out : null;
         },
 
+        /** 判定 em 坐标矩形（x 相对字形左缘，y 自底向上）是否与字形墨迹重叠。 */
+        overlapsInk(code, xEm, yEm, wEm, hEm) {
+            const grid = this.inkGrid(code);
+            if (!grid) return false;
+            const emW = grid.w / 18, emH = grid.h / 18;
+            const x0 = xEm / emW, x1 = (xEm + wEm) / emW;
+            const y0 = yEm / emH, y1 = (yEm + hEm) / emH;
+            return this._busy(grid, x0, y0, x1, y1);
+        },
+
         /** 连字区：优先显式数据（Tier 1），否则按墨迹网格推导（Tier 2）。 */
         zoneFor(code) {
             const explicit = (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;

@@ -14,12 +14,12 @@
   #log { font: 12px monospace; background: #ffef9f; padding: 6px; white-space: pre-wrap; }
   label { font-size: 12px; }
 </style>
-<script src="../js/database/mainSigns.js?v=222859"></script>
-<script src="../js/database/translit.js?v=222859"></script>
-<script src="../js/database/glyphZones.js?v=222859"></script>
-<script src="../js/database/serekhTail.js?v=222859"></script>
-<script src="../js/plugin/MdCRndr.js?v=222859"></script>
-<script src="../js/ui/glyphs.js?v=222859"></script>
+<script src="../js/database/mainSigns.js?v=223206"></script>
+<script src="../js/database/translit.js?v=223206"></script>
+<script src="../js/database/glyphZones.js?v=223206"></script>
+<script src="../js/database/serekhTail.js?v=223206"></script>
+<script src="../js/plugin/MdCRndr.js?v=223206"></script>
+<script src="../js/ui/glyphs.js?v=223206"></script>
 </head>
 <body>
 <h1>照型 VRG 测试台（不改动 index.html / 插件测试台）</h1>
@@ -46,6 +46,11 @@
   <div class="cell"><b>L · t&amp;A17（Tier2）</b><div class="stage" id="l"></div></div>
   <div class="cell"><b>M · D&amp;t（Tier2）</b><div class="stage" id="m"></div></div>
 </div>
+<div class="row">
+  <div class="cell"><b>N · t&amp;A17（Tier1）</b><div class="stage" id="n"></div></div>
+  <div class="cell"><b>O · A17&amp;t</b><div class="stage" id="o"></div></div>
+  <div class="cell"><b>P · t&amp;D</b><div class="stage" id="p"></div></div>
+</div>
 <div id="log">loading…</div>
 <script>
 const SAMPLES = {
@@ -61,9 +66,12 @@ const SAMPLES = {
   j: "m&G17",
   k: "G17&m",
   l: "t&A17",
-  m: "D&t"
+  m: "D&t",
+  n: "t&A17",
+  o: "A17&t",
+  p: "t&D"
 };
-const CODES = ["N35","N5","Z1","A40","A1","B2","G43","X1","D58","D28","G17","M17","D21","V31","Aa1"];
+const CODES = ["N35","N5","Z1","A40","A1","B2","G43","X1","D58","D28","G17","M17","D21","V31","Aa1","A17","D37"];
 const sizeEl = document.getElementById("size");
 const jseshEl = document.getElementById("jsesh");
 let ready = false;
@@ -111,6 +119,7 @@ jseshEl.addEventListener("change", drawAll);
     if (MdCRndr.setGlyphAspectProvider) MdCRndr.setGlyphAspectProvider(c => Glyphs.aspect(c));
     // 与 index.html 一致：注入连字区与墨迹密度提供者（否则 & 连字的插槽定位会失效）
     if (MdCRndr.setGlyphZoneProvider) MdCRndr.setGlyphZoneProvider(function (code) { return Glyphs.zoneFor(code); });
+    if (MdCRndr.setGlyphOverlapProvider) MdCRndr.setGlyphOverlapProvider(function (code, x, y, w, h) { return Glyphs.overlapsInk(code, x, y, w, h); });
     if (MdCRndr.setGlyphDensityProvider) MdCRndr.setGlyphDensityProvider(function (code, n) { return Glyphs.densityFor ? Glyphs.densityFor(code, n) : null; });
     await Glyphs.preload(CODES);
     ready = true;

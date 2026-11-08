@@ -88,6 +88,7 @@ const EM_SQUARE = 1000;
 
 // 四开组布局模式："flow"（默认，现行流式）| "jsesh"（显式几何，实验）
 let quadratMode = "flow";
+let __ovlProvider = null;   // (code, x, y, w, h) → 是否与字形墨迹重叠（em 坐标）
 
 const visuHeight = {
   "x005b": 999, "x005d": 1000, "x007b": 1000, "x007d": 1000, "x27e6": 1000,
@@ -7517,6 +7518,14 @@ function renderLigature(parent, name, fontSize) {
         }
         // 兜底并排仅适用于"按连字区摆放"的部件；预定义连字（无 zone 字段）沿用自己的 dx/dy
         if (i > 0 && part.zone && !zUsed) { zdx = (part.dx || 0) + i; }
+        // 若该部件与宿主墨迹重叠（连字区数据不精确时会发生），沿槽方向外推，直到不重叠
+        if (__ovlProvider && part.zone && zUsed) {
+            const dir = (part.zone === "zone1") ? -1 : 1;
+            for (let push = 0; push < 8; push++) {
+                if (!__ovlProvider((lig.parts[0] || {}).code || "", zdx, zdy, (zps / fontSize) * (getMetrics(part.code).width / EM_SQUARE), (zps / fontSize) * (getMetrics(part.code).height / EM_SQUARE))) break;
+                zdx += dir * 0.05;
+            }
+        }
         const el = renderGlyph(box, part.code, zps, align);
         if (!el) return;
         // 绝对定位：part 的布局底边置于 (dx, dy) 处
@@ -8467,6 +8476,12 @@ function splitLines(tree) {
         /** 连字区缩放策略："shrink"（默认，与 JSesh 一致） | "fill" | "fill85"。 */
         setZoneFit: function (mode) {
             zoneFitMode = (mode === "shrink" || mode === "fill" || mode === "fill85") ? mode : "shrink";
+            return MdCRndr;
+        },
+
+        /** 注入"矩形是否与字形墨迹重叠"的判定（用于避免 & 连字部件压住宿主）。 */
+        setGlyphOverlapProvider: function (fn) {
+            __ovlProvider = (typeof fn === "function") ? fn : null;
             return MdCRndr;
         },
 
