@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611082156";
+    const BUILD = "glyphs-202611082157";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
@@ -364,7 +364,12 @@ let fontFilter = null;           // (code) => true 表示内置字体已有该�
             // 墨迹偶尔会略微超出画框，viewBox 取「画框 ∪ 墨迹」，避免被 SVG 视口裁掉。
             // 墨迹范围：优先用浏览器 getBBox（含 g 的 transform），
             // 没有 DOM（Node 测试）时退回数值法（不处理 transform，仅作兜底）。
-            const ink = measureSvg(svgText) || numericBBox(svgText);
+            const inkA = measureSvg(svgText);
+            const inkB = numericBBox(svgText);
+            // 取更小的包围盒（真正的墨迹）：numericBBox 只数坐标点，可能漏掉
+            // rect/circle/use 等元素；getBBox 可能含不可见大元素。两者取小最稳。
+            let ink = inkA;
+            if (inkB && (!inkA || inkB.w * inkB.h < inkA.w * inkA.h)) ink = inkB;
             const fr = frameUnits(svgText) || (ink ? { w: ink.x + ink.w, h: ink.y + ink.h } : null);
             const big = fr ? Math.max(fr.w, fr.h) : 0;
             // JSesh 的 SVG 有两种导出比例：
