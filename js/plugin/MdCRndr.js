@@ -6961,7 +6961,8 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
             el.style.width = px(w) + "px";
             el.style.height = px(h) + "px";        // 盒高=墨迹高：底部贴基线时不产生上下留白
             el.style.verticalAlign = "bottom";
-            attachSvgOverlay(el, customGlyph, w, h, dy,
+            if (dy) el.style.marginBottom = px(dy) + "px";   // 墨迹底边相对基线的偏移（不再改背景位置）
+            attachSvgOverlay(el, customGlyph, w, h, 0,
                 (align === "center") ? "center center" : "center");
         }
     }
