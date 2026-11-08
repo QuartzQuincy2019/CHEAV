@@ -7039,16 +7039,19 @@ function unitMetrics(u) {
         return { h: EM_SQUARE, w: Math.max(w + ENC_PAD * 2 * EM_SQUARE, 1) };
     }
     if (u.type === "word" || u.type === "sub") {
-        // 子 cadrat：整体占 1em 高（内部按比例分配），宽取各层最宽者
-        let wMax = 0;
+        // 子 cadrat：返回**自然**尺寸（各层高之和 + 层间 gap），
+        // 不在这一层缩放 —— 全组只在最外层统一缩一次（源码 reScale 语义）
         const rows = (u.units && u.units.length === 1 && u.units[0] && u.units[0].type === "vrg")
             ? u.units[0].layers : [u.units || []];
+        let wMax = 0, hSum = 0;
         for (const row of rows) {
-            let w = 0;
-            for (const x of row) w += unitMetrics(x).w;
+            let w = 0, h = 0;
+            for (const x of row) { const m = unitMetrics(x); w += m.w; h = Math.max(h, m.h); }
             wMax = Math.max(wMax, w);
+            hSum += Math.max(h, 1);
         }
-        return { h: EM_SQUARE, w: Math.max(wMax, 1) };
+        hSum += (rows.length - 1) * (EM_SQUARE * 0.111);
+        return { h: Math.max(hSum, 1), w: Math.max(wMax, 1) };
     }
     if (u.type === "unsup") {
         // 字体不支持的码（占位框）：按 1em 方块计——与普通字符同位、参与 VRG 缩放
@@ -7115,7 +7118,7 @@ function measureUnitPx(u, fontSize) {
  *   · 宽度 = 各层宽之和的最大值；单元素层居中，多元素层 space-between
  * 返回 { el, w, h }，全部子元素绝对定位，不依赖任何宿主 CSS。
  */
-function layoutQuadratAbs(layers, fontSize, targetH) {
+function layoutQuadratAbs(layers, fontSize, targetH, scaleOverride) {
     const gap = 0.111 * fontSize;
     // 1) 每层自然尺寸与元素度量
     const defs = layers.map((row) => row.map((u) => ({
@@ -7128,7 +7131,7 @@ function layoutQuadratAbs(layers, fontSize, targetH) {
     const totalNat = hNat.reduce((a, b) => a + b, 0) + gap * (n - 1);
     // 2) 统一缩放一次（目标是 1em；若外部指定 targetH 则用它）
     const goal = targetH || fontSize;
-    const s = totalNat > goal ? goal / totalNat : 1;
+    const s = (scaleOverride != null) ? scaleOverride : (totalNat > goal ? goal / totalNat : 1);
     const W = Math.max(goal, Math.max(1, ...wNat) * s);
     const H = totalNat * s;
     // 3) 容器
@@ -7172,7 +7175,7 @@ function placeAbs(box, u, x, y, m, s, fontSize, layerH) {
         // 子 cadrat：递归布局，并拉伸到本层高度（照 JSesh 的 ViewVerticalEnlarger）
         const inner = (u.units && u.units.length === 1 && u.units[0] && u.units[0].type === "vrg")
             ? u.units[0].layers : [u.units || []];
-        const sub = layoutQuadratAbs(inner, fontSize, m.h * s);
+        const sub = layoutQuadratAbs(inner, fontSize, null, s);   // 沿用父级 s，杜绝二次缩放
         sub.el.style.position = "absolute";
         sub.el.style.left = "0";
         sub.el.style.top = "0";
