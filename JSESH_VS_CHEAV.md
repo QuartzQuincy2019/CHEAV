@@ -235,3 +235,104 @@ n:(ra:Z1)*A40         子组 + 照型
 - 文件是**按墨迹裁切**的（width 分布 10–21，6062 个宽≠高），所以 SVG 本身不含 cadrat 信息；
 - `ShapeChar.fixShape()` 把墨迹平移到原点 ⇒ **墨迹底边 = 基线**，这一点与我们一致；
 - 风险特性极少：`<image>` 3、`<use>` 2、`<gradient>` 2、`<style>` 1。
+
+---
+
+## 十一、字形比例的完整推导链（源码级）
+
+这是此前最容易误解的部分。一个符号的最终尺寸由**四步**决定，其中**只有第 3b 步是非等比**的。
+
+### 第 1 步：墨迹尺寸（自然大小）
+
+```java
+// Layout.visitHieroglyph, case SymbolCodes.MDCCODE
+Rectangle2D s = hieroglyphsDrawer.getBBox(code, angle, true);   // ShapeChar bbox
+currentView.setWidth (s.getWidth()  * computeScale());
+currentView.setHeight(s.getHeight() * computeScale());
+```
+
+- `ShapeChar.fixShape()` 已把墨迹平移到 `(0,0)`，故 bbox = `(0,0,w,h)`；
+- `computeScale() = scaleFromFontToStyle() = 18 / heightOfA1`（全局常数 ≈ 1.012）。
+
+⇒ 每个字的视图形状 = 它的墨迹形状，与 CHEAV 的"墨迹定盒"一致。
+
+### 第 2 步：显式大小修正
+
+```java
+if (h.getRelativeSize() != 100) currentView.reScale(h.getRelativeSize() / 100f);
+```
+
+等比缩放，用于 `:100:…` 之类的显式比例。
+
+### 第 3a 步：等比缩放（三种接口，全部 uniform）
+
+```java
+reScale(s)                       // xScale、yScale、width、height 同乘 s
+scaleForMaxWidth(maxWidth)       // 宽超限 → reScale(maxWidth / width)
+scaleToFitDimensions(w, h)       // xScale = yScale = min(w/width, h/height)（连字区使用）
+```
+
+### 第 3b 步：非等比横向拉伸（唯一改变字形比例的地方）
+
+```java
+/** scale the view horizontally, so that its content fills the width passed as argument.
+ *  The vertical scale remains unchanged. */
+public void scaleToWidth(float w) {
+    xScale = w / getInternalWidth();     // 只改 xScale
+    width  = w;
+}
+```
+
+触发条件：
+
+```java
+// QuadratLayout：只有 "wide" 四开组才横向拉伸
+boolean wide = c.isWide();
+if (wide) { ... currentView.getSubView(k).scaleToWidth(maxw); ... }
+
+// 判定链：Cadrat.isWide() → HBox.isWide() → Hieroglyph.isWide()
+public boolean isWide() {
+    return getModifiers().getBoolean("l");     // ← MdC 的 "l" 修饰符
+}
+```
+
+⇒ **只有给符号写了 `l` 修饰符，JSesh 才会把它横向拉满**；默认所有符号保持墨迹比例。
+
+### 第 4 步：层内剩余空间用"均分"，不是拉伸元素
+
+```java
+// MDCView.distributeHorizontally()
+float interSpace = (getInternalWidth()  - getSumOfSubViewsWidths())  / (n - 1);
+// MDCView.distributeFromTopToBottom()
+float interSpace = (getInternalHeight() - getSumOfSubViewsHeights()) / (n - 1);
+// MDCView.centerSubViewHorizontally()
+sub.getPosition().x = (getInternalWidth() - sub.getWidth()) / 2;
+// MDCView.stickSubViewsTo(BOTTOM)
+sub.getPosition().y = getInternalHeight() - sub.getHeight();
+```
+
+即：**元素自身尺寸不变，只调整位置**（均分间隙 / 居中 / 贴边）。
+
+### 对 ZHAO 例子的正确解释
+
+`n:(ra:Z1)*A40` 中 `n` 没有 `l` 修饰符 ⇒ **不被拉伸**。它在参考图里"横跨"，是因为：
+
+```
+n  (N35) 墨迹宽 ≈ 1.03 em
+下层 = ra(0.375) + A40(0.63) ≈ 1.0 em   →  组宽 ≈ 1.03 em
+⇒ n 的自然宽 ≈ 组宽，看起来就是"横跨"
+```
+
+**不需要任何拉伸规则。** 若渲染出的 `n` 明显窄于组宽，问题在"绘制的实际宽度与度量不一致"，不在布局。
+
+### 与 CHEAV 的差异
+
+| 步骤 | JSesh | CHEAV 现状 |
+|---|---|---|
+| 1 墨迹尺寸 | bbox × k | 墨迹 em（等价） |
+| 2 显式比例 | `reScale` | 部分（连字部件的 `scale` 字段） |
+| 3a 等比缩放 | 三处统一接口 | 分散实现 |
+| 3b 横向拉伸 | `scaleToWidth`（`l` 修饰符） | 未实现，也未解析 `l` |
+| 4 均分 / 贴边 | `distribute*` / `stick` / `center` | flex 的 `space-between` / `flex-end` 近似 |
+
+**优先级**：3b 最低（仅影响 `l` 写法）；真正影响观感的是第 1 步的**度量与绘制一致性**和第 3a 步的**只在最后缩一次**。
