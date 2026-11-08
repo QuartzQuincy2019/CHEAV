@@ -1261,6 +1261,12 @@ globalThis.CHEAV = {
         refresh,
         // 调试/便捷入口：直接传一个 jar File（等价于在设置里选择）
         loadGlyphs: (file) => dropGlyphFile(file),
+        /** 诊断：返回 { src, invalid }，便于定位警戒色来源 */
+        parseDebug: (t) => {
+            const src = canonicalize(PIC.enabled() ? PIC.convert(t) : t);
+            const r = parseInput(src);
+            return { src: src, invalid: r.invalid, pic: PIC.enabled() };
+        },
         useGlyphDir: () => chooseGlyphDir(),
         setLang: (code) => { setLang(code); applyI18n(); renderAll(); updateIBPreview(); updateKeyCast(); refresh(); },
         units: { phon: phonUnits, det: detUnits, code: codeUnits },
