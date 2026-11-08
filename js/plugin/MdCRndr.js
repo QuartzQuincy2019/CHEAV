@@ -7998,6 +7998,7 @@ function splitLines(tree) {
             A + " .enc-body {",              // 王名圈：框内内容整体居中（JSesh 行为）
             "    align-items: center;",
             "    justify-content: center;",
+            "    gap: 0.08em;",                   // 框内字距（太小会互相贴住）
             "}",
             A + "::after {",                // 座：框右侧细条（宽度 = 边框，上下各出半线）
             "    content: \"\";",
