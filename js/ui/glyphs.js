@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611082040";
+    const BUILD = "glyphs-202611082042";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
@@ -380,9 +380,8 @@ let fontFilter = null;           // (code) => true 表示内置字体已有该�
                 const iy = ink ? ink.y - pad : 0;
                 const iw = ink ? ink.w + pad * 2 : fr.w;
                 const ih = ink ? ink.h + pad * 2 : fr.h;
-                // 余量：numeric bbox 只统计坐标点，描边宽度/端点可能落在框外 —— 外扩 3%
-            const padX = iw * 0.03, padY = ih * 0.03;
-            svgText = setViewBox(svgText, (ix - padX) + " " + (iy - padY) + " " + (iw + padX * 2) + " " + (ih + padY * 2));
+                // viewBox 精确等于墨迹范围：盒尺寸也等于墨迹尺寸，图像 1:1 映射，比例与 JSesh 一致
+            svgText = setViewBox(svgText, ix + " " + iy + " " + iw + " " + ih);
                 aspects.set(code, iw / ih);
                 // 布局尺寸 = 墨迹（em）：字距贴合、堆叠组层高紧凑
                 metricsEm.set(code, { w: iw / em, h: ih / em });
