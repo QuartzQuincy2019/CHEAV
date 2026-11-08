@@ -6949,13 +6949,18 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
             const bx = glyphBoxProvider ? glyphBoxProvider(code) : null;   // 墨迹（em）+ dy 偏移
             const wEm = bx ? bx.w : gm.width / EM_SQUARE;
             const hEm = bx ? bx.h : gm.height / EM_SQUARE;
-            const fit = Math.min(1, 1 / Math.max(wEm, 1e-6), 1 / Math.max(hEm, 1e-6));
+            // 不再"塞进 1em"：按画布 1:1（1em = 画布 18/1800 单位）绘制，
+            // 仅当墨迹极端超出（>2.2em）时收缩，避免与 JSesh 相比整体偏小、上下留白。
+            const capEm = 2.2;
+            const fit = Math.min(1, capEm / Math.max(wEm, hEm, 1e-6));
             const w = wEm * fit * fontSize;
             const h = hEm * fit * fontSize;
             const dy = ((bx && bx.dy) ? bx.dy : 0) * fit * fontSize;       // 墨迹底边距基线
             // 盒宽 = 图片宽：字距贴合，也不会被 background-clip 裁掉
             el.style.display = "inline-block";
             el.style.width = px(w) + "px";
+            el.style.height = px(h) + "px";        // 盒高=墨迹高：底部贴基线时不产生上下留白
+            el.style.verticalAlign = "bottom";
             attachSvgOverlay(el, customGlyph, w, h, dy,
                 (align === "center") ? "center center" : "center");
         }
