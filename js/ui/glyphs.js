@@ -660,7 +660,16 @@
             }
             if (bx !== null) out.zone2 = { x: bx * g.w / 18, y: 0,
                                            w: 0.5 * g.w / 18, h: (1 / 2.5) * g.h / 18, gh: "s", gv: "t" };
-            return (out.zone1 || out.zone2) ? out : null;
+            // 底部槽（对应 JSesh computeThirdArea）：沿对角线 (w/2,h)→(w,0) 二分，取不与字形相交的位置
+            let bt = null;
+            for (let u = 0.2; u <= 1.0; u += 0.05) {
+                const px = (0.5 + 0.5 * u);         // 0.5 → 1.0
+                const py = (1 - u);                 // 1.0 → 0
+                if (!this._busy(g, 0, py, px, 1.0)) { bt = { x: 0, y: py, w: px, h: 1 - py }; break; }
+            }
+            if (bt) out.zoneB = { x: bt.x * g.w / 18, y: bt.y * g.h / 18,
+                                  w: bt.w * g.w / 18, h: bt.h * g.h / 18, gh: "s", gv: "b" };
+            return (out.zone1 || out.zone2 || out.zoneB) ? out : null;
         },
 
         /** 判定 em 坐标矩形（x 相对字形左缘，y 自底向上）是否与字形墨迹重叠。 */
