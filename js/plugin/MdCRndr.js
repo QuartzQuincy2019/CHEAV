@@ -7115,7 +7115,7 @@ function renderVRG(parent, layers, fontSize) {
  */
 function renderLayerUnit(layer, u, glyphSize) {
     if (u.type === "char") {
-        renderGlyph(layer, u.code, glyphSize, undefined, u.mirror);
+        renderGlyph(layer, u.code, glyphSize, encADepth > 0 ? "center" : undefined, u.mirror);
     } else if (u.type === "vrg") {
         if (u.layers.length === 1) {
             // 单层 VRG 视为一般字符：层内元素直接按序列渲染
@@ -7243,6 +7243,7 @@ function renderVertical(parent, tree, fontSize) {
  * @param {boolean} vertical 竖排朝向
  * @returns {HTMLElement}
  */
+let encADepth = 0;          // >0 表示正在渲染王名圈内部（框内单字需上下居中）
 function renderEnclosure(parent, u, fontSize, vertical) {
     const box = document.createElement("span");
     box.className = options.encClass + " " + (options.encKindClass[u.kind] || "")
@@ -7269,10 +7270,15 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     // 框内字形按 JSesh 惯例略小于框外，使框体本身不显得拥挤
     // 塞拉赫框底部要留下宫墙纹，内容再小一档；其余按通用比例
     const innerSize = fontSize * (u.kind === "S" ? 0.64 : u.kind === "F" ? 0.54 : ENC_CONTENT_SCALE);   // F 总高 1em = 内容 0.62 + 内边距 0.16 + 边框 0.06 + 框外齿带 0.16
+    if (u.kind === "A") encADepth++;
+    try {
     if (vertical) {
         for (const x of (u.units || [])) renderLayerUnitV(inner, x, innerSize);
     } else {
         for (const x of (u.units || [])) render(inner, x, innerSize);
+    }
+    } finally {
+        if (u.kind === "A") encADepth--;
     }
     if (u.kind === "S" && glyphProvider && !vertical) {
         // 尾部不是独立字符：用 img/S_tail.png 的测量几何作背景，放在框外层的 wrap 里
@@ -7395,7 +7401,7 @@ function render(parent, tree, fontSize) {
             }, true);
         } else {
             // 单字贴基线（与 JSesh 一致：符号"sit on the baseline"，不上下居中）
-            renderGlyph(parent, tree.code, fontSize, "bottom", tree.mirror);
+            renderGlyph(parent, tree.code, fontSize, encADepth > 0 ? "center" : "bottom", tree.mirror);
         }
     } else if (tree.type === "vrg") {
         if (tree.layers.length === 1 && !tree.shadow) {
@@ -7892,13 +7898,6 @@ function splitLines(tree) {
             A + " .enc-body {",              // 王名圈：框内内容整体居中（JSesh 行为）
             "    align-items: center;",
             "    justify-content: center;",
-            "}",
-            A + " .enc-body > * {",           // 王名圈：框内所有单字上下居中（不限 ra）
-            "    align-self: center;",
-            "}",
-            A + " .enc-body > ." + options.vrgClass + ",",   // 叠放组（VRG）与连字仍按原基线
-            A + " .enc-body > .lig {",
-            "    align-self: flex-end;",
             "}",
             A + "::after {",                // 座：框右侧细条（宽度 = 边框，上下各出半线）
             "    content: \"\";",
