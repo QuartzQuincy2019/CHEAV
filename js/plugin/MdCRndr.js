@@ -67,7 +67,9 @@
     function setOptions(o) { if (o) Object.assign(options, o); return options; }
 
     // 渲染期读取的选项钩子（可在运行期经 set() 改变）
-    const ENC_PAD = 0.12;               // 包围框内边距（em 比例）
+    // 塞拉赫框尾部：JSesh 里它是"框的一部分"，并非独立字符；这里按参考图手描成 SVG
+const SER_TAIL_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><g fill=\"#000\"><rect x=\"4\" y=\"0\" width=\"12\" height=\"100\"/><rect x=\"30\" y=\"0\" width=\"9\" height=\"100\"/><rect x=\"50\" y=\"6\" width=\"48\" height=\"5\"/><rect x=\"50\" y=\"6\" width=\"5\" height=\"24\"/><rect x=\"50\" y=\"25\" width=\"48\" height=\"5\"/><rect x=\"63\" y=\"15\" width=\"30\" height=\"5\"/><rect x=\"50\" y=\"38\" width=\"48\" height=\"5\"/><rect x=\"50\" y=\"38\" width=\"5\" height=\"24\"/><rect x=\"50\" y=\"57\" width=\"48\" height=\"5\"/><rect x=\"63\" y=\"47\" width=\"30\" height=\"5\"/><rect x=\"50\" y=\"70\" width=\"48\" height=\"5\"/><rect x=\"50\" y=\"70\" width=\"5\" height=\"24\"/><rect x=\"50\" y=\"89\" width=\"48\" height=\"5\"/><rect x=\"63\" y=\"79\" width=\"30\" height=\"5\"/></g></svg>";
+const ENC_PAD = 0.12;               // 包围框内边距（em 比例）
     const ENC_CONTENT_SCALE = 0.7;    // 框内字形相对框外的缩放（JSesh 惯例：框内略小）
     function vrgLayerGap() { return options.vrgLayerGap * EM_SQUARE; }
     function vrgItemGap() { return options.vrgItemGap * EM_SQUARE; }
@@ -7272,13 +7274,12 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     } else {
         for (const x of (u.units || [])) render(inner, x, innerSize);
     }
-    // 塞拉赫框尾部：JSesh 模式下改用 JSesh 的 O33A 字形（与 JSesh 外观一致）
     if (u.kind === "S" && glyphProvider) {
-        const tailUrl = glyphProvider("O33A") || glyphProvider("O33a");
-        if (tailUrl) {
-            box.classList.add("enc-S-svg");
-            box.style.setProperty("--enc-tail", 'url("' + tailUrl + '")');
-        }
+        // 尾部不是独立字符：用与 JSesh 一致的"两道竖线 + 三条宫墙格"手描图
+        const tailSvg = (typeof SEREKH_TAIL_SVG !== "undefined") ? SEREKH_TAIL_SVG : SER_TAIL_SVG;
+        const tailUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(tailSvg);
+        box.classList.add("enc-S-svg");
+        box.style.setProperty("--enc-tail", 'url("' + tailUrl + '")');
     }
     parent.appendChild(box);
     return box;
@@ -7897,29 +7898,29 @@ function splitLines(tree) {
             "    transform: translateY(100%);",
             "}",
             S + " {",                       // 塞拉赫框：矩形 + 底部宫墙纹
-            "    border: 0.07em solid #000;",   // 与尾部笔画同粗
+            "    border: 0.05em solid #000;",   // 与 JSesh 一致：细框线
             "    padding: 0.11em 0.08em;",           // 0.64 + 0.22 + 0.14 = 1em
-            "    margin-right: 0.996em;",       // 尾墨迹宽 0.996em × 1em
+            "    margin-right: 0.842em;",       // 尾宽 0.847em × 1em（与手描图一致）
             "    box-sizing: content-box;",      // 0.55 + 0.1 + 0.3 + 0.05×2 ≈ 1em
             "    position: relative;",
             "}",
             S + ".enc-S-svg::after {",     // JSesh 模式：右尾改用 JSesh 的 O33A 字形
             "    content: \"\";",
-            "    background: var(--enc-tail) center center / contain no-repeat;",
-            "    width: 1em;",
+            "    background: var(--enc-tail) 0 0 / 100% 100% no-repeat;",
+            "    width: 0.842em;",
             "    height: 1em;",
             "}",
             S + v + ".enc-S-svg::after {",   // 竖排：下尾同样用 O33A
             "    content: \"\";",
-            "    background: var(--enc-tail) center center / contain no-repeat;",
-            "    width: 1em;",
+            "    background: var(--enc-tail) 0 0 / 100% 100% no-repeat;",
+            "    width: 0.842em;",
             "    height: 1em;",
             "}",
             S + "::after {",                // 右尾（横排）：字体字形 U+13282
             "    content: \"\u{13282}\";",
             "    position: absolute;",
             "    right: 0;",
-            "    top: -0.07em;",
+            "    top: -0.05em;",
             "    bottom: auto;",
             "    transform: translate(100%, 0);",
             "    font-family: \"" + options.fontFamily + "\", \"" + options.fontFamily + "\";",
