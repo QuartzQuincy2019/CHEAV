@@ -1125,3 +1125,32 @@ body.mode-vertical .App-canvas .RenderBox {
         overflow: visible;
     }
 }
+
+/* ===== 字形来源设置项（字体 / JSesh SVG / 选择文件） ===== */
+.SettingGlyph {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.SettingGlyph .SettingKey.active {
+    background: #333;
+    color: #fff;
+    border-color: #333;
+}
+
+.SettingGlyph.drag {
+    outline: 2px dashed #3b6fd4;
+    outline-offset: 2px;
+    background: #eef3ff;
+}
+
+.SettingGlyph-info {
+    font-size: 12px;
+    color: #777;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

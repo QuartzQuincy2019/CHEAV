@@ -9,7 +9,9 @@
     <script type="text/javascript" src="./js/plugin/MdCRndr.js"></script>
     <!-- 以下为兼容层：把插件导出绑定回本项目沿用的全局名 -->
     <script type="text/javascript" src="./lib/visumetrics.js"></script>
-    <script type="text/javascript" src="./js/database/GardinerCode.js"></script>
+    <script type="text/javascript" src="./js/database/mainSigns.js"></script>
+<script type="text/javascript" src="./js/database/translit.js"></script>
+<script type="text/javascript" src="./js/database/GardinerCode.js"></script>
     <script type="text/javascript" src="./js/database/maps.js"></script>
     <script type="text/javascript" src="./js/database/semantics.js"></script>
     <script type="text/javascript" src="./js/database/ligatures.js"></script>
@@ -112,6 +114,8 @@
     <!-- 文档内嵌浮层：接管页脚文档链接（无该脚本时链接照常跳转） -->
     <script type="text/javascript" src="./js/ui/docs.js"></script>
     <!-- apply.js 必须在 body 末尾加载：DOM 解析完成后才能查询元素 -->
+    <!-- 可选字形来源：读取本机 JSesh 的 SVG 字形（不分发数据；不加载时引擎仍用字体） -->
+    <script type="text/javascript" src="./js/ui/glyphs.js"></script>
     <script type="text/javascript" src="./js/ui/apply.js"></script>
 </body>
 

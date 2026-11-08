@@ -279,6 +279,13 @@
                         <td>水平镜像（<b>只作用于紧邻的一个字符</b>）</td>
                         <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
                     </tr>
+                    <tr>
+                        <td class="k">转写 <code>mr</code></td>
+                        <td><b>主字符</b>：转写本身不是码，会取它的「主字符」——与 JSesh 一致
+                            （<code>mr</code> → <code>U6</code>）。共支持 <b>819</b> 个转写，
+                            含 <code>Hry-sStA</code> 这类带连字符的复合转写；其余候选见「音素 / 定符匹配」框。</td>
+                        <td><code>E1:D40-C2-mr</code> → <span class="mdc" data-mdc="E1:D40-C2-mr">E1:D40-C2-mr</span></td>
+                    </tr>
                 </table>
                 <div class="demo align-baseline">
                     <span class="label">结果示例：</span>
@@ -369,7 +376,7 @@
                     </tr>
                     <tr>
                         <td class="k"><b>设置面板</b></td>
-                        <td>页面底部可折叠区域：改键位、匹配区每页项数、功能开关。竖排开关也在此，但日常切换请用顶部的「排版方向」切换条。</td>
+                        <td>页面底部可折叠区域：改键位、匹配区每页项数、功能开关、<b>字形来源</b>。方向切换请用顶部的「排版方向」切换条。</td>
                     </tr>
                     <tr>
                         <td class="k"><code>码\</code></td>
@@ -377,6 +384,15 @@
                         <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
                     </tr>
                 </table>
+
+                <p><b>字形来源：</b>默认用随站点打包的 <b>NewGardiner</b> 字体渲染。若本机装有 <b>JSesh</b>，可在设置里点
+                    「选择 jseshGlyphs 包…」，选中 JSesh 安装目录下的 <code>lib/jseshGlyphs-*.jar</code>：
+                    CHEAV 会直接读取并解压其中的 SVG 字形，用 JSesh 的手绘矢量字形替换字体字形
+                    （版式、度量与叠组规则完全不变）。</p>
+                <div class="note">
+                    该功能<b>只在本地读取你的文件</b>，站点不包含也不分发任何 JSesh 数据（JSesh 为 LGPL / CeCILL 授权）；
+                    换机器或清除浏览器数据后需重新选择一次。仅 Chrome / Edge 支持（需 File System Access API）。
+                </div>
                 <p>被选中的候选框有蓝色外框与光晕；框内当前项高亮显示。<b>光标在哪个框，<kbd>Tab</kbd> 就确认哪个框</b>。</p>
             </section>
 

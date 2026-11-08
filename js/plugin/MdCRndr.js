@@ -6807,6 +6807,13 @@ function decodeCode(code) {
  * @returns {{height:number, width:number}} 墨迹高度与墨迹宽度
  */
 function getMetrics(code) {
+    // JSesh 模式：用它的自有度量（18 单位 = 1em）取代字体度量，保证整串比例统一
+    if (glyphMetricsProvider) {
+        const jm = glyphMetricsProvider(code);
+        if (jm && jm.w > 0 && jm.h > 0) {
+            return { width: jm.w * EM_SQUARE, height: jm.h * EM_SQUARE };
+        }
+    }
     const ch = decodeCode(code);
     if (!ch) return { height: 0, width: 0 };
     const key = "x" + ch.codePointAt(0).toString(16).toLowerCase();
@@ -6861,6 +6868,38 @@ function renderInShadedCell(parent, fontSize, digits, draw, alignEnd, emWidth) {
     applyShadow(cell, digits);
     return cell;
 }
+/**
+ * 字形提供者（可选）：code → 图片 URL（同步返回）。
+ * 返回 null 表示"暂无自定义字形，先用字体渲染"（引擎会在 URL 就绪后按需重绘）。
+ * 由宿主页面通过 setGlyphProvider(fn) 注入；引擎本身不依赖任何文件系统 API。
+ */
+let glyphProvider = null;
+/** 字形宽高比提供者（可选）：code → 宽/高（数字）或 null。用于让宽符号不被压进 1em 方格。 */
+let glyphAspectProvider = null;
+/** 字形度量提供者（可选）：code → { w, h }（单位 em）。JSesh 模式用它取代字体度量。 */
+let glyphMetricsProvider = null;
+/** 字形绘制矩形提供者（可选）：code → { x, y, w, h }（em）。JSesh 模式用它精确摆放 SVG。 */
+let glyphBoxProvider = null;
+/**
+ * 把自定义字形（JSesh SVG）覆盖到字形格上。
+ * payload 可以是 SVG 源码，也可以是 data:/blob:/http URL（兼容旧行为）。
+ */
+function attachSvgOverlay(el, payload, inkW, inkH, dy, position) {
+    // data:/blob: URL → 背景图铺在字形格内（不参与盒模型，排版零影响）
+    el.style.backgroundImage = 'url("' + payload + '")';
+    el.style.backgroundRepeat = "no-repeat";
+    if (inkW && inkH) {
+        el.style.backgroundSize = px(inkW) + "px " + px(inkH) + "px";
+        // dy = 墨迹底边距基线的距离（px）：让字形按 JSesh 画框"坐"在正确的基线上
+        el.style.backgroundPosition = dy
+            ? ("center calc(100% - " + px(dy) + "px)")
+            : "center bottom";
+    } else {
+        el.style.backgroundSize = "contain";
+        el.style.backgroundPosition = position || "center bottom";
+    }
+}
+
 function renderGlyph(parent, code, fontSize, align, mirror) {
     const ch = decodeCode(code);
     if (!ch) return null;
@@ -6880,6 +6919,31 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
         el.classList.add("mir");
     }
     if (tf.length) el.style.transform = tf.join(" ");
+    // 自定义字形（如 JSesh SVG）：字体字形透明仅作占位，SVG 作为覆盖层铺在同一格内。
+    // 覆盖层用内联 <svg>（而非 CSS 背景图）：不受 background-clip 裁剪、
+    // 也不受 blob:/file:// 限制，缩放与居中交给 preserveAspectRatio 处理。
+    const customGlyph = glyphProvider ? glyphProvider(code) : null;
+    if (customGlyph) {
+        el.style.color = "transparent";
+        el.classList.add("has-svg");
+        // 盒高仍是 1em 行盒、墨迹贴基线；但**盒宽至少要容得下图片**，
+        // 否则背景图会被 background-clip 裁掉左右两侧（这就是"A1 的手和肘被切掉"的原因）。
+        {
+            const gm = getMetrics(code);                                   // 墨迹尺寸（设计单位）
+            const bx = glyphBoxProvider ? glyphBoxProvider(code) : null;   // 墨迹（em）+ dy 偏移
+            const wEm = bx ? bx.w : gm.width / EM_SQUARE;
+            const hEm = bx ? bx.h : gm.height / EM_SQUARE;
+            const fit = Math.min(1, 1 / Math.max(wEm, 1e-6), 1 / Math.max(hEm, 1e-6));
+            const w = wEm * fit * fontSize;
+            const h = hEm * fit * fontSize;
+            const dy = ((bx && bx.dy) ? bx.dy : 0) * fit * fontSize;       // 墨迹底边距基线
+            // 盒宽 = 图片宽：字距贴合，也不会被 background-clip 裁掉
+            el.style.display = "inline-block";
+            el.style.width = px(w) + "px";
+            attachSvgOverlay(el, customGlyph, w, h, dy,
+                (align === "center") ? "center center" : "center");
+        }
+    }
     parent.appendChild(el);
     return el;
 }
@@ -7070,7 +7134,7 @@ function renderLayerUnit(layer, u, glyphSize) {
         layer.appendChild(txt);
     } else if (u.type === "unsup") {
         // 层内占位框：随层内基准字号缩放
-        layer.appendChild(makeUnsupported(u.code, glyphSize));
+        layer.appendChild(makeUnsupported(u.code, glyphSize, u.mirror));
     } else if (u.type === "seq") {
         for (const x of u.units) renderLayerUnit(layer, x, glyphSize);
     }
@@ -7140,7 +7204,7 @@ function renderLayerUnitV(col, u, size) {
         txt.style.fontSize = px(options.textScale * size) + "px";
         col.appendChild(txt);
     } else if (u.type === "unsup") {
-        col.appendChild(makeUnsupported(u.code, size));
+        col.appendChild(makeUnsupported(u.code, size, u.mirror));
     } else if (u.type === "seq") {
         for (const x of u.units) renderLayerUnitV(col, x, size);
     }
@@ -7208,6 +7272,14 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     } else {
         for (const x of (u.units || [])) render(inner, x, innerSize);
     }
+    // 塞拉赫框尾部：JSesh 模式下改用 JSesh 的 O33A 字形（与 JSesh 外观一致）
+    if (u.kind === "S" && glyphProvider) {
+        const tailUrl = glyphProvider("O33A") || glyphProvider("O33a");
+        if (tailUrl) {
+            box.classList.add("enc-S-svg");
+            box.style.setProperty("--enc-tail", 'url("' + tailUrl + '")');
+        }
+    }
     parent.appendChild(box);
     return box;
 }
@@ -7218,7 +7290,26 @@ function renderEnclosure(parent, u, fontSize, vertical) {
  * @param {number} size 所在位置的基准字号（px）
  * @returns {HTMLElement}
  */
-function makeUnsupported(code, size) {
+function makeUnsupported(code, size, mirror) {
+    // 若宿主提供了自定义字形（如 JSesh SVG），字体缺失的码也能显示：优先用它
+    const custom = glyphProvider ? glyphProvider(code) : null;
+    if (custom) {
+        const el = document.createElement("span");
+        el.className = "hie has-svg";
+        el.textContent = "";
+        el.title = code;
+        el.style.fontSize = size + "px";
+        // 字体没有这个码 → 直接当 1em 方格用；否则宽度只有一个 nbsp，SVG 会被压得极小
+        el.style.display = "inline-block";
+        const aspU = glyphAspectProvider ? glyphAspectProvider(code) : null;
+        el.style.width = px(size * (aspU && aspU > 0 ? Math.min(aspU, 3) : 1)) + "px";
+        el.style.height = px(size) + "px";
+        el.style.verticalAlign = "bottom";
+        el.style.color = "transparent";
+        attachSvgOverlay(el, custom, null, null, 0, "center center");
+        if (mirror) { el.style.transform = "scaleX(-1)"; el.classList.add("mir"); }
+        return el;
+    }
     const box = document.createElement("span");
     box.className = options.unsupportedClass;
     box.textContent = code;
@@ -7230,6 +7321,7 @@ function makeUnsupported(code, size) {
     // 短码不超过 0.32em，长码自动缩小。
     const scale = Math.min(0.32, 0.90 / (0.62 * Math.max(code.length, 1)));
     box.style.fontSize = px(size * scale) + "px";
+    if (mirror) { box.style.transform = "scaleX(-1)"; box.classList.add("mir"); }
     return box;
 }
 
@@ -7281,10 +7373,11 @@ function render(parent, tree, fontSize) {
     if (tree.type === "char") {
         if (tree.shadow) {
             renderInShadedCell(parent, fontSize, tree.shadow, (cell) => {
-                renderGlyph(cell, tree.code, fontSize, "center", tree.mirror);
+                renderGlyph(cell, tree.code, fontSize, "bottom", tree.mirror);
             }, true);
         } else {
-            renderGlyph(parent, tree.code, fontSize, "center", tree.mirror);
+            // 单字贴基线（与 JSesh 一致：符号"sit on the baseline"，不上下居中）
+            renderGlyph(parent, tree.code, fontSize, "bottom", tree.mirror);
         }
     } else if (tree.type === "vrg") {
         if (tree.layers.length === 1 && !tree.shadow) {
@@ -7317,7 +7410,7 @@ function render(parent, tree, fontSize) {
         renderEnclosure(parent, tree, fontSize, !!options.vertical);
     } else if (tree.type === "unsup") {
         // 字体不支持的码：方块占位 + 码名
-        parent.appendChild(makeUnsupported(tree.code, fontSize));
+        parent.appendChild(makeUnsupported(tree.code, fontSize, tree.mirror));
     } else if (tree.type === "seq") {
         for (const u of tree.units) render(parent, u, fontSize);
     }
@@ -7345,8 +7438,41 @@ function render(parent, tree, fontSize) {
 /**
  * 解析输入文本为渲染单位树；无法识别的串收集到返回值 invalid。
  */
+/**
+ * 复合转写保护：`Hry-sStA`、`prt-xrw` 这类转写自带连字符，
+ * 而 `-` 又是 CHEAV 的 quadrat 分隔符。解析前先把这些已知复合转写里的
+ * `-` 换成一个私有占位符，避免被拆开；expandUnit 查表前再换回来。
+ */
+const COMPOUND_TRANSLITS = (function () {
+    const out = [];
+    const push = (tbl) => {
+        if (!tbl) return;
+        for (const k of Object.keys(tbl)) if (k.indexOf("-") >= 0) out.push(k);
+    };
+    if (typeof MAIN_SIGNS !== "undefined") push(MAIN_SIGNS);
+    if (typeof TRANSLIT_SIGNS !== "undefined") push(TRANSLIT_SIGNS);
+    return Array.from(new Set(out)).sort((a, b) => b.length - a.length);   // 长优先
+})();
+const COMPOUND_MARK = "\u0001";
+
+function protectCompounds(text) {
+    if (!COMPOUND_TRANSLITS.length || text.indexOf("-") < 0) return text;
+    let out = text;
+    for (const k of COMPOUND_TRANSLITS) {
+        const esc = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const re = new RegExp("(?<![A-Za-z\\\\])" + esc + "(?![A-Za-z])", "g");
+        if (re.test(out)) {
+            re.lastIndex = 0;
+            out = out.replace(re, k.split("-").join(COMPOUND_MARK));
+        }
+    }
+    return out;
+}
+
 function parseInput(text) {
     const invalid = [];
+    // 复合转写（带 "-"）先保护起来，避免被当作 quadrat 分隔符
+    text = protectCompounds(text);
     // 包围框种类（按顺序匹配前缀）：<- … ->（王名圈）、<S- … ->（塞拉赫框）、<h1- … -h1>（方框）
     const ENC_OPENERS = [["h1", "<h1-", "-h1>"], ["S", "<S-", "->"], ["F", "<F-", "->"], ["A", "<-", "->"]];
 
@@ -7613,6 +7739,7 @@ function parseInput(text) {
     function expandUnit(u) {
         if (typeof u === "string") {
             if (u === "") return null; // 空串（空文本框）不计入无法识别
+            u = u.split(COMPOUND_MARK).join("-");      // 还原被保护的复合转写连字符
             const mode = detectInputMode(u);
             if (mode === "Gardiner") {
                 // 表内只登记字体实有的字形；查不到 → 语法合法但字体不支持 → 占位框
@@ -7628,15 +7755,29 @@ function parseInput(text) {
                 }
                 return { type: "unsup", code: u };
             }
-            // 非码串（读音 / 词名 / 定符名等）→ 非法
+            // 非码串：可能是 JSesh 的转写（如 mr、mA、Hr）→ 取其"主字符"码；
+            // 没有登记主字符时取该转写的第一个候选（与音素匹配框里排在最前的一致）。
+            let translitCode = null;
+            if (typeof MAIN_SIGNS !== "undefined" && Object.prototype.hasOwnProperty.call(MAIN_SIGNS, u)) {
+                translitCode = MAIN_SIGNS[u];
+            } else if (typeof TRANSLIT_SIGNS !== "undefined" && TRANSLIT_SIGNS[u] && TRANSLIT_SIGNS[u].length) {
+                translitCode = TRANSLIT_SIGNS[u][0];
+            }
+            if (translitCode) {
+                const code = canonicalCode(translitCode);
+                return hg(code) ? { type: "char", code: code } : { type: "unsup", code: code };
+            }
+            // 其余非码串（读音 / 词名 / 定符名等）→ 非法
             invalid.push(u);
             return null;
         }
         if (u.type === "mirror") {
-            // 水平镜像：只对单字符生效（镜像不改变度量，故排版不受影响）
+            // 水平镜像：单字符与"字体不支持"的占位码都可以镜像（镜像不改变度量，排版不受影响）
             const inner = expandUnit(u.unit);
             if (!inner) return null;
-            return inner.type === "char" ? Object.assign({}, inner, { mirror: true }) : inner;
+            return (inner.type === "char" || inner.type === "unsup")
+                ? Object.assign({}, inner, { mirror: true })
+                : inner;
         }
         if (u.type === "shaded") {
             // 阴影包装：先展开内部单位，再把分区信息挂到结果上
@@ -7761,6 +7902,18 @@ function splitLines(tree) {
             "    margin-right: 0.996em;",       // 尾墨迹宽 0.996em × 1em
             "    box-sizing: content-box;",      // 0.55 + 0.1 + 0.3 + 0.05×2 ≈ 1em
             "    position: relative;",
+            "}",
+            S + ".enc-S-svg::after {",     // JSesh 模式：右尾改用 JSesh 的 O33A 字形
+            "    content: \"\";",
+            "    background: var(--enc-tail) center center / contain no-repeat;",
+            "    width: 1em;",
+            "    height: 1em;",
+            "}",
+            S + v + ".enc-S-svg::after {",   // 竖排：下尾同样用 O33A
+            "    content: \"\";",
+            "    background: var(--enc-tail) center center / contain no-repeat;",
+            "    width: 1em;",
+            "    height: 1em;",
             "}",
             S + "::after {",                // 右尾（横排）：字体字形 U+13282
             "    content: \"\u{13282}\";",
@@ -8019,7 +8172,7 @@ function splitLines(tree) {
             }
             return r;
         },
-        /** 解析纯 MdC 渲染串并以**竖排**渲染到元素（自上而下成列，VRG → HRG）。 */
+
         renderVerticalText: function (el, text, fontSize) {
             ensureStyle();
             const r = parseInput(text);
@@ -8027,6 +8180,49 @@ function splitLines(tree) {
             return r;
         },
 
+
+        /**
+         * 设置自定义字形提供者（code → 图片 URL；返回 null 表示回落到字体字形）。
+         * 传 null 取消。用于把字体渲染切换成 SVG 字形等外部来源。
+         * @param {Function|null} fn
+         * @returns {Object} MdCRndr（可链式调用）
+         */
+        /**
+         * 设置字形宽高比提供者（code → 宽/高）。传 null 取消。
+         * 引擎用它决定宽符号（如 P114）的盒子宽度，避免被压进 1em 方格。
+         */
+        /** 该码在内置字体（NewGardiner）里是否有字形。 */
+        supportsCode: function (code) {
+            try { return !!hg(code); } catch (e) { return false; }
+        },
+
+        /**
+         * 设置字形绘制矩形提供者（code → { x, y, w, h }，单位 em）。
+         * JSesh 模式用它按画框/墨迹把 SVG 精确摆进字形格（底边对基线、允许越界）。
+         */
+        setGlyphBoxProvider: function (fn) {
+            glyphBoxProvider = (typeof fn === "function") ? fn : null;
+            return MdCRndr;
+        },
+
+        /**
+         * 设置字形度量提供者（code → { w, h }，单位 em）。传 null 恢复字体度量。
+         * JSesh 模式用它让排版采用 JSesh 的比例（18 单位 = 1em）。
+         */
+        setGlyphMetricsProvider: function (fn) {
+            glyphMetricsProvider = (typeof fn === "function") ? fn : null;
+            return MdCRndr;
+        },
+
+        setGlyphAspectProvider: function (fn) {
+            glyphAspectProvider = (typeof fn === "function") ? fn : null;
+            return MdCRndr;
+        },
+
+        setGlyphProvider: function (fn) {
+            glyphProvider = (typeof fn === "function") ? fn : null;
+            return MdCRndr;
+        },
         // ---- 解析 ----
         parse: parseInput,
         splitLines: splitLines,

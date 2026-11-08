@@ -55,6 +55,187 @@
     let mode = "idle";                                    // idle | phon | gc | phon+gc | det
     let inflow = false;                                   // true = 入流（PDM/GM 空闲）
 
+    // 页脚附构建标记，便于确认刷新是否生效
+    if (typeof Glyphs !== "undefined" && Glyphs.debug) {
+        const fp = document.querySelector(".SiteFooter p");
+        if (fp && fp.innerHTML.indexOf("Build:") < 0) {
+            fp.innerHTML += "<br><span style=\"opacity:.55\">Build: " + (Glyphs.debug().build || "?") + "</span>";
+        }
+    }
+
+    // 字形陆续载入时（无论来自目录、站点目录还是缓存）→ 防抖刷新预览与匹配区
+    let glyphRefreshTimer = null;
+    function scheduleGlyphRefresh() {
+        if (glyphRefreshTimer) return;
+        glyphRefreshTimer = setTimeout(() => {
+            glyphRefreshTimer = null;
+            try { renderAll(); updateIBPreview(); refresh(); } catch (e) { /* 忽略 */ }
+        }, 160);
+    }
+
+    // ============ 字形来源（内置字体 / 本机 JSesh SVG） ============
+    // SVG 数据来自用户本机的 jseshGlyphs-*.jar（见 js/ui/glyphs.js），本站不分发。
+    // 流程：先预载当前正文用到的码 → 再渲染（provider 同步命中缓存，避免"永远是字体"）。
+    let glyphLoading = false;
+
+    /** 收集单位树里出现的所有单字符码。 */
+    function codesInTree(tree) {
+        const out = new Set();
+        (function walk(u) {
+            if (!u) return;
+            if (Array.isArray(u)) { u.forEach(walk); return; }
+            if (u.type === "char" || u.type === "unsup") { out.add(u.code); return; }
+            if (u.type === "enc") {
+                if (u.kind === "S") out.add("O33A");        // 塞拉赫框尾部字形（JSesh 模式用）
+                (u.units || []).forEach(walk);
+                return;
+            }
+            if (u.type === "vrg") { u.layers.forEach(walk); return; }
+            if (u.type === "seq" || u.type === "enc" || u.type === "word") { (u.units || u.inner || []).forEach(walk); return; }
+        })(tree);
+        return Array.from(out);
+    }
+
+    /** 确保这些码的字形已就绪；就绪后重绘一次（有上限，避免来回触发）。 */
+    async function ensureGlyphsForTree(tree, redraw) {
+        if (typeof Glyphs === "undefined" || !Glyphs.ready) return;
+        if (SETTINGS.glyphSource !== "svg") return;
+        const codes = codesInTree(tree);
+        if (!codes.length) return;
+        // 只处理「从未尝试过」的码；失败过的码会被记录，避免每次渲染都重试（否则会死循环）
+        const pending = codes.filter(c => !Glyphs.tried(c));
+        if (!pending.length) return;
+        if (glyphLoading) return;
+        glyphLoading = true;
+        const before = Glyphs.debug().urls;
+        try {
+            await Glyphs.preload(pending);
+        } finally {
+            glyphLoading = false;
+        }
+        // 以「缓存里 URL 数量是否真的增加」为唯一判据（避免 refresh ↔ preload 互相触发）
+        const gained = Glyphs.debug().urls - before;
+        if (gained > 0 && redraw !== false) { refresh(); updateIBPreview(); }
+    }
+
+    function glyphStatusText() {
+        if (typeof Glyphs === "undefined") return t("glyphUnsupported");
+        if (Glyphs.error) return "⚠ " + Glyphs.error;
+        if (!Glyphs.supported) return t("glyphUnsupported");
+        if (!Glyphs.ready) return t("glyphNoFile");
+        const dbg = Glyphs.debug ? Glyphs.debug() : {};
+        if (dbg.siteDir) return dbg.siteDir + "（" + t("glyphOnDemand") + "）";
+        return Glyphs.name + " · " + Glyphs.count + " " + t("glyphLoaded");
+    }
+
+    /** 让引擎的提供者与 SETTINGS 保持一致（拿不到字形数据时自动回落字体）。 */
+    async function syncGlyphs() {
+        if (typeof Glyphs === "undefined" || typeof MdCRndr === "undefined") return;
+        Glyphs.setRenderer(MdCRndr);
+        Glyphs.onLoaded = scheduleGlyphRefresh;       // 新字形到手 → 预览/匹配区自动更新
+        const want = SETTINGS.glyphSource === "svg";
+        // JSesh 模式：整串都用 JSesh（含度量），不混用字体；字体模式则完全关掉这些钩子，
+        // 保证 NewGardiner 的排版行为与之前一致。
+        Glyphs.setFontFilter(null);
+        if (typeof MdCRndr.setGlyphMetricsProvider === "function") {
+            MdCRndr.setGlyphMetricsProvider(want ? (c) => Glyphs.metrics(c) : null);
+        }
+
+
+        if (typeof MdCRndr.setGlyphBoxProvider === "function") {
+            MdCRndr.setGlyphBoxProvider(want ? (c) => Glyphs.box(c) : null);
+        }
+        if (typeof MdCRndr.setGlyphAspectProvider === "function") {
+            MdCRndr.setGlyphAspectProvider(want ? (c) => Glyphs.aspect(c) : null);
+        }
+        // HTTP 打开且站点内有已解压目录（glyfs/jseshGlyphs/）→ 直读文件，零解压
+        if (want && !Glyphs.ready && typeof Glyphs.useSiteDir === "function") {
+            try { await Glyphs.useSiteDir(); } catch (e) { /* 忽略 */ }
+        }
+        Glyphs.setEnabled(want && Glyphs.ready);
+    }
+
+    /** 切换字形来源（font / svg）。 */
+    async function setGlyphSource(src) {
+        SETTINGS.glyphSource = (src === "svg") ? "svg" : "font";
+        saveSettings();
+        await syncGlyphs();
+        buildSettings();
+        refresh();
+        updateIBPreview();
+        setTimeout(refreshCellsToSvg, 0);
+    }
+
+    /** 把 jar 里、我们码表之外的码并入「Gardiner Code 匹配」池（例如 C59）。 */
+    function registerJarCodes() {
+        if (typeof Glyphs === "undefined" || !Glyphs.ready) return 0;
+        const have = new Set(codeUnits.map(u => u.insert));
+        let added = 0;
+        for (const code of Glyphs.codes()) {
+            if (have.has(code)) continue;
+            const u = {
+                kind: "code",
+                matchKey: code.toLowerCase(),
+                insert: code,
+                glyph: code,
+                l1: code,
+                l2: "",                       // 无 Unicode 码位
+                external: true,
+            };
+            u.el = null;                      // 单元格按需创建（6900+ 个全建会卡）
+            codeUnits.push(u);
+            have.add(code);
+            added++;
+        }
+        if (added) {
+            codeUnits.sort((x, y) => (x.l1.length - y.l1.length) || (x.l1 < y.l1 ? -1 : x.l1 > y.l1 ? 1 : 0));
+        }
+        return added;
+    }
+
+    /** 载入成功后的统一收尾：切到 SVG、预载当前正文用到的码、再重绘。 */
+    async function afterGlyphLoaded() {
+        SETTINGS.glyphSource = "svg";
+        saveSettings();
+        await syncGlyphs();
+        const addedCodes = registerJarCodes();           // 把 jar 里的表外码并入匹配池
+        const parsed = parseInput(input.value);
+        await ensureGlyphsForTree(parsed.tree, false);   // 先把字形备齐
+        buildSettings();
+        refresh();
+        updateIBPreview();
+        setTimeout(refreshCellsToSvg, 0);
+    }
+
+    /** 选择已解压的 SVG 目录（webkitdirectory，同样不依赖新 API）。 */
+    function chooseGlyphDir() {
+        const inp = document.createElement("input");
+        inp.type = "file";
+        inp.webkitdirectory = true;
+        inp.multiple = true;
+        inp.style.display = "none";
+        inp.addEventListener("change", async () => {
+            const files = inp.files ? Array.from(inp.files) : [];
+            inp.remove();
+            if (!files.length) return;
+            try {
+                await Glyphs.useFileList(files);
+            } catch (e) {
+                buildSettings();
+                return;
+            }
+            afterGlyphLoaded();
+        });
+        document.body.appendChild(inp);
+        inp.click();
+    }
+
+    /** 拖放：不再支持 jar；提示用户用「选择 SVG 目录…」。 */
+    async function dropGlyphFile(file) {
+        if (typeof Glyphs === "undefined" || !file) return;
+        buildSettings();
+    }
+
     // ============ 演示水印（整屏平铺的背景文字） ============
     // 用一张 SVG 瓷砖做 background-repeat：视口多大就平铺多大，无需监听 resize。
     const WATERMARK_TEXT = "كونسي كونغ";
@@ -126,7 +307,7 @@
     // ============ 渲染区刷新（总文本框内容） ============
     // 渲染区只识别 raw MdC 渲染串。出现无法识别的串时：
     // 切换文本框警戒色并**终止本次渲染**（保留上一次的画面，不清空、不尝试渲染非法字符）。
-    function refresh() {
+    async function refresh() {
         // 别名规范化：正文中一律使用正式名（J… → AA…／Aa…、Y1v → Y1a）。
         // 需要改写时同步修正光标，避免输入过程中光标跳动。
         if (/[Jj]/.test(input.value)) {
@@ -146,6 +327,11 @@
             return;                     // 非法 → 中止渲染
         }
         input.classList.remove("invalid");
+        // 渲染前先把本段用到的 JSesh 字形备齐（首次输入也就能直接出 SVG，不必删改重输）
+        if (typeof Glyphs !== "undefined" && SETTINGS.glyphSource === "svg" && Glyphs.ready) {
+            const need = codesInTree(tree).filter(c => !Glyphs.tried(c));
+            if (need.length) await Glyphs.preload(need);
+        }
         box.innerHTML = "";
         if (SETTINGS.verticalText) {
             // 竖排：列宽 = 1em = 字号；按栏宽与列数算出字号，让 6~7 列排满一屏
@@ -195,6 +381,7 @@
             }
         }
         if (previewMdc) previewMdc.textContent = src;
+        refreshPreviewToSvg(tree);
     }
 
     /**
@@ -327,6 +514,8 @@
             vmBox.appendChild(item);
         });
 
+        refreshVmToSvg(vm.list.slice(start, start + pageSize()));
+
         if (totalPages > 1) {
             const pager = document.createElement("div");
             pager.className = "pager";
@@ -367,6 +556,7 @@
         cell.className = "mcell";
         const glyph = document.createElement("span");
         glyph.className = "mcell-glyph";
+        cell.dataset.mdc = u.glyph || "";
         MdCRndr.renderText(glyph, u.glyph, PREVIEW_SIZE);      // u.glyph 为 MdC 渲染串
         cell.appendChild(glyph);
         // 两行下标：定宽 wrap 内放不定宽标签 → 超长文本（如定符名）循环滚动
@@ -419,13 +609,18 @@
      * @param {string|null} queryKey 匹配键前缀；null = 全部隐藏；"" = 列出全部（数量仍受宽度限制）
      */
     function filterUnits(container, pool, others, queryKey) {
-        for (const p of others) for (const u of p) u.el.style.display = "none";
+        for (const p of others) for (const u of p) if (u.el) u.el.style.display = "none";
         const limit = visibleLimit(container);
         const showAll = queryKey === "";
         const visible = [];
         for (const u of pool) {
             const hit = showAll || (!!queryKey && u.matchKey.startsWith(queryKey));
             const show = hit && visible.length < limit;
+            if (show && !u.el) {                     // 外部码（如 JSesh 的 C59）：用到时才建单元格
+                u.el = createCellEl(u);
+                container.appendChild(u.el);
+            }
+            if (!u.el) continue;
             u.el.style.display = show ? "" : "none";
             if (show) visible.push(u);
         }
@@ -440,6 +635,73 @@
             if (u.el.className !== cls) u.el.className = cls;
             applyMarquee(u.el);      // 可见单元：测量下标溢出（定符长名 / Unicode 串）
         });
+        refreshCellsToSvg();              // JSesh 模式：可见候选格改用 JSesh 字形
+    }
+
+    // ============ JSesh 字形：匹配区 / 预览同步（一次性批量，绝不循环重排） ============
+    let cellSvgPending = false;
+    function mdcCodesIn(str) {
+        if (!str) return [];
+        const out = new Set();
+        const re = /[A-Z][A-Za-z]?\d+[A-Za-z0-9]*/g;
+        let m;
+        while ((m = re.exec(str))) out.add(m[0]);
+        return Array.from(out);
+    }
+
+    /** 把"当前可见、还没换成 SVG"的候选格一次性批量预载后重绘。 */
+    async function refreshCellsToSvg() {
+        if (cellSvgPending) return;
+        if (typeof Glyphs === "undefined" || !Glyphs.ready) return;
+        if (SETTINGS.glyphSource !== "svg") return;
+        const hosts = [];
+        document.querySelectorAll(".mcell").forEach((cell) => {
+            if (cell.offsetParent === null) return;              // 不可见
+            const host = cell.querySelector(".mcell-glyph");
+            if (!host || host.dataset.svg === "1") return;
+            if (!cell.dataset.mdc) return;
+            hosts.push(host);
+        });
+        if (!hosts.length) return;
+        cellSvgPending = true;
+        try {
+            const codes = new Set();
+            for (const h of hosts) for (const c of mdcCodesIn(h.parentElement.dataset.mdc)) codes.add(c);
+            await Glyphs.preload(Array.from(codes));             // 一次批量，不逐个 await
+            for (const h of hosts) {
+                const mdc = h.parentElement.dataset.mdc;
+                h.dataset.svg = "1";
+                h.innerHTML = "";
+                MdCRndr.renderText(h, mdc, PREVIEW_SIZE);
+            }
+        } finally {
+            cellSvgPending = false;
+        }
+    }
+
+    let previewPending = false;
+    async function refreshPreviewToSvg(tree) {
+        if (previewPending) return;
+        if (typeof Glyphs === "undefined" || !Glyphs.ready) return;
+        if (SETTINGS.glyphSource !== "svg") return;
+        const missing = codesInTree(tree).filter(c => !Glyphs.tried(c));
+        if (!missing.length) return;
+        previewPending = true;
+        try { await Glyphs.preload(missing); } finally { previewPending = false; }
+        updateIBPreview();
+    }
+
+    let vmSvgPending = false;
+    async function refreshVmToSvg(items) {
+        if (vmSvgPending) return;
+        if (typeof Glyphs === "undefined" || !Glyphs.ready) return;
+        if (SETTINGS.glyphSource !== "svg") return;
+        const missing = new Set();
+        for (const c of items) for (const code of mdcCodesIn(c.glyph)) if (!Glyphs.tried(code)) missing.add(code);
+        if (!missing.size) return;
+        vmSvgPending = true;
+        try { await Glyphs.preload(Array.from(missing)); } finally { vmSvgPending = false; }
+        renderVM();
     }
 
     function renderAll() {
@@ -792,6 +1054,7 @@
         ["key", ["optionKeys", "GM", "next"], "settingsGmOptNext"],
         ["bool", ["picEnabled"], "settingsPic"],
         ["bool", ["watermark"], "settingsWatermark"],
+        ["glyph", ["glyphSource"], "settingsGlyphSource"],
         ["bool", ["keyCastEnabled"], "settingsKeyCast"],
     ];
 
@@ -849,6 +1112,51 @@
                     renderAll();
                 });
                 row.appendChild(num);
+            } else if (type === "glyph") {
+                const wrap = document.createElement("span");
+                wrap.className = "SettingGlyph";
+                const mk = (text, active, onClick) => {
+                    const b = document.createElement("button");
+                    b.type = "button";
+                    b.className = "SettingKey" + (active ? " active" : "");
+                    b.textContent = text;
+                    b.addEventListener("click", onClick);
+                    return b;
+                };
+                const cur = getPath(path);
+                wrap.appendChild(mk(t("glyphFont"), cur !== "svg", () => setGlyphSource("font")));
+                wrap.appendChild(mk(t("glyphSvg"), cur === "svg", () => setGlyphSource("svg")));
+
+                const pickDirBtn = document.createElement("button");
+                pickDirBtn.type = "button";
+                pickDirBtn.className = "SettingKey";
+                pickDirBtn.textContent = t("glyphPickDir");
+                pickDirBtn.addEventListener("click", () => chooseGlyphDir());
+                wrap.appendChild(pickDirBtn);
+
+                // 站点内已解压目录（glyfs/jseshGlyphs/）：HTTP 打开时一键启用，零解压
+                if (typeof Glyphs !== "undefined" && typeof Glyphs.useSiteDir === "function") {
+                    const siteBtn = document.createElement("button");
+                    siteBtn.type = "button";
+                    siteBtn.className = "SettingKey";
+                    siteBtn.textContent = t("glyphSiteDir");
+                    siteBtn.addEventListener("click", async () => {
+                        const base = await Glyphs.useSiteDir();
+                        if (!base) { siteBtn.textContent = t("glyphSiteNone"); return; }
+                        SETTINGS.glyphSource = "svg";
+                        saveSettings();
+                        await syncGlyphs();
+                        buildSettings();
+                        refresh();
+                        updateIBPreview();
+                    });
+                    wrap.appendChild(siteBtn);
+                }
+                const info = document.createElement("span");
+                info.className = "SettingGlyph-info";
+                info.textContent = glyphStatusText();
+                wrap.appendChild(info);
+                row.appendChild(wrap);
             } else {
                 const cb = document.createElement("input");
                 cb.type = "checkbox";
@@ -910,6 +1218,15 @@
 
     applyI18n();
     applyWatermark();  // 演示水印（设置可关）
+    // 字形来源：绑定引擎；上次选过 jar 则恢复并预载当前正文
+    if (typeof Glyphs !== "undefined") {
+        syncGlyphs().then(() => {
+            if (Glyphs.ready && SETTINGS.glyphSource === "svg") {
+                ensureGlyphsForTree(parseInput(input.value).tree, false)
+                    .then(() => { refresh(); updateIBPreview(); });
+            }
+        });
+    }
     applyMode();       // 还原上次的方向与靠侧
     buildPools();      // onload：一次性生成全部字符单元
     updateMatch();
@@ -921,6 +1238,9 @@
     // 调试接口
     globalThis.CHEAV = {
         refresh,
+        // 调试/便捷入口：直接传一个 jar File（等价于在设置里选择）
+        loadGlyphs: (file) => dropGlyphFile(file),
+        useGlyphDir: () => chooseGlyphDir(),
         setLang: (code) => { setLang(code); applyI18n(); renderAll(); updateIBPreview(); updateKeyCast(); refresh(); },
         units: { phon: phonUnits, det: detUnits, code: codeUnits },
         keyCast: () => (typeof KeyCast !== "undefined" ? KeyCast.keys() : null),

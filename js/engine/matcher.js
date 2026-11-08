@@ -160,18 +160,40 @@ function matchVocabularyByPron(token) {
 //   l1 / l2   下标两行文字（l1 加粗）
 
 /**
- * 音素单元（PM）：来自 PHONEME_UNITS（PHONEMES 单点注册的产物）。
- * 下标：第一行 = 发音（加粗），第二行 = Gardiner Code。
+ * 音素单元（PM）：来自 PHONEME_UNITS（PHONEMES 单点注册的产物）
+ * ＋ JSesh 的键盘转写候选（TRANSLIT_SIGNS，主字符排在最前）。
+ * 下标：第一行 = 发音 / 转写（加粗），第二行 = Gardiner Code。
  */
+function buildTranslitUnits() {
+    if (typeof TRANSLIT_SIGNS === "undefined") return [];
+    const list = [];
+    for (const t of Object.keys(TRANSLIT_SIGNS)) {
+        for (const code of TRANSLIT_SIGNS[t]) {
+            list.push({
+                kind: "phon",
+                matchKey: t,          // 转写大小写敏感（Hms ≠ hms），与 JSesh 一致
+                insert: code,
+                glyph: code,
+                l1: t,
+                l2: code,
+                translit: true,
+            });
+        }
+    }
+    return list;
+}
+
 function buildPhonemeUnits() {
-    return PHONEME_UNITS.map(u => ({
+    const base = PHONEME_UNITS.map(u => ({
         kind: "phon",
         matchKey: u.pron,
         insert: u.code,
         glyph: u.renderInput,
         l1: u.pron,
         l2: u.code,
-    })).sort((a, b) => {
+    }));
+    return base.concat(buildTranslitUnits()).sort((a, b) => {
+        if (a.translit !== b.translit) return a.translit ? 1 : -1;   // 单点音素优先，转写排后
         if (a.l1.length !== b.l1.length) return a.l1.length - b.l1.length;
         return a.l1 < b.l1 ? -1 : a.l1 > b.l1 ? 1 : 0;
     });

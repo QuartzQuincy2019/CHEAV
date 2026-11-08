@@ -31,7 +31,8 @@ const SETTINGS_DEFAULTS = {
     picEnabled: true,        // 主字符隐式转换（PIC）是否开启
     verticalText: false,     // 正文渲染区竖排（自上而下成列；输入框与预览始终横排）
     verticalDock: "right",   // 竖排模式渲染区靠哪侧："right" | "left"（占 1/3 屏宽）
-    watermark: false,        // 演示水印：整屏平铺背景文字（默认关闭，可在设置中开启）
+    watermark: false,
+    glyphSource: "font",     // 字形来源："font" = 内置 NewGardiner 字体；"svg" = 本机 JSesh SVG        // 演示水印：整屏平铺背景文字（默认关闭，可在设置中开启）
     keyCastEnabled: false,   // 按键展示（录屏演示用；仅电脑端显示）
 };
 

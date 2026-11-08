@@ -29,3 +29,6 @@ _tmp/
 # 按键展示插件（录屏演示用）：仅本地保留，不随仓库分发
 # 缺失时应用与设置面板会自动跳过该功能（见 js/ui/apply.js 的 hasKeyCast 判断）
 js/plugin/keycast.js
+
+# 本机解包的 JSesh 字形目录（glyfs/ = jseshGlyphs jar 的解压内容，约 35MB，不入库）
+glyfs/
