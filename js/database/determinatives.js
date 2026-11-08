@@ -180,7 +180,7 @@ const DETERMINATIVES = [
     { code: "N8",  names: ["sunshine"] },
     { code: "N11",  names: ["moon", "month"] },
     { code: "N14",  names: ["star", "constellation"] },
-    { code: "N23", names: ["irrigated_land", "boundary"] },
+    { code: "N23", names: ["irrigated_land", "boundary", "canal", "irrigation_canal"] },
     { code: "N25", names: ["desert"] },
     { code: "N26", names: ["mountain"] },
     { code: "N30", names: ["mound"] },
