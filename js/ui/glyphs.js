@@ -181,12 +181,15 @@
     }
 
     /** 写入（或替换）viewBox。 */
-    function setViewBox(svgText, vb) {
-        if (/\bviewBox\s*=\s*["'][^"']*["']/.test(svgText)) {
-            return svgText.replace(/(<svg\b[^>]*?)\bviewBox\s*=\s*["'][^"']*["']/, '$1viewBox="' + vb + '"');
-        }
-        return svgText.replace(/<svg\b/, '<svg viewBox="' + vb + '"');
+function setViewBox(svgText, vb) {
+    const parts = String(vb).trim().split(/\s+/);
+    if (parts.length !== 4 || parts.some(function (p) { return !isFinite(Number(p)); })) return svgText;
+    const clean = parts.map(function (p) { return Number(p); }).join(" ");
+    if (/\bviewBox\s*=\s*["'][^"']*["']/.test(svgText)) {
+        return svgText.replace(/\bviewBox\s*=\s*["'][^"']*["']/, 'viewBox="' + clean + '"');
     }
+    return svgText.replace(/<svg\b/, '<svg viewBox="' + clean + '"');
+}
 
     function fixSvgNs(svg) {
         let out = svg;
@@ -634,7 +637,8 @@
                     for (let i = 0; i < N * N; i++) {
                         if (data[i * 4 + 3] > 30) bits[i >> 5] |= (1 << (i & 31));
                     }
-                    inkGrids.set(code, { N, bits, w: img.naturalWidth || 18, h: img.naturalHeight || 18 });
+                    const em2 = metricsEm.get(code) || { w: 1, h: 1 };
+                    inkGrids.set(code, { N, bits, w: em2.w * 18, h: em2.h * 18 });
                     derivedZones.delete(code);   // 让下次 zoneFor 重新推导
                     gridLastMs = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
                 } catch (err) { /* 忽略：保持回退槽 */ }
@@ -733,6 +737,15 @@
                 }
             }
 out.__debug = dbg;
+            // 归一化坐标（0..1 相对墨迹 bbox）→ em（渲染端与显式数据同一口径）
+            {
+                const sx = (g.w || 18) / 18, sy = (g.h || 18) / 18;
+                ["zone1", "zone2", "zoneB"].forEach(function (k) {
+                    const z = out[k];
+                    if (!z) return;
+                    z.x *= sx; z.w *= sx; z.y *= sy; z.h *= sy;
+                });
+            }
             return (out.zone1 || out.zone2 || out.zoneB) ? out : null;
         },
 
