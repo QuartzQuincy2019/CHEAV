@@ -7104,6 +7104,10 @@ function measureUnitEm(u) {
 }
 
 function layoutQuadratAbs(layers, fontSize, scaleOverride) {
+    if (typeof globalThis !== "undefined") {
+        const qc = globalThis.__quadratCalls || (globalThis.__quadratCalls = { flow: 0, jsesh: 0, abs: 0 });
+        qc.abs++;
+    }
     const gapEm = 0.111;
     const rows = layers.map((row) => row.map((u) => ({ u, m: measureUnitEm(u) })));
     const hNat = rows.map((r) => Math.max(0.15, ...r.map((x) => x.m.h)));
@@ -7160,6 +7164,10 @@ function placeAbs(rowBox, u, x, rowH, m, s, fontSize) {
 }
 
 function renderVRG(parent, layers, fontSize) {
+    if (typeof globalThis !== "undefined") {
+        const qc = globalThis.__quadratCalls || (globalThis.__quadratCalls = { flow: 0, jsesh: 0, abs: 0 });
+        qc[quadratMode] = (qc[quadratMode] || 0) + 1;
+    }
     if (quadratMode === "jsesh") {
         parent.appendChild(layoutQuadratAbs(layers, fontSize, fontSize));
         return;
