@@ -606,8 +606,17 @@
 
         /** 惰性请求把某字形栅格化为 32×32 占据位图（不阻塞渲染；完成后再参与推导）。 */
         requestGrid(code) {
+            const self = this;
             if (inkGrids.has(code) || gridPending.has(code)) return;
             const url = urls.get(code);
+            if (!urls.get(code)) {
+                // 尚未加载：先加载再回来栅格化
+                if (typeof loadOne === "function") {
+                    gridPending.add(code);
+                    loadOne(code).then(function () { gridPending.delete(code); self.requestGrid(code); }).catch(function () { gridPending.delete(code); });
+                }
+                return;
+            }
             if (!url) return;
             gridPending.add(code);
             const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());

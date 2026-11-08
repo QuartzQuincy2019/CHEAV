@@ -86,78 +86,43 @@ let ready = false;
 function drawAll() {
   if (!ready) return;
   const size = Number(sizeEl.value);
-  globalThis.__quadratCalls = { flow: 0, jsesh: 0, abs: 0 };
   document.getElementById("sizeVal").textContent = size;
   MdCRndr.setQuadratMode(jseshEl.checked ? "jsesh" : "flow");
-  for (const key of Object.keys(SAMPLES)) {
+  const keys = Object.keys(SAMPLES);
+  for (const key of keys) {
     const host = document.getElementById(key);
     if (!host) continue;
     host.innerHTML = "";
-    try {
-      MdCRndr.renderText(host, SAMPLES[key], size);
-    } catch (err) {
-      host.innerHTML = '<span style="color:#c00">' + err.message + "</span>";
-    }
+    try { MdCRndr.renderText(host, SAMPLES[key], size); }
+    catch (err) { host.innerHTML = '<span style="color:#c00">' + err.message + "</span>"; }
   }
+  // 预热：让 I10 的占据网格开始栅格化（完成后下一次重绘生效）
+  if (Glyphs.inkGrid) Glyphs.inkGrid("I10");
+  // A/B 变体对照
   try {
     if (Glyphs.setZoneBVariant) {
       Glyphs.setZoneBVariant("A");
-      var za = document.getElementById("za"); if (za) { za.innerHTML = ""; MdCRndr.renderText(za, "D&t", size); }
+      var za = document.getElementById("za");
+      if (za) { za.innerHTML = ""; MdCRndr.renderText(za, "D&t", size); }
       Glyphs.setZoneBVariant("B");
-      var zb = document.getElementById("zb"); if (zb) { zb.innerHTML = ""; MdCRndr.renderText(zb, "D&t", size); }
-      Glyphs.setZoneBVariant("B");
+      var zb = document.getElementById("zb");
+      if (zb) { zb.innerHTML = ""; MdCRndr.renderText(zb, "D&t", size); }
     }
-  } catch (e) { console.error(e); }
-  try {
-    var zi = document.getElementById("zi");
-    if (zi) {
-      zi.innerHTML = "";
-      var inner = document.createElement("div");
-      inner.style.cssText = "position:absolute;left:0;bottom:0;font-size:180px;line-height:1";
-      zi.appendChild(inner);
-      MdCRndr.renderText(inner, "D", 180);
-      var g = zi.querySelector(".hie");
-      var zs = Glyphs.zoneFor("I10");   // D → I10（眼镜蛇）
-      if (g && zs) {
-        var r = g.getBoundingClientRect(), s = zi.getBoundingClientRect();
-        var ox = r.left - s.left, oy = r.top - s.top, gw = r.width, gh = r.height;
-        var paint = function (z, color) {
-          if (!z) return;
-          var d = document.createElement("div");
-          d.style.cssText = "position:absolute;border:2px solid " + color + ";background:" + color + "22;pointer-events:none;" +
-            "left:" + (ox + z.x * gw) + "px;top:" + (oy + (1 - (z.y + z.h)) * gh) + "px;" +
-            "width:" + (z.w * gw) + "px;height:" + (z.h * gh) + "px;";
-          zi.appendChild(d);
-        };
-        paint(zs.zone1, "red"); paint(zs.zone2, "blue"); paint(zs.zoneB, "green");
-        window.__zonesD = zs;
-      }
-    }
-  } catch (e) { console.error(e); }
-  var __diag = "";
-  try {
-    var g1 = Glyphs.inkGrid ? Glyphs.inkGrid("I10") : null;
-    var zz = Glyphs.zoneFor ? Glyphs.zoneFor("I10") : null;
-    var busyBL = Glyphs.overlapsInk ? Glyphs.overlapsInk("I10", -0.5, 0.3, 0.25, 0.25) : "n/a";
-    __diag = " | grid=" + (g1 ? (g1.N + "," + Math.round(g1.w) + "x" + Math.round(g1.h)) : "null") +
-             " busy(BL)=" + busyBL +
-             " zones=" + JSON.stringify(zz);
-  } catch (e) { __diag = " | diagERR=" + e.message; }
-  document.getElementById("log").textContent =
-    "mode=" + (jseshEl.checked ? "jsesh" : "flow") +
-    "  size=" + size +
-    "  calls=" + JSON.stringify(globalThis.__quadratCalls) +
-    "  hie=" + ["a","b","c","d","e","f","g","h","i","j","k","l","m"].map(k => k + ":" + document.querySelectorAll("#" + k + " .hie").length).join(" ") +
-    "  ZD=" + JSON.stringify(window.__zonesD || {}) + __diag + "  EC=" + (function(){ var v=document.querySelector("#c .vrg"); if(!v) return "none";
-      var r=v.getBoundingClientRect(); var hs=[].map.call(v.querySelectorAll(".hie"), function(e){var b=e.getBoundingClientRect();return Math.round(b.height);});
-      return "vrg=" + Math.round(r.width) + "x" + Math.round(r.height) + " hie=" + hs.join("/"); })() +
-    "  ELIG lig=" + document.querySelectorAll("#e .lig").length +
-    " vrg=" + document.querySelectorAll("#e .vrg").length +
-    " html=" + (document.getElementById("e").innerHTML.slice(0, 60).replace(/</g, "("));
+  } catch (e2) { }
+  const parts = [
+    "mode=" + (jseshEl.checked ? "jsesh" : "flow"),
+    "size=" + size,
+    "gstat=" + JSON.stringify(Glyphs.gridStats ? Glyphs.gridStats() : null),
+    "grid(I10)=" + (Glyphs.inkGrid && Glyphs.inkGrid("I10") ? "ok" : "null"),
+    "zones(I10)=" + JSON.stringify(Glyphs.zoneFor ? Glyphs.zoneFor("I10") : null),
+    "hie=" + keys.map(k => k + ":" + document.querySelectorAll("#" + k + " .hie").length).join(" ")
+  ];
+  document.getElementById("log").textContent = parts.join("   ");
 }
 
 sizeEl.addEventListener("input", drawAll);
-setInterval(function () { if (document.getElementById("log")) drawAll(); }, 2500);
+setTimeout(drawAll, 1500);
+setTimeout(drawAll, 3000);
 jseshEl.addEventListener("change", drawAll);
 
 (async function init() {
