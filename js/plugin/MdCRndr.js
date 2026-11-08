@@ -6908,11 +6908,9 @@ function attachSvgOverlay(el, payload, inkW, inkH, dy, position) {
     el.style.backgroundImage = 'url("' + payload + '")';
     el.style.backgroundRepeat = "no-repeat";
     if (inkW && inkH) {
-        el.style.backgroundSize = px(inkW) + "px " + px(inkH) + "px";
-        // dy = 墨迹底边距基线的距离（px）：让字形按 JSesh 画框"坐"在正确的基线上
-        el.style.backgroundPosition = dy
-            ? ("center calc(100% - " + px(dy) + "px)")
-            : "center bottom";
+        el.style.backgroundSize = "100% 100%";
+        el.style.backgroundPosition = "center center";   // 盒 = 墨迹盒 → 铺满即精确
+        void inkW; void inkH;
     } else {
         el.style.backgroundSize = "contain";
         el.style.backgroundPosition = position || "center bottom";
@@ -6958,7 +6956,11 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
             const dy = ((bx && bx.dy) ? bx.dy : 0) * fit * fontSize;       // 墨迹底边距基线
             // 盒宽 = 图片宽：字距贴合，也不会被 background-clip 裁掉
             el.style.display = "inline-block";
+            // 盒 = 墨迹盒（宽高都取墨迹）：背景铺满盒，绝无裁切；基线由 margin-bottom 承担
             el.style.width = px(w) + "px";
+            el.style.height = px(h) + "px";
+            el.style.verticalAlign = "bottom";
+            el.style.marginBottom = px(dy) + "px";
             attachSvgOverlay(el, customGlyph, w, h, dy,
                 (align === "center") ? "center center" : "center");
         }
@@ -7129,7 +7131,7 @@ function layoutQuadratAbs(layers, fontSize, targetHpx) {
     let y = 0;
     for (let ri = 0; ri < n; ri++) {
         const items = rows[ri];
-        const hPx = hNat[ri] * s * fontSize;
+        const hPx = hNat[ri] * s * fontSize + 1;
         const rowWpx = wNat[ri] * s * fontSize;
         const interW = items.length > 1 ? Math.max(0, (Wpx - rowWpx) / (items.length - 1)) : 0;
         let x = items.length === 1 ? (Wpx - rowWpx) / 2 : 0;
@@ -7148,7 +7150,7 @@ function placeAbs(box, u, x, yTop, rowH, m, s, fontSize) {
     const wPx = m.w * s * fontSize;
     const holder = document.createElement("span");
     holder.style.cssText = "position:absolute;left:" + px(x) + "px;top:" + px(yTop) +
-        "px;width:" + px(wPx) + "px;height:" + px(rowH) + "px;";
+        "px;width:" + px(wPx) + "px;height:" + px(rowH) + "px;overflow:visible;";
     if (isGroup) {
         const sub = layoutQuadratAbs(u.layers, fontSize, rowH);   // 填满本行高度
         sub.style.position = "absolute";
