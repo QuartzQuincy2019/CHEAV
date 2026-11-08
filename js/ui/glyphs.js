@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611081853";
+    const BUILD = "glyphs-202611081900";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
@@ -590,6 +590,11 @@
             urls.forEach(u => { if (u && u.indexOf("blob:") === 0) URL.revokeObjectURL(u); });
             urls.clear(); busy.clear(); aspects.clear(); metricsEm.clear(); boxesEm.clear();
             return b;
+        },
+
+        /** 连字区（来自 js/database/glyphZones.js，Tier 1）。 */
+        zoneFor(code) {
+            return (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;
         },
 
         /** 诊断快照。 */

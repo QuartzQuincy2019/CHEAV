@@ -6876,6 +6876,7 @@ function renderInShadedCell(parent, fontSize, digits, draw, alignEnd, emWidth) {
  * 由宿主页面通过 setGlyphProvider(fn) 注入；引擎本身不依赖任何文件系统 API。
  */
 let glyphProvider = null;
+let glyphZoneProvider = null;   // code -> { zone1, zone2 }（连字区，em 坐标）
 /** 字形宽高比提供者（可选）：code → 宽/高（数字）或 null。用于让宽符号不被压进 1em 方格。 */
 let glyphAspectProvider = null;
 /** 字形度量提供者（可选）：code → { w, h }（单位 em）。JSesh 模式用它取代字体度量。 */
@@ -7370,12 +7371,31 @@ function renderLigature(parent, name, fontSize) {
         // 基准字（parts[0]）以独立字为模板：1em 轨道内上下居中；
         // 其余 part 贴基线定位（墨迹底部落在 dx/dy 处）
         const align = i === 0 ? "center" : undefined;
-        const el = renderGlyph(box, part.code, ps, align);
+        // part.zone：按锚字符（parts[0]）的连字区自动缩放并贴边（Tier 1）
+        let zdx = (part.dx || 0), zdy = (part.dy || 0), zps = ps;
+        if (part.zone && glyphZoneProvider) {
+            const anchor0 = lig.parts[0] || { code: "", dx: 0, dy: 0 };
+            const zones0 = glyphZoneProvider(anchor0.code) || null;
+            const z = zones0 ? zones0[part.zone] : null;
+            if (z && z.w > 0 && z.h > 0) {
+                const am = getMetrics(part.code);
+                const inkW = Math.max(0.01, am.width / EM_SQUARE);
+                const inkH = Math.max(0.01, am.height / EM_SQUARE);
+                const k = (part.scale || 1) * Math.min(z.w / inkW, z.h / inkH);
+                zps = fontSize * k;
+                const w = inkW * k, h = inkH * k;
+                const zLeft = (anchor0.dx || 0) + z.x;
+                const zBottom = (anchor0.dy || 0) + (1 - (z.y + z.h));
+                zdx = (z.gh === "s") ? zLeft : (z.gh === "e") ? (zLeft + z.w - w) : (zLeft + (z.w - w) / 2);
+                zdy = (z.gv === "b") ? zBottom : (z.gv === "t") ? (zBottom + z.h - h) : (zBottom + (z.h - h) / 2);
+            }
+        }
+        const el = renderGlyph(box, part.code, zps, align);
         if (!el) return;
         // 绝对定位：part 的布局底边置于 (dx, dy) 处
         el.style.position = "absolute";
-        el.style.left = px((part.dx || 0) * fontSize) + "px";
-        el.style.bottom = px((part.dy || 0) * fontSize) + "px";
+        el.style.left = px(zdx * fontSize) + "px";
+        el.style.bottom = px(zdy * fontSize) + "px";
         if (ligatureDebug()) el.classList.add("lig-debug");
     });
 
@@ -8254,6 +8274,11 @@ function splitLines(tree) {
 
         setGlyphAspectProvider: function (fn) {
             glyphAspectProvider = (typeof fn === "function") ? fn : null;
+            return MdCRndr;
+        },
+
+        setGlyphZoneProvider: function (fn) {
+            glyphZoneProvider = (typeof fn === "function") ? fn : null;
             return MdCRndr;
         },
 

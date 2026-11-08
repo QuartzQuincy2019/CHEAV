@@ -132,6 +132,10 @@
     async function syncGlyphs() {
         if (typeof Glyphs === "undefined" || typeof MdCRndr === "undefined") return;
         Glyphs.setRenderer(MdCRndr);
+        MdCRndr.setGlyphZoneProvider(function (code) {          // 连字区（Tier 1）
+            return (typeof Glyphs !== "undefined" && typeof Glyphs.zoneFor === "function")
+                ? Glyphs.zoneFor(code) : null;
+        });
         Glyphs.onLoaded = scheduleGlyphRefresh;       // 新字形到手 → 预览/匹配区自动更新
         const want = SETTINGS.glyphSource === "svg";
         // JSesh 模式：整串都用 JSesh（含度量），不混用字体；字体模式则完全关掉这些钩子，
