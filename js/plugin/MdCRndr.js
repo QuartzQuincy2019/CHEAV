@@ -7698,6 +7698,18 @@ function parseInput(text) {
         //   · 2 个符号：宿主 = 两者中**更高**的那个；
         //       小符号在宿主之前 → zone1（左）；在宿主之后 → 底部槽（zoneB），无则 zone2（右）
         //   · 3 个符号：**中间**符号为宿主，前 → zone1，后 → zone2（JSesh 只查 zone0/zone1）
+        // ① 先查 Tksesh 预定义连字（JSesh 的第一优先级，见 TkseshLigatureCatalogue）
+        const tks = (typeof TKESH_LIGATURES !== "undefined") ? TKESH_LIGATURES[codes.join("&")] : null;
+        if (tks) {
+            const nm2 = codes.join("&");
+            if (!LIGATURES[nm2]) {
+                LIGATURES[nm2] = { name: nm2, parts: tks.map(function (p) {
+                    return { code: p.code, dx: p.dx, dy: p.dy, scale: p.scale };
+                }) };
+            }
+            return "{" + nm2 + "}";
+        }
+
         const heightOf = (c) => {
             try { const m = getMetrics(c); return Math.max(m.height, 1); } catch (err) { return 1; }
         };
