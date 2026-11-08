@@ -6888,8 +6888,7 @@ function renderInShadedCell(parent, fontSize, digits, draw, alignEnd, emWidth) {
  */
 let glyphProvider = null;
 let zoneFitMode = "shrink";      // 连字区缩放策略：shrink=只缩不放 / fill=填满 / fill85=填满留 15% 边距
-let glyphZoneProvider = null;
-let glyphDensityProvider = null;   // code -> 3x3 密度（Tier 2）   // code -> { zone1, zone2 }（连字区，em 坐标）
+let glyphZoneProvider = null;   // code -> { zone1, zone2 }（连字区，em 坐标）
 /** 字形宽高比提供者（可选）：code → 宽/高（数字）或 null。用于让宽符号不被压进 1em 方格。 */
 let glyphAspectProvider = null;
 /** 字形度量提供者（可选）：code → { w, h }（单位 em）。JSesh 模式用它取代字体度量。 */
@@ -6949,20 +6948,14 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
             const bx = glyphBoxProvider ? glyphBoxProvider(code) : null;   // 墨迹（em）+ dy 偏移
             const wEm = bx ? bx.w : gm.width / EM_SQUARE;
             const hEm = bx ? bx.h : gm.height / EM_SQUARE;
-            // 不再"塞进 1em"：按画布 1:1（1em = 画布 18/1800 单位）绘制，
-            // 仅当墨迹极端超出（>2.2em）时收缩，避免与 JSesh 相比整体偏小、上下留白。
-            const capEm = 2.2;
-            const fit = Math.min(1, capEm / Math.max(wEm, hEm, 1e-6));
+            const fit = Math.min(1, 1 / Math.max(wEm, 1e-6), 1 / Math.max(hEm, 1e-6));
             const w = wEm * fit * fontSize;
             const h = hEm * fit * fontSize;
             const dy = ((bx && bx.dy) ? bx.dy : 0) * fit * fontSize;       // 墨迹底边距基线
             // 盒宽 = 图片宽：字距贴合，也不会被 background-clip 裁掉
             el.style.display = "inline-block";
             el.style.width = px(w) + "px";
-            el.style.height = px(h) + "px";        // 盒高=墨迹高：底部贴基线时不产生上下留白
-            el.style.verticalAlign = "bottom";
-            if (dy) el.style.marginBottom = px(dy) + "px";   // 墨迹底边相对基线的偏移（不再改背景位置）
-            attachSvgOverlay(el, customGlyph, w, h, 0,
+            attachSvgOverlay(el, customGlyph, w, h, dy,
                 (align === "center") ? "center center" : "center");
         }
     }
@@ -7135,7 +7128,7 @@ function renderVRG(parent, layers, fontSize) {
  */
 function renderLayerUnit(layer, u, glyphSize) {
     if (u.type === "char") {
-        renderGlyph(layer, u.code, glyphSize, undefined, u.mirror);   // 层内字形保持基线（居中只作用于框的直接子级）
+        renderGlyph(layer, u.code, glyphSize, encADepth > 0 ? "center" : undefined, u.mirror);
     } else if (u.type === "vrg") {
         if (u.layers.length === 1) {
             // 单层 VRG 视为一般字符：层内元素直接按序列渲染
@@ -7397,8 +7390,7 @@ function renderLigature(parent, name, fontSize) {
             const explicitZone = (part.zone === "zone1" || part.zone === "zone2");
             const prevP = explicitZone ? (placed[0] || null) : (placed[i - 1] || placed[0] || null);
             const anchor0 = prevP || { code: (lig.parts[0] || {}).code || "", dx: (lig.parts[0] || {}).dx || 0, dy: (lig.parts[0] || {}).dy || 0 };
-            let zones0 = glyphZoneProvider(anchor0.code) || null;
-            if (!zones0) zones0 = autoZonesFor(anchor0.code);      // Tier 2 自动推导
+            const zones0 = glyphZoneProvider(anchor0.code) || null;
             let z = null;
             if (part.zone === "auto") {
                 z = zones0 ? (zones0.zone2 || zones0.zone1) : null;
@@ -7569,58 +7561,6 @@ function protectCompounds(text) {
     return out;
 }
 
-/**
- * Tier 2：无显式连字区时，按字形墨迹推导两个区（em 坐标，y 向下）。
- *   · 竖长（h/w > 1.2）：zone1 = 下 35%，zone2 = 上 35%
- *   · 横宽（w/h > 1.2）：zone1 = 右 35%，zone2 = 左 35%
- *   · 近方形：zone1 = 左下象限，zone2 = 左上象限
- */
-function autoZonesFor(code) {
-    const am = getMetrics(code);
-    const w = Math.max(0.05, am.width / EM_SQUARE);
-    const h = Math.max(0.05, am.height / EM_SQUARE);
-    const x0 = (1 - w) / 2, y0 = (1 - h) / 2;
-    const g = glyphDensityProvider ? glyphDensityProvider(code) : null;
-    if (g && g.length === 3) {
-        const cellRect = (c, r) => ({
-            x: x0 + (c / 3) * w, y: y0 + (r / 3) * h,
-            w: w / 3, h: h / 3, gh: null, gv: null, gravity: null,
-        });
-        const bottomSum = g[2][0] + g[2][1] + g[2][2];
-        if (bottomSum < 0.05) {
-            // 下半几乎全空（如 I10）：两槽都放下排 —— 前中、后左
-            return { zone1: cellRect(1, 2), zone2: cellRect(0, 2) };
-        }
-        const pickInCol = (col) => {
-            let best = 0, bestV = Infinity;
-            for (let r = 0; r < 3; r++) {
-                const v = g[r][col];
-                if (v < bestV - 1e-9) { bestV = v; best = r; }
-            }
-            return best;
-        };
-        return { zone1: cellRect(0, pickInCol(0)), zone2: cellRect(2, pickInCol(2)) };
-    }
-    // 兜底：无密度数据时仍按长宽比切条
-    const band = 0.35;
-    if (h / w > 1.2) {
-        return {
-            zone1: { x: x0, y: y0 + h * (1 - band), w: w, h: h * band, gh: null, gv: null, gravity: null },
-            zone2: { x: x0, y: y0, w: w, h: h * band, gh: null, gv: null, gravity: null },
-        };
-    }
-    if (w / h > 1.2) {
-        return {
-            zone1: { x: x0 + w * (1 - band), y: y0, w: w * band, h: h, gh: null, gv: null, gravity: null },
-            zone2: { x: x0, y: y0, w: w * band, h: h, gh: null, gv: null, gravity: null },
-        };
-    }
-    return {
-        zone1: { x: x0, y: y0 + h / 2, w: w / 2, h: h / 2, gh: null, gv: null, gravity: null },
-        zone2: { x: x0, y: y0, w: w / 2, h: h / 2, gh: null, gv: null, gravity: null },
-    };
-}
-
 /** 把一个写法（Gardiner 码或转写）解析成 Gardiner 码：与 expandUnit 同一套规则。 */
 function resolveTranslitCode(c) {
     if (typeof MAIN_SIGNS !== "undefined" && MAIN_SIGNS[c]) return MAIN_SIGNS[c];
@@ -7644,22 +7584,8 @@ function parseInput(text) {
             const z = (typeof GLYPH_ZONES !== "undefined") ? GLYPH_ZONES[c] : null;
             return !!(z && (z.zone1 || z.zone2));
         });
-        let hostIdx = hasSlots.indexOf(true);
-        const explicitCount = hasSlots.filter(Boolean).length;
-        let tier2 = false;
-        if (hostIdx < 0) {
-            // Tier 2：整串没有任何显式连字区 → 取墨迹面积最大者为宿主
-            let best = 0, bestArea = -1;
-            codes.forEach((c, k) => {
-                const am = getMetrics(c);
-                const area = (am.width / EM_SQUARE) * (am.height / EM_SQUARE);
-                if (area > bestArea) { bestArea = area; best = k; }
-            });
-            hostIdx = best;
-            tier2 = true;
-        } else if (explicitCount !== 1) {
-            return codes.join("-");   // 多个显式宿主 → 非法，依次排列
-        }
+        const hostIdx = hasSlots.indexOf(true);
+        if (hostIdx < 0 || hasSlots.filter(Boolean).length !== 1) return codes.join("-");   // 非法：不合并，改为依次排列
         const nm = codes.join("&");
         if (!LIGATURES[nm]) {
             const parts = [{ code: codes[hostIdx], dx: 0, dy: 0, scale: 1 }];
@@ -7667,7 +7593,7 @@ function parseInput(text) {
                 if (i === hostIdx) return;
                 parts.push({ code: c, zone: i < hostIdx ? "zone1" : "zone2" });
             });
-            LIGATURES[nm] = { name: nm, parts: parts, tier2: tier2 };
+            LIGATURES[nm] = { name: nm, parts: parts };
         }
         return "{" + nm + "}";
     });
@@ -8072,7 +7998,6 @@ function splitLines(tree) {
             A + " .enc-body {",              // 王名圈：框内内容整体居中（JSesh 行为）
             "    align-items: center;",
             "    justify-content: center;",
-            "    gap: 0.08em;",                   // 框内字距（太小会互相贴住）
             "}",
             A + "::after {",                // 座：框右侧细条（宽度 = 边框，上下各出半线）
             "    content: \"\";",
@@ -8435,11 +8360,6 @@ function splitLines(tree) {
         /** 连字区缩放策略："shrink"（默认，与 JSesh 一致） | "fill" | "fill85"。 */
         setZoneFit: function (mode) {
             zoneFitMode = (mode === "shrink" || mode === "fill" || mode === "fill85") ? mode : "shrink";
-            return MdCRndr;
-        },
-
-        setGlyphDensityProvider: function (fn) {
-            glyphDensityProvider = (typeof fn === "function") ? fn : null;
             return MdCRndr;
         },
 

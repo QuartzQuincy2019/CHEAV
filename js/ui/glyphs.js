@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611082201";
+    const BUILD = "glyphs-202611082203";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
@@ -36,8 +36,7 @@
     let enabled = false;
     let onLoadedCb = null;            // 每成功载入一个字形就回调一次（供界面刷新预览/匹配区）
     let siteDir = null;              // 站点内的已解压目录（如 glyfs/jseshGlyphs/），fetch 直读、零解压
-    const densities = new Map();        // code -> 3x3 墨迹密度（Tier 2 连字区推导）
-let fontFilter = null;           // (code) => true 表示内置字体已有该字形，不必用 SVG
+    let fontFilter = null;           // (code) => true 表示内置字体已有该字形，不必用 SVG
     let engine = null;
     let lastError = "";
 
@@ -300,29 +299,6 @@ let fontFilter = null;           // (code) => true 表示内置字体已有该�
             .replace(/<(rect|path|line|polyline|polygon|circle|ellipse)\b[^>]*stroke="(?:red|#ff0000)"[^>]*?\/?>/gi, "");
     }
 
-    /** 由 SVG 路径点云估算 3x3 墨迹密度（0=空，1=满）。 */
-    function inkDensity3(svgText) {
-        const pts = [];
-        const re = /<path[^>]*\bd="([^"]+)"/g;
-        let m;
-        while ((m = re.exec(svgText))) {
-            const nums = m[1].match(/-?\d+\.?\d*/g) || [];
-            for (let i = 0; i + 1 < nums.length; i += 2) pts.push([parseFloat(nums[i]), parseFloat(nums[i + 1])]);
-        }
-        if (pts.length < 8) return null;
-        let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
-        for (const [x, y] of pts) { if (x < minx) minx = x; if (x > maxx) maxx = x; if (y < miny) miny = y; if (y > maxy) maxy = y; }
-        const w = (maxx - minx) || 1, h = (maxy - miny) || 1;
-        const grid = [[0,0,0],[0,0,0],[0,0,0]];
-        for (const [x, y] of pts) {
-            const cx = Math.min(2, Math.max(0, Math.floor((x - minx) / w * 3)));
-            const cy = Math.min(2, Math.max(0, Math.floor((y - miny) / h * 3)));
-            grid[cy][cx]++;
-        }
-        for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) grid[r][c] = grid[r][c] / pts.length;
-        return grid;
-    }
-
     async function loadOne(code) {
         if (urls.has(code)) return urls.get(code);
         if (busy.has(code)) return null;
@@ -380,8 +356,7 @@ let fontFilter = null;           // (code) => true 表示内置字体已有该�
                 const iy = ink ? ink.y - pad : 0;
                 const iw = ink ? ink.w + pad * 2 : fr.w;
                 const ih = ink ? ink.h + pad * 2 : fr.h;
-                // viewBox 精确等于墨迹范围：盒尺寸也等于墨迹尺寸，图像 1:1 映射，比例与 JSesh 一致
-            svgText = setViewBox(svgText, ix + " " + iy + " " + iw + " " + ih);
+                svgText = setViewBox(svgText, ix + " " + iy + " " + iw + " " + ih);
                 aspects.set(code, iw / ih);
                 // 布局尺寸 = 墨迹（em）：字距贴合、堆叠组层高紧凑
                 metricsEm.set(code, { w: iw / em, h: ih / em });
@@ -401,10 +376,6 @@ let fontFilter = null;           // (code) => true 表示内置字体已有该�
             }
             // data: URL —— file:// 页面下 blob:null/… 无法作为背景图加载，data: 则到处都能用
             const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgText);
-            if (!densities.has(code)) {
-                const g3 = inkDensity3(svgText);
-                if (g3) densities.set(code, g3);
-            }
             urls.set(code, url);
             if (typeof onLoadedCb === "function") {
                 try { onLoadedCb(code); } catch (e) { /* 忽略回调异常 */ }
@@ -619,11 +590,6 @@ let fontFilter = null;           // (code) => true 表示内置字体已有该�
             urls.forEach(u => { if (u && u.indexOf("blob:") === 0) URL.revokeObjectURL(u); });
             urls.clear(); busy.clear(); aspects.clear(); metricsEm.clear(); boxesEm.clear();
             return b;
-        },
-
-        /** 3x3 墨迹密度（Tier 2 连字区推导用）。 */
-        densityFor(code) {
-            return densities.get(code) || null;
         },
 
         /** 连字区（来自 js/database/glyphZones.js，Tier 1）。 */

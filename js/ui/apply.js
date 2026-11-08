@@ -90,12 +90,6 @@
                 (u.units || []).forEach(walk);
                 return;
             }
-            if (u.type === "lig") {
-                // 连字：把各部件的码也纳入预载，否则切到 JSesh 后仍用字体字形
-                const lig = (typeof LIGATURES !== "undefined") ? LIGATURES[u.name] : null;
-                if (lig && lig.parts) lig.parts.forEach((p) => { if (p && p.code) out.add(p.code); });
-                return;
-            }
             if (u.type === "vrg") { u.layers.forEach(walk); return; }
             if (u.type === "seq" || u.type === "enc" || u.type === "word") { (u.units || u.inner || []).forEach(walk); return; }
         })(tree);
@@ -138,11 +132,7 @@
     async function syncGlyphs() {
         if (typeof Glyphs === "undefined" || typeof MdCRndr === "undefined") return;
         Glyphs.setRenderer(MdCRndr);
-        MdCRndr.setGlyphDensityProvider(function (code) {        // 墨迹 3x3 密度（Tier 2）
-        return (typeof Glyphs !== "undefined" && typeof Glyphs.densityFor === "function")
-            ? Glyphs.densityFor(code) : null;
-    });
-    MdCRndr.setGlyphZoneProvider(function (code) {          // 连字区（Tier 1）
+        MdCRndr.setGlyphZoneProvider(function (code) {          // 连字区（Tier 1）
             return (typeof Glyphs !== "undefined" && typeof Glyphs.zoneFor === "function")
                 ? Glyphs.zoneFor(code) : null;
         });
