@@ -624,7 +624,7 @@
             img.decoding = "async";
             img.onload = () => {
                 try {
-                    const N = 32;
+                    const N = 128;  // 栅格分辨率（实现细节；算法同 JSesh）
                     const cv = document.createElement("canvas");
                     cv.width = N; cv.height = N;
                     const ctx2 = cv.getContext("2d", { willReadFrequently: true });
