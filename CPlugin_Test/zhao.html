@@ -14,12 +14,12 @@
   #log { font: 12px monospace; background: #ffef9f; padding: 6px; white-space: pre-wrap; }
   label { font-size: 12px; }
 </style>
-<script src="../js/database/mainSigns.js?v=223959"></script>
-<script src="../js/database/translit.js?v=223959"></script>
-<script src="../js/database/glyphZones.js?v=223959"></script>
-<script src="../js/database/serekhTail.js?v=223959"></script>
-<script src="../js/plugin/MdCRndr.js?v=223959"></script>
-<script src="../js/ui/glyphs.js?v=223959"></script>
+<script src="../js/database/mainSigns.js?v=224329"></script>
+<script src="../js/database/translit.js?v=224329"></script>
+<script src="../js/database/glyphZones.js?v=224329"></script>
+<script src="../js/database/serekhTail.js?v=224329"></script>
+<script src="../js/plugin/MdCRndr.js?v=224329"></script>
+<script src="../js/ui/glyphs.js?v=224329"></script>
 </head>
 <body>
 <h1>照型 VRG 测试台（不改动 index.html / 插件测试台）</h1>
@@ -54,6 +54,9 @@
 <div class="row">
   <div class="cell"><b>ZA · D&amp;t（zoneB 变体 A）</b><div class="stage" id="za"></div></div>
   <div class="cell"><b>ZB · D&amp;t（zoneB 变体 B）</b><div class="stage" id="zb"></div></div>
+</div>
+<div class="row">
+  <div class="cell"><b>ZI · I10 + 推导槽可视化（红=zone1 蓝=zone2 绿=zoneB）</b><div class="stage" id="zi" style="position:relative;width:240px;height:240px"></div></div>
 </div>
 <div id="log">loading…</div>
 <script>
@@ -105,12 +108,38 @@ function drawAll() {
       Glyphs.setZoneBVariant("B");
     }
   } catch (e) { console.error(e); }
+  try {
+    var zi = document.getElementById("zi");
+    if (zi) {
+      zi.innerHTML = "";
+      var inner = document.createElement("div");
+      inner.style.cssText = "position:absolute;left:0;bottom:0;font-size:180px;line-height:1";
+      zi.appendChild(inner);
+      MdCRndr.renderText(inner, "D", 180);
+      var g = zi.querySelector(".hie");
+      var zs = Glyphs.zoneFor("I10");   // D → I10（眼镜蛇）
+      if (g && zs) {
+        var r = g.getBoundingClientRect(), s = zi.getBoundingClientRect();
+        var ox = r.left - s.left, oy = r.top - s.top, gw = r.width, gh = r.height;
+        var paint = function (z, color) {
+          if (!z) return;
+          var d = document.createElement("div");
+          d.style.cssText = "position:absolute;border:2px solid " + color + ";background:" + color + "22;pointer-events:none;" +
+            "left:" + (ox + z.x * gw) + "px;top:" + (oy + (1 - (z.y + z.h)) * gh) + "px;" +
+            "width:" + (z.w * gw) + "px;height:" + (z.h * gh) + "px;";
+          zi.appendChild(d);
+        };
+        paint(zs.zone1, "red"); paint(zs.zone2, "blue"); paint(zs.zoneB, "green");
+        window.__zonesD = zs;
+      }
+    }
+  } catch (e) { console.error(e); }
   document.getElementById("log").textContent =
     "mode=" + (jseshEl.checked ? "jsesh" : "flow") +
     "  size=" + size +
     "  calls=" + JSON.stringify(globalThis.__quadratCalls) +
     "  hie=" + ["a","b","c","d","e","f","g","h","i","j","k","l","m"].map(k => k + ":" + document.querySelectorAll("#" + k + " .hie").length).join(" ") +
-    "  EC=" + (function(){ var v=document.querySelector("#c .vrg"); if(!v) return "none";
+    "  ZD=" + JSON.stringify(window.__zonesD || {}) + "  EC=" + (function(){ var v=document.querySelector("#c .vrg"); if(!v) return "none";
       var r=v.getBoundingClientRect(); var hs=[].map.call(v.querySelectorAll(".hie"), function(e){var b=e.getBoundingClientRect();return Math.round(b.height);});
       return "vrg=" + Math.round(r.width) + "x" + Math.round(r.height) + " hie=" + hs.join("/"); })() +
     "  ELIG lig=" + document.querySelectorAll("#e .lig").length +
