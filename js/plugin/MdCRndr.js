@@ -7422,24 +7422,29 @@ function renderLigature(parent, name, fontSize) {
         el.style.position = "absolute";
         el.style.left = px(zdx * fontSize) + "px";
         el.style.bottom = px(zdy * fontSize) + "px";
-        placed[i] = { code: part.code, dx: zdx, dy: zdy };
+        const __m = getMetrics(part.code);
+        placed[i] = { code: part.code, dx: zdx, dy: zdy, w: (__m.width / EM_SQUARE) * (zps / fontSize) };
         if (ligatureDebug()) el.classList.add("lig-debug");
     });
 
-    // 按部件真实范围撑开容器：允许左侧负偏移（前插槽）与右侧伸出（后插槽）
+    // 按部件范围解析式撑开容器：允许负 dx（前插槽）与右侧伸出（后插槽）
     if (placed.length > 1) {
-        let minL = Infinity, maxR = -Infinity;
-        for (const child of box.children) {
-            const l = child.offsetLeft, r = l + child.offsetWidth;
-            if (l < minL) minL = l;
-            if (r > maxR) maxR = r;
+        let minX = Infinity, maxX = -Infinity;
+        for (const p of placed) {
+            if (!p) continue;
+            if (p.dx < minX) minX = p.dx;
+            if (p.dx + p.w > maxX) maxX = p.dx + p.w;
         }
-        if (isFinite(minL) && isFinite(maxR)) {
-            if (minL < 0) {
-                for (const child of box.children) child.style.left = px(child.offsetLeft - minL) + "px";
-                maxR -= minL;
+        if (isFinite(minX) && isFinite(maxX)) {
+            if (minX < 0) {
+                let k = 0;
+                for (const child of box.children) {
+                    const p = placed[k++];
+                    if (p) child.style.left = px((p.dx - minX) * fontSize) + "px";
+                }
+                maxX -= minX;
             }
-            box.style.width = px(Math.max(maxR, fontSize)) + "px";   // 至少一个 em
+            box.style.width = px(Math.max(maxX * fontSize, fontSize)) + "px";
         }
     }
     parent.appendChild(box);
