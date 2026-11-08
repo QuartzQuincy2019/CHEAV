@@ -388,6 +388,9 @@ function setViewBox(svgText, vb) {
             // data: URL —— file:// 页面下 blob:null/… 无法作为背景图加载，data: 则到处都能用
             const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgText);
             urls.set(code, url);
+            // 字形已就绪：立即推导连字区（矢量命中测试此时可用），避免"未加载→判定为占据"的误判
+            derivedZones.delete(code);
+            try { api.deriveZones(code); } catch (e) { }
             if (typeof onLoadedCb === "function") {
                 try { onLoadedCb(code); } catch (e) { /* 忽略回调异常 */ }
             }
@@ -725,6 +728,12 @@ function setViewBox(svgText, vb) {
         /** 推导 zone1（前置）/ zone2（后接）；风格沿用 glyphZones.js 的数据格式（em）。 */
         deriveZones(code) {
             const dbg = {};   // 诊断：各槽搜索的 t 值
+            if (typeof globalThis !== "undefined") {
+                const tr = globalThis.__zoneTrace || (globalThis.__zoneTrace = []);
+                tr.push({ code: code, hasUrl: !!urls.get(code), probe: !!this.fillProbe(code),
+                          vb: (function (p) { return p && p.vb ? [p.vb.x, p.vb.y, p.vb.w, p.vb.h] : null; })(this.fillProbe(code)),
+                          shapes: (function (p) { return p ? p.shapes.length : 0; })(this.fillProbe(code)) });
+            }
             const g = this.inkGrid(code);
             if (!g) return null;
             // 归一化坐标：x∈[0,1] 相对字形左缘，y∈[0,1] 自底向上（与字形 bbox 一致）
@@ -734,7 +743,7 @@ function setViewBox(svgText, vb) {
                 const x0 = x, y0 = y, x1 = x + Math.abs(w), y1 = y + Math.abs(h);
                 if (!this._busy(g, x0, y0, x1, y1)) return false;      // 粗筛：位图判空 → 空
                 const exact = this.fillBusy(code, x0, y0, x1, y1);
-                return (exact === null) ? true : exact;                // 矢量复核
+                return (exact === null) ? this._busy(g, x0, y0, x1, y1) : exact;   // 矢量不可用 → 用位图结果
             };
             // 诊断：记录被判为"被占据"的最小格子（用于定位 t 上不去的具体原因）
             const blockCells = [];
@@ -765,9 +774,9 @@ function setViewBox(svgText, vb) {
             // ---- 槽 0：前置（左），失败则矩形减半 ----
             {
                 const h0 = 1 / 3, w0 = 1 / 2, y0 = 0.5;
-                let t = bestT(-w0, y0, 0, y0, w0, h0); dbg.t1 = t;
+                let t = bestT(-w0, y0, 0, y0, w0, -h0); dbg.t1 = t;
                 let w = w0, h = h0;
-                if (t < 0.2) { w = 1 / 4; h = 1 / 4; t = bestT(-w, y0, 0, y0, w, h); } dbg.t1b = t;
+                if (t < 0.2) { w = 1 / 4; h = 1 / 4; t = bestT(-w, y0, 0, y0, w, -h); } dbg.t1b = t;
                 if (t >= 0.1) {
                     const px = -w + t * w;
                     out.zone1 = { x: px, y: y0 - h / 2, w: w, h: h, gh: "e", gv: "c" };
@@ -777,8 +786,8 @@ function setViewBox(svgText, vb) {
             {
                 const w1 = 1 / 2;
                 let h = 1 / 2.5;
-                let t = bestT(1, 0, 0.5, 0, w1, h); dbg.t2 = t; dbg.t2b = t;
-                if (t < 0.2) { h = 1 / 3; t = bestT(1, 0, 0.5, 0, w1, h); } dbg.t2b = t;
+                let t = bestT(1, 0, 0.5, 0, w1, -h); dbg.t2 = t; dbg.t2b = t;
+                if (t < 0.2) { h = 1 / 3; t = bestT(1, 0, 0.5, 0, w1, -h); } dbg.t2b = t;
                 if (t >= 0.1) {
                     const px = 1 + t * (0.5 - 1);
                     out.zone2 = { x: px, y: 0, w: w1, h: h, gh: "s", gv: "t" };
