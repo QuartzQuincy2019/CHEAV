@@ -7137,7 +7137,7 @@ function layoutQuadratAbs(layers, fontSize, targetH, scaleOverride) {
     const maxW = goal * 1.2222;
     const wWidest = Math.max(1, ...wNat);
     if (wWidest * s > maxW) s = maxW / wWidest;
-    const W = Math.max(Math.min(goal, wWidest * s), Math.max(1, ...wNat) * s);
+    const W = wWidest * s;
     const H = totalNat * s;
     // 3) 容器
     const box = document.createElement("span");
