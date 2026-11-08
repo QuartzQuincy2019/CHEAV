@@ -7165,9 +7165,6 @@ function renderLayerUnit(layer, u, glyphSize) {
         txt.textContent = u.text;
         txt.style.fontSize = px(options.textScale * glyphSize) + "px";
         layer.appendChild(txt);
-    } else if (u.type === "word" || u.type === "sub") {
-        // 层内括号组：交给顶层 render 处理（照型拉伸）
-        render(layer, u, glyphSize);
     } else if (u.type === "unsup") {
         // 层内占位框：随层内基准字号缩放
         layer.appendChild(makeUnsupported(u.code, glyphSize, u.mirror));
