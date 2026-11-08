@@ -7101,94 +7101,56 @@ function vrgBoxWidth(layers) {
  * @param {Array[]} layers 已分层的单位（二维数组，自上而下）
  * @param {number} fontSize 基准字号（px）
  */
-/** 单位度量（px）：由 unitMetrics（设计单位）换算。 */
-function measureUnitPx(u, fontSize) {
-    const m = unitMetrics(u);
-    return { w: (m.w / EM_SQUARE) * fontSize, h: (m.h / EM_SQUARE) * fontSize };
-}
+function renderVRG(parent, layers, fontSize) {
+    const scale = fontSize / EM_SQUARE;
+    const N = layers.length;
 
-/**
- * 显式几何布局（照 JSesh 的 MDCView / QuadratLayout）：
- *   · 每层自然高 h_i（该层最高墨迹高，px）
- *   · 层间间隙 gap = 0.111em（JSesh smallSkip = 2/18）
- *   · 总高 > 1em 时整体缩放一次（绝不在父子两级各缩一次）
- *   · 宽度 = 各层宽之和的最大值；单元素层居中，多元素层 space-between
- * 返回 { el, w, h }，全部子元素绝对定位，不依赖任何宿主 CSS。
- */
-function layoutQuadratAbs(layers, fontSize, targetH) {
-    const gap = 0.111 * fontSize;
-    // 1) 每层自然尺寸与元素度量
-    const defs = layers.map((row) => row.map((u) => ({
-        u,
-        m: measureUnitPx(u, fontSize),
-    })));
-    const hNat = defs.map((d) => Math.max(1, ...d.map((x) => x.m.h)));
-    const wNat = defs.map((d) => d.reduce((a, x) => a + x.m.w, 0));
-    const n = layers.length;
-    const totalNat = hNat.reduce((a, b) => a + b, 0) + gap * (n - 1);
-    // 2) 统一缩放一次（目标是 1em；若外部指定 targetH 则用它）
-    const goal = targetH || fontSize;
-    const s = totalNat > goal ? goal / totalNat : 1;
-    const W = Math.max(1, ...wNat) * s;
-    const H = totalNat * s;
-    // 3) 容器
+    // 每层的最大墨迹高度与宽度（含元素间间隔）
+    const metrics = layers.map(layerMetrics);
+
+    // 词典式缩放（Faulkner 观感）：符号保持原比例，不放大。
+    // 层与层之间保留微小间隔（VRG_LAYER_GAP）；
+    // 整体统一缩放系数 s = min(1, 1em/总墨迹高, 1em/最大层宽)，
+    // 仅在堆叠组超出 1em 方块时才等比缩小。
+    const totalH = metrics.reduce((sum, m) => sum + m.h, 0) + vrgLayerGap() * (N - 1);
+    const maxW = Math.max(...metrics.map(m => m.w));
+    const s = Math.min(1, EM_SQUARE / totalH, EM_SQUARE / maxW);
+
     const box = document.createElement("span");
     box.className = "vrg";
-    box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
-        "width:" + px(W) + "px;height:" + px(H) + "px;";
-    // 4) 逐层绝对定位（自上而下）
-    let y = 0;
-    for (let i = 0; i < n; i++) {
-        const hPx = hNat[i] * s;
-        const items = defs[i];
-        let x = 0;
-        const totalW = wNat[i] * s;
-        const room = W - totalW;
-        if (items.length > 1) {
-            // space-between：两端对齐，均分剩余
-            const step = room / (items.length - 1);
-            for (let k = 0; k < items.length; k++) {
-                const it = items[k];
-                placeAbs(box, it.u, x + step * k, y, it.m, s, fontSize);
-                x += it.m.w * s;
-            }
-        } else if (items.length === 1) {
-            placeAbs(box, items[0].u, room / 2, y, items[0].m, s, fontSize);
-        }
-        y += hPx + gap * s;
+    // 组宽 = 最大层宽 × 统一缩放
+    const boxW = maxW * s * scale;
+    box.style.width = px(boxW) + "px";
+    // 垂直：整个 VRG 占满 1em 方块，各层上下两端对齐（首层贴顶、末层贴底）
+    box.style.height = fontSize + "px";
+    box.style.justifyContent = "space-between";
+    if (options.inlineBaseline) {
+        // 行内嵌排：inline-flex 的基线取**首层**基线，若直接对齐正文基线，
+        // 整盒会有 (盒高 − 首层高) 沉到基线以下。此处按该差值上移，
+        // 使盒底（= 末层基线）正好落在正文基线上——与普通字符一致。
+        // 在 flex 排版（渲染区）中 vertical-align 被忽略，故不影响块级排版。
+        box.style.verticalAlign = px(fontSize - metrics[0].h * s * scale) + "px";
     }
-    return { el: box, w: W, h: H };
-}
 
-/** 把一个单位绝对定位到容器内的 (x, y) 处。 */
-function placeAbs(box, u, x, y, m, s, fontSize) {
-    const holder = document.createElement("span");
-    holder.style.cssText = "position:absolute;left:" + px(x) + "px;top:" + px(y) + "px;" +
-        "width:" + px(m.w * s) + "px;height:" + px(m.h * s) + "px;line-height:1;";
-    if (u.type === "word" || u.type === "sub") {
-        // 子 cadrat：递归布局，并拉伸到本层高度（照 JSesh 的 ViewVerticalEnlarger）
-        const inner = (u.units && u.units.length === 1 && u.units[0] && u.units[0].type === "vrg")
-            ? u.units[0].layers : [u.units || []];
-        const sub = layoutQuadratAbs(inner, fontSize, m.h * s);
-        sub.el.style.position = "absolute";
-        sub.el.style.left = "0";
-        sub.el.style.top = "0";
-        holder.appendChild(sub.el);
-    } else {
-        // 普通单位：在 holder 内按 s 缩放渲染，墨迹自然尺寸即 m.w × m.h
-        const inner = document.createElement("span");
-        inner.style.cssText = "position:absolute;left:0;bottom:0;line-height:1;";
-        render(inner, u, fontSize * s);
-        holder.appendChild(inner);
+    for (let i = 0; i < N; i++) {
+        const glyphSize = fontSize * s;                    // 层内单位字号（统一等比缩放）
+        const layerH = metrics[i].h * s * scale;           // 层高 = 缩放后的墨迹高度
+        const layer = document.createElement("span");
+        layer.className = "vrg-layer";
+        layer.style.height = px(layerH) + "px";
+
+        // 水平对齐：
+        //   多元素层：所有元素两端对齐（space-between）。
+        //   单符号层：在该层内左右居中（不与其他层交替左右分布，避免对角错开）。
+        layer.style.justifyContent = layers[i].length > 1 ? "space-between" : "center";
+
+        // 层内元素：字符（贴层底）或嵌套 VRG（递归渲染并缩放到层内字号）
+        for (const u of layers[i]) renderLayerUnit(layer, u, glyphSize);
+        box.appendChild(layer);
     }
-    box.appendChild(holder);
-}
 
-function renderVRG(parent, layers, fontSize) {
-    // 显式几何布局（照 JSesh 的 QuadratLayout）：缩放只发生一次，坐标全部显式
-    const abs = layoutQuadratAbs(layers, fontSize, fontSize);
-    parent.appendChild(abs.el);
-    return abs.el;
+    parent.appendChild(box);
+    return box;
 }
 
 /**
