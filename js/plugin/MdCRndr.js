@@ -7388,7 +7388,12 @@ function renderLigature(parent, name, fontSize) {
         if (part.zone && glyphZoneProvider) {
             const anchor0 = lig.parts[0] || { code: "", dx: 0, dy: 0 };
             const zones0 = glyphZoneProvider(anchor0.code) || null;
-            const z = zones0 ? zones0[part.zone] : null;
+            let z = null;
+            if (part.zone === "auto") {
+                z = zones0 ? (zones0.zone2 || zones0.zone1) : null;
+            } else {
+                z = zones0 ? zones0[part.zone] : null;
+            }
             if (z && z.w > 0 && z.h > 0) {
                 const am = getMetrics(part.code);
                 const inkW = Math.max(0.01, am.width / EM_SQUARE);
@@ -7406,6 +7411,7 @@ function renderLigature(parent, name, fontSize) {
                 zdy = (z.gv === "b") ? zBottom : (z.gv === "t") ? (zBottom + z.h - h) : (zBottom + (z.h - h) / 2);
             }
         }
+        if (i > 0 && !part.zone) { zdx = (part.dx || 0) + i; }   // 兜底：无 zone 时并排
         const el = renderGlyph(box, part.code, zps, align);
         if (!el) return;
         // 绝对定位：part 的布局底边置于 (dx, dy) 处
@@ -7533,6 +7539,20 @@ function parseInput(text) {
     const invalid = [];
     // 复合转写（带 "-"）先保护起来，避免被当作 quadrat 分隔符
     text = protectCompounds(text);
+    // 即时连字：A&B（& 是 JSesh 的连字连接符）——无需注册，自动登记几何后用 {A&B} 引用
+    text = text.replace(/([A-Za-z][A-Za-z0-9]{0,6})\s*&\s*([A-Za-z][A-Za-z0-9]{0,6})/g, (all, a, b) => {
+        const nm = a + "&" + b;
+        if (!LIGATURES[nm]) {
+            LIGATURES[nm] = {
+                name: nm,
+                parts: [
+                    { code: a, dx: 0, dy: 0, scale: 1 },
+                    { code: b, zone: "auto" },
+                ],
+            };
+        }
+        return "{" + nm + "}";
+    });
     // 包围框种类（按顺序匹配前缀）：<- … ->（王名圈）、<S- … ->（塞拉赫框）、<h1- … -h1>（方框）
     const ENC_OPENERS = [["h1", "<h1-", "-h1>"], ["S", "<S-", "->"], ["F", "<F-", "->"], ["A", "<-", "->"]];
 
