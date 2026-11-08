@@ -7889,6 +7889,10 @@ function splitLines(tree) {
             "    box-sizing: content-box;",  // 0.7(内容) + 0.2 + 0.1 = 1em
             "    position: relative;",
             "}",
+            A + " .enc-body {",              // 王名圈：框内内容整体居中（JSesh 行为）
+            "    align-items: center;",
+            "    justify-content: center;",
+            "}",
             A + "::after {",                // 座：框右侧细条（宽度 = 边框，上下各出半线）
             "    content: \"\";",
             "    position: absolute;",
@@ -7973,6 +7977,7 @@ function splitLines(tree) {
             v + " .enc-body {",             // 竖排：框内内容纵向排列并居中
             "    flex-direction: column;",
             "    align-items: center;",
+            "    justify-content: center;",
             "    width: 100%;",              // 撑满框宽，否则 inline-flex 收缩到内容宽、靠左
             "}",
             "." + options.encKindClass.F + " {",   // 堡垒框（F，fortified enclosure）：细框线 + 外圈雉堞齿（由真实 DOM 元素绘制）
