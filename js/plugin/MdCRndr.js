@@ -6876,6 +6876,7 @@ function renderInShadedCell(parent, fontSize, digits, draw, alignEnd, emWidth) {
  * 由宿主页面通过 setGlyphProvider(fn) 注入；引擎本身不依赖任何文件系统 API。
  */
 let glyphProvider = null;
+let zoneFitMode = "fill85";    // 连字区缩放策略：shrink=只缩不放 / fill=填满 / fill85=填满留 15% 边距
 let glyphZoneProvider = null;   // code -> { zone1, zone2 }（连字区，em 坐标）
 /** 字形宽高比提供者（可选）：code → 宽/高（数字）或 null。用于让宽符号不被压进 1em 方格。 */
 let glyphAspectProvider = null;
@@ -7381,7 +7382,11 @@ function renderLigature(parent, name, fontSize) {
                 const am = getMetrics(part.code);
                 const inkW = Math.max(0.01, am.width / EM_SQUARE);
                 const inkH = Math.max(0.01, am.height / EM_SQUARE);
-                const k = (part.scale || 1) * Math.min(1, z.w / inkW, z.h / inkH);   // 只缩不放（保持符号原比例）
+                const fitZone = Math.min(z.w / inkW, z.h / inkH);            // 恰好装进连字区所需比例
+                const fitK = (zoneFitMode === "shrink") ? Math.min(1, fitZone)
+                           : (zoneFitMode === "fill")   ? fitZone
+                           : fitZone * 0.85;                              // fill85（默认）
+                const k = (part.scale || 1) * fitK;
                 zps = fontSize * k;
                 const w = inkW * k, h = inkH * k;
                 const zLeft = (anchor0.dx || 0) + z.x;
@@ -8274,6 +8279,12 @@ function splitLines(tree) {
 
         setGlyphAspectProvider: function (fn) {
             glyphAspectProvider = (typeof fn === "function") ? fn : null;
+            return MdCRndr;
+        },
+
+        /** 连字区缩放策略："shrink" | "fill" | "fill85"（默认）。 */
+        setZoneFit: function (mode) {
+            zoneFitMode = (mode === "shrink" || mode === "fill" || mode === "fill85") ? mode : "fill85";
             return MdCRndr;
         },
 
