@@ -7149,11 +7149,11 @@ function layoutQuadratAbs(layers, fontSize, targetH) {
             const step = room / (items.length - 1);
             for (let k = 0; k < items.length; k++) {
                 const it = items[k];
-                placeAbs(box, it.u, x + step * k, y, it.m, s, fontSize);
+                placeAbs(box, it.u, x + step * k, y, it.m, s, fontSize, hPx);
                 x += it.m.w * s;
             }
         } else if (items.length === 1) {
-            placeAbs(box, items[0].u, room / 2, y, items[0].m, s, fontSize);
+            placeAbs(box, items[0].u, room / 2, y, items[0].m, s, fontSize, hPx);
         }
         y += hPx + gap * s;
     }
@@ -7161,10 +7161,13 @@ function layoutQuadratAbs(layers, fontSize, targetH) {
 }
 
 /** 把一个单位绝对定位到容器内的 (x, y) 处。 */
-function placeAbs(box, u, x, y, m, s, fontSize) {
+function placeAbs(box, u, x, y, m, s, fontSize, layerH) {
     const holder = document.createElement("span");
-    holder.style.cssText = "position:absolute;left:" + px(x) + "px;top:" + px(y) + "px;" +
-        "width:" + px(m.w * s) + "px;height:" + px(m.h * s) + "px;line-height:1;";
+    // 底部对齐到本层底边：top = y + (层高 - 自身高)
+    const selfH = (u.type === "word" || u.type === "sub") ? (layerH || m.h * s) : m.h * s;
+    const top = y + Math.max(0, (layerH || selfH) - selfH);
+    holder.style.cssText = "position:absolute;left:" + px(x) + "px;top:" + px(top) + "px;" +
+        "width:" + px(m.w * s) + "px;height:" + px(selfH) + "px;line-height:1;";
     if (u.type === "word" || u.type === "sub") {
         // 子 cadrat：递归布局，并拉伸到本层高度（照 JSesh 的 ViewVerticalEnlarger）
         const inner = (u.units && u.units.length === 1 && u.units[0] && u.units[0].type === "vrg")
