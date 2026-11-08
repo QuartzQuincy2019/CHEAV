@@ -7131,8 +7131,13 @@ function layoutQuadratAbs(layers, fontSize, targetH, scaleOverride) {
     const totalNat = hNat.reduce((a, b) => a + b, 0) + gap * (n - 1);
     // 2) 统一缩放一次（目标是 1em；若外部指定 targetH 则用它）
     const goal = targetH || fontSize;
-    const s = (scaleOverride != null) ? scaleOverride : (totalNat > goal ? goal / totalNat : 1);
-    const W = Math.max(goal, Math.max(1, ...wNat) * s);
+    let s = (scaleOverride != null) ? scaleOverride : (totalNat > goal ? goal / totalNat : 1);
+    // 宽度约束（源码 QuadratLayout：hbox 宽超过 maxCadratWidth 时 scaleForMaxWidth）
+    //   组宽 = 最宽层；若超过 1.22em（JSesh maxCadratWidth = 22/18）则整组等比缩小
+    const maxW = goal * 1.2222;
+    const wWidest = Math.max(1, ...wNat);
+    if (wWidest * s > maxW) s = maxW / wWidest;
+    const W = Math.max(Math.min(goal, wWidest * s), Math.max(1, ...wNat) * s);
     const H = totalNat * s;
     // 3) 容器
     const box = document.createElement("span");
