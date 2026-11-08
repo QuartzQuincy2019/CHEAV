@@ -6974,7 +6974,6 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
                 // 用 contain：即使墨迹度量与图像比例有偏差，也不会拉扁/拉长（比例优先）
                 attachSvgOverlay(el, customGlyph, null, null, 0,
                     (align === "center") ? "center center" : "center bottom");
-            }
         }
     }
     parent.appendChild(el);

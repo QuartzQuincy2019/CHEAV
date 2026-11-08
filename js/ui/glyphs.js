@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611082122";
+    const BUILD = "glyphs-202611082121";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
