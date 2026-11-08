@@ -7893,8 +7893,12 @@ function splitLines(tree) {
             "    align-items: center;",
             "    justify-content: center;",
             "}",
-            A + " .enc-body > .hie {",       // 王名圈：框内的单字（如 ra）上下居中；
-            "    align-self: center;",       // 分组/VRG 容器不受影响（保持原有布局）
+            A + " .enc-body > * {",           // 王名圈：框内所有单字上下居中（不限 ra）
+            "    align-self: center;",
+            "}",
+            A + " .enc-body > ." + options.vrgClass + ",",   // 叠放组（VRG）与连字仍按原基线
+            A + " .enc-body > .lig {",
+            "    align-self: flex-end;",
             "}",
             A + "::after {",                // 座：框右侧细条（宽度 = 边框，上下各出半线）
             "    content: \"\";",
