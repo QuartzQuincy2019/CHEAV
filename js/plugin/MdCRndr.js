@@ -7506,23 +7506,37 @@ function render(parent, tree, fontSize) {
             renderVRG(parent, tree.layers, fontSize);
         }
     } else if (tree.type === "sub" || tree.type === "word") {
-        // 子 cadrat（括号组）：纵向铺满所在行，内部各层按比例分布
-        // 这与 JSesh 的 ViewVerticalEnlarger 行为一致 —— 行高被更高的兄弟撑满后，
-        // 子组内部的行会重新分配高度，从而出现"日跨两层"的照型。
-        const subBox = document.createElement("span");
-        subBox.className = "sub";
+        // 子 cadrat（括号组）：照 JSesh 的 distributeFromTopToBottom 语义
+        //   1) 各层自然高度 h_i（该层最高字形墨迹高，em）
+        //   2) 可用高度 = 1em；统一缩放 s = 1 / Σh_i
+        //   3) 每层字号 = fontSize × s，行高 = h_i × fontSize × s
+        //   → 各层按比例压缩，"日"（较高的 ra）自然占到更多高度，形成照型
         const inner = tree.units || [];
-        if (inner.length === 1 && inner[0] && inner[0].type === "vrg") {
-            for (const layerRow of inner[0].layers) {
-                const row = document.createElement("span");
-                row.style.cssText = "display:inline-flex;align-items:flex-end;justify-content:center;width:100%;";
-                for (const u of layerRow) render(row, u, fontSize);
-                subBox.appendChild(row);
+        const layers = (inner.length === 1 && inner[0] && inner[0].type === "vrg")
+            ? inner[0].layers : [inner];
+        const heights = layers.map((row) => {
+            let h = 0.15;
+            for (const u of row) {
+                const code = u && (u.code || (u.type === "char" ? u.code : null));
+                if (code) {
+                    const am = getMetrics(code);
+                    if (am && am.height) h = Math.max(h, am.height / EM_SQUARE);
+                }
             }
-        } else {
-            for (const u of inner) render(subBox, u, fontSize);
+            return h;
+        });
+        const totalH = heights.reduce((a, b) => a + b, 0) || 1;
+        const layerSize = fontSize / totalH;          // 每层统一字号（= 缩放后）
+        const box = document.createElement("span");
+        box.className = "sub";
+        box.style.cssText = "display:inline-flex;flex-direction:column;justify-content:flex-end;align-items:center;vertical-align:bottom;";
+        for (const row of layers) {
+            const rowEl = document.createElement("span");
+            rowEl.style.cssText = "display:inline-flex;align-items:flex-end;justify-content:center;";
+            for (const u of row) render(rowEl, u, layerSize);
+            box.appendChild(rowEl);
         }
-        parent.appendChild(subBox);
+        parent.appendChild(box);
     } else if (tree.type === "lig") {
         renderLigature(parent, tree.name, fontSize);
     } else if (tree.type === "newline") {
