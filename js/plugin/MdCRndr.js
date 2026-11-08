@@ -7688,9 +7688,6 @@ function parseInput(text) {
         const hostIdx = hasSlots.indexOf(true);
         if (hostIdx < 0 || hasSlots.filter(Boolean).length !== 1) return codes.join("-");   // 非法：不合并，改为依次排列
         const nm = codes.join("&");
-        // 若该码序列已有预定义连字（如 X1-G43-X1，来自 Tksesh 的显式坐标），直接复用其几何
-        const preName = codes.join("-");
-        if (!LIGATURES[nm] && LIGATURES[preName]) LIGATURES[nm] = LIGATURES[preName];
         if (!LIGATURES[nm]) {
             const parts = [{ code: codes[hostIdx], dx: 0, dy: 0, scale: 1 }];
             codes.forEach((c, i) => {
