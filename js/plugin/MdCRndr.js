@@ -7936,8 +7936,8 @@ function splitLines(tree) {
             S + v + ".enc-S-svg::after {",               // 竖排：下尾旋转 90°，与框方向一致
             "    content: \"\";",
             "    background: var(--enc-tail) center center / 100% 100% no-repeat;",
-            "    width: 1em;",                          // 旋转后的横向尺寸 = 原高度
-            "    height: 0.883em;",                     // 旋转后的纵向尺寸 = 原宽度
+            "    width: 0.883em;",                     // 旋转后可见宽度 = 1em（与框同宽）
+            "    height: 1em;",                         // 旋转后可见高度 = 0.883em
             "    transform: translate(-50%, 100%) rotate(90deg);",
             "    transform-origin: center center;",
             "}",
