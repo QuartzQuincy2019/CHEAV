@@ -6889,7 +6889,7 @@ function renderInShadedCell(parent, fontSize, digits, draw, alignEnd, emWidth) {
 let glyphProvider = null;
 let zoneFitMode = "shrink";      // 连字区缩放策略：shrink=只缩不放 / fill=填满 / fill85=填满留 15% 边距
 let glyphZoneProvider = null;
-let glyphCellMode = "ink";      // "ink" = 盒=墨迹（默认，观感更接近现有排版）；"cell" = 盒=1em 方格（实验）
+let glyphCellMode = "cell";     // "cell" = 盒=1em 方格（字体模型，默认）；"ink" = 盒=墨迹（旧行为）
 let glyphDensityProvider = null;   // code -> 3x3 密度（Tier 2）   // code -> { zone1, zone2 }（连字区，em 坐标）
 /** 字形宽高比提供者（可选）：code → 宽/高（数字）或 null。用于让宽符号不被压进 1em 方格。 */
 let glyphAspectProvider = null;
@@ -8450,7 +8450,7 @@ function splitLines(tree) {
 
         /** 字形排布模型："ink"（盒=墨迹）或 "cell"（盒=1em 方格，等同字体 advance）。 */
         setGlyphCellMode: function (mode) {
-            glyphCellMode = (mode === "cell") ? "cell" : "ink";
+            glyphCellMode = (mode === "ink") ? "ink" : "cell";
             return MdCRndr;
         },
 
