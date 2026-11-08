@@ -7521,12 +7521,17 @@ function renderLigature(parent, name, fontSize) {
         }
         // 兜底并排仅适用于"按连字区摆放"的部件；预定义连字（无 zone 字段）沿用自己的 dx/dy
         if (i > 0 && part.zone && !zUsed) { zdx = (part.dx || 0) + i; }
-        // 若该部件与宿主墨迹重叠（连字区数据不精确时会发生），沿槽方向外推，直到不重叠
+        // 若该部件与宿主墨迹重叠（连字区数据不精确时会发生），沿"该槽的逃逸方向"外推：
+        //   zone1（左）→ 向左；zone2（右）→ 向右；zoneB（底）→ 向下
         if (__ovlProvider && part.zone && zUsed) {
-            const dir = (part.zone === "zone1") ? -1 : 1;
-            for (let push = 0; push < 8; push++) {
-                if (!__ovlProvider((lig.parts[0] || {}).code || "", zdx, zdy, (zps / fontSize) * (getMetrics(part.code).width / EM_SQUARE), (zps / fontSize) * (getMetrics(part.code).height / EM_SQUARE))) break;
-                zdx += dir * 0.05;
+            const dz = getMetrics(part.code);
+            const pw = (zps / fontSize) * (dz.width / EM_SQUARE);
+            const ph = (zps / fontSize) * (dz.height / EM_SQUARE);
+            const hostCode = (lig.parts[0] || {}).code || "";
+            for (let push = 0; push < 10; push++) {
+                if (!__ovlProvider(hostCode, zdx, zdy, pw, ph)) break;
+                if (part.zone === "zoneB") zdy -= 0.05;
+                else zdx += (part.zone === "zone1") ? -0.05 : 0.05;
             }
         }
         const el = renderGlyph(box, part.code, zps, align);
