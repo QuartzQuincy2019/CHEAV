@@ -7893,10 +7893,6 @@ function splitLines(tree) {
             "    align-items: center;",
             "    justify-content: center;",
             "}",
-            A + " .enc-body,",             // 王名圈：逐字上下居中（含嵌套的 VRG/分组容器）
-            A + " .enc-body * {",
-            "    align-items: center;",
-            "}",
             A + "::after {",                // 座：框右侧细条（宽度 = 边框，上下各出半线）
             "    content: \"\";",
             "    position: absolute;",
