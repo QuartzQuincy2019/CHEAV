@@ -779,7 +779,7 @@ function setViewBox(svgText, vb) {
                 if (t < 0.2) { w = 1 / 4; h = 1 / 4; t = bestT(-w, y0, 0, y0, w, -h); } dbg.t1b = t;
                 if (t >= 0.1) {
                     const px = -w + t * w;
-                    out.zone1 = { x: px, y: y0 - h / 2, w: w, h: h, gh: "e", gv: "c" };
+                    out.zone1 = { x: px - MARGIN, y: 1 - (y0 + MARGIN), w: w + 2 * MARGIN, h: h + 2 * MARGIN, gh: "e", gv: "c" };
                 }
             }
             // ---- 槽 1：后接（右），失败则高度改 h/3 ----
@@ -790,7 +790,7 @@ function setViewBox(svgText, vb) {
                 if (t < 0.2) { h = 1 / 3; t = bestT(1, 0, 0.5, 0, w1, -h); } dbg.t2b = t;
                 if (t >= 0.1) {
                     const px = 1 + t * (0.5 - 1);
-                    out.zone2 = { x: px, y: 0, w: w1, h: h, gh: "s", gv: "t" };
+                    out.zone2 = { x: px - MARGIN, y: 1 - (MARGIN + h), w: w1 + 2 * MARGIN, h: h + 2 * MARGIN, gh: "s", gv: "t" };
                 }
             }
             // ---- 槽 2：底部（computeThirdArea，y 向下）----
