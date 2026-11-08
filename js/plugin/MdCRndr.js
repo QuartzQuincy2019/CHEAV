@@ -6971,9 +6971,9 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
                 el.style.height = px(h) + "px";
                 el.style.verticalAlign = "bottom";
                 if (dy) el.style.marginBottom = px(dy) + "px";
-                attachSvgOverlay(el, customGlyph, w, h, 0,
-                    (align === "center") ? "center center" : "center");
-            }
+                // 用 contain：即使墨迹度量与图像比例有偏差，也不会拉扁/拉长（比例优先）
+                attachSvgOverlay(el, customGlyph, null, null, 0,
+                    (align === "center") ? "center center" : "center bottom");
         }
     }
     parent.appendChild(el);
