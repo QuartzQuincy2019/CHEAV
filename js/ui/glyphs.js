@@ -714,21 +714,22 @@
                     out.zone2 = { x: px, y: 0, w: w1, h: h, gh: "s", gv: "t" };
                 }
             }
-            // ---- 槽 2：底部（下），失败则把 outer.x 改为 0 再试 ----
+            // ---- 槽 2：底部（照 computeThirdArea，18 单位制）----
             {
+                // 搜索框：width = -字形宽、height = 字形高，沿 (w/2,h) → (w,0) 二分；
+                // 失败则把 outer.x 改为 0 再试；t 必须 > 0.2
                 let t = bestT(0.5, 1, 1, 0, -1, 1);
-                let px = 0.5 + t * 0.5, py = 1 - t;
-                if (t <= 0.2) {
-                    t = bestT(0, 1, 1, 0, -1, 1);
-                    px = t; py = 1 - t;
-                }
+                if (t <= 0.2) t = bestT(0, 1, 1, 0, -1, 1);
                 if (t > 0.2) {
+                    const p = { x: 0.5 + t * 0.5, y: 1 - t };        // 归一化 [0,1]，y 向上
+                    const yUnits = p.y * 18;
+                    const hUnits = 19 - yUnits;                       // 18 - y + 1
                     if (ZONE_B_VARIANT === "A") {
-                        // Java 语义：矩形从 p.y 向上到 18（y 向上）
-                        out.zoneB = { x: 0, y: py, w: px, h: 1 - py, gh: "c", gv: "b" };
+                        // Java 语义：矩形从 p.y 向上延伸（y 向上）
+                        out.zoneB = { x: 0, y: p.y, w: p.x, h: hUnits / 18, gh: "c", gv: "b" };
                     } else {
-                        // 屏幕语义：贴在字形下方的一条带
-                        out.zoneB = { x: 0, y: 0, w: px, h: py, gh: "c", gv: "b" };
+                        // 屏幕语义：贴在字形下方的带
+                        out.zoneB = { x: 0, y: 0, w: p.x, h: p.y, gh: "c", gv: "b" };
                     }
                 }
             }
