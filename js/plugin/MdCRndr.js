@@ -6876,7 +6876,7 @@ function renderInShadedCell(parent, fontSize, digits, draw, alignEnd, emWidth) {
  * 由宿主页面通过 setGlyphProvider(fn) 注入；引擎本身不依赖任何文件系统 API。
  */
 let glyphProvider = null;
-let zoneFitMode = "fill85";    // 连字区缩放策略：shrink=只缩不放 / fill=填满 / fill85=填满留 15% 边距
+let zoneFitMode = "shrink";      // 连字区缩放策略：shrink=只缩不放 / fill=填满 / fill85=填满留 15% 边距
 let glyphZoneProvider = null;   // code -> { zone1, zone2 }（连字区，em 坐标）
 /** 字形宽高比提供者（可选）：code → 宽/高（数字）或 null。用于让宽符号不被压进 1em 方格。 */
 let glyphAspectProvider = null;
@@ -8282,9 +8282,9 @@ function splitLines(tree) {
             return MdCRndr;
         },
 
-        /** 连字区缩放策略："shrink" | "fill" | "fill85"（默认）。 */
+        /** 连字区缩放策略："shrink"（默认，与 JSesh 一致） | "fill" | "fill85"。 */
         setZoneFit: function (mode) {
-            zoneFitMode = (mode === "shrink" || mode === "fill" || mode === "fill85") ? mode : "fill85";
+            zoneFitMode = (mode === "shrink" || mode === "fill" || mode === "fill85") ? mode : "shrink";
             return MdCRndr;
         },
 
