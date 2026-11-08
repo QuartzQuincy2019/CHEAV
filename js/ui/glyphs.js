@@ -29,6 +29,9 @@
     const urls = new Map();          // code → objectURL | null
     const rawSvg = new Map();      // 原始 SVG 文本（Tier 2 推导用）
     const derivedZones = new Map(); // 推导得到的连字区缓存
+    const inkGrids = new Map();     // code → { N, bits: Uint32Array, w, h }
+    const gridPending = new Set();  // 正在栅格化的码
+    let gridLastMs = 0;             // 最近一次栅格化耗时（诊断用）
     let ZONE_B_VARIANT = "B";   // "A" = Java 语义（矩形延伸到 18）；"B" = 屏幕语义（贴底带）
     const busy = new Set();          // 正在解压的 code
     const boxesEm = new Map();       // code → { x, y, w, h }（em，字形格左上角为原点）
@@ -601,38 +604,47 @@
         /** 诊断：已缓存的原始 SVG 数量与样例键。 */
         rawSize() { return { n: rawSvg.size, keys: Array.from(rawSvg.keys()).slice(0, 5) }; },
 
-        inkGrid(code) {
-            // 取源：优先 rawSvg，其次从 data URI 反解（两条加载路径都覆盖）
-            let svg = rawSvg.get(code);
-            if (!svg) {
-                const url = urls.get(code) || "";
-                const comma = url.indexOf(",");
-                if (url.indexOf("data:") === 0 && comma > 0) svg = decodeURIComponent(url.slice(comma + 1));
-            }
-            if (!svg) return null;
-            const N = 24;
-            const pts = [];
-            const re = /<path[^>]*\bd="([^"]+)"/g;
-            let m;
-            while ((m = re.exec(svg))) {
-                const nums = (m[1].match(/-?\d+\.?\d*/g) || []).map(Number);
-                for (let k = 0; k + 1 < nums.length; k += 2) pts.push([nums[k], nums[k + 1]]);
-            }
-            if (pts.length < 8) return null;
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            for (const p of pts) {
-                if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0];
-                if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1];
-            }
-            const w = maxX - minX || 1, h = maxY - minY || 1;
-            const grid = new Uint8Array(N * N);
-            for (const p of pts) {
-                const gx = Math.min(N - 1, Math.max(0, Math.floor((p[0] - minX) / w * N)));
-                const gy = Math.min(N - 1, Math.max(0, Math.floor((p[1] - minY) / h * N)));
-                grid[gy * N + gx] = 1;
-            }
-            return { N, grid, w, h };
+        /** 惰性请求把某字形栅格化为 32×32 占据位图（不阻塞渲染；完成后再参与推导）。 */
+        requestGrid(code) {
+            if (inkGrids.has(code) || gridPending.has(code)) return;
+            const url = urls.get(code);
+            if (!url) return;
+            gridPending.add(code);
+            const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
+            const img = new Image();
+            img.decoding = "async";
+            img.onload = () => {
+                try {
+                    const N = 32;
+                    const cv = document.createElement("canvas");
+                    cv.width = N; cv.height = N;
+                    const ctx2 = cv.getContext("2d", { willReadFrequently: true });
+                    ctx2.drawImage(img, 0, 0, N, N);
+                    const data = ctx2.getImageData(0, 0, N, N).data;
+                    const bits = new Uint32Array((N * N + 31) >> 5);
+                    for (let i = 0; i < N * N; i++) {
+                        if (data[i * 4 + 3] > 30) bits[i >> 5] |= (1 << (i & 31));
+                    }
+                    inkGrids.set(code, { N, bits, w: img.naturalWidth || 18, h: img.naturalHeight || 18 });
+                    derivedZones.delete(code);   // 让下次 zoneFor 重新推导
+                    gridLastMs = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
+                } catch (err) { /* 忽略：保持回退槽 */ }
+                gridPending.delete(code);
+            };
+            img.onerror = () => { gridPending.delete(code); };
+            img.src = url;
         },
+
+        /** 取占据网格；未就绪返回 null 并后台栅格化。 */
+        inkGrid(code) {
+            const g = inkGrids.get(code);
+            if (g) return g;
+            this.requestGrid(code);
+            return null;
+        },
+
+        /** 诊断：栅格缓存统计（含最近一次耗时）。 */
+        gridStats() { return { cached: inkGrids.size, pending: gridPending.size, lastMs: Math.round(gridLastMs * 100) / 100 }; },
 
         /** 网格区域是否被占据（坐标 0..1，y 自下而上）。 */
         _busy(g, x0, y0, x1, y1) {
@@ -640,9 +652,12 @@
             const c0 = Math.max(0, Math.floor(x0 * N)), c1 = Math.min(N - 1, Math.ceil(x1 * N) - 1);
             const r0 = Math.max(0, Math.floor(y0 * N)), r1 = Math.min(N - 1, Math.ceil(y1 * N) - 1);
             if (c1 < c0 || r1 < r0) return false;
-            for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
-                // 网格 y 轴与原图相反（SVG 向下），换算
-                if (g.grid[(N - 1 - r) * N + c]) return true;
+            for (let r = r0; r <= r1; r++) {
+                const row = (N - 1 - r) * N;
+                for (let c = c0; c <= c1; c++) {
+                    const idx = row + c;
+                    if (g.bits[idx >> 5] & (1 << (idx & 31))) return true;
+                }
             }
             return false;
         },

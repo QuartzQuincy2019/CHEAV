@@ -11,15 +11,15 @@
   .cell b { font: 12px monospace; color: #555; }
   .stage { background: #f7f7f7; border: 1px solid #ddd; padding: 6px; }
   .stage .line { line-height: 1.25; }
-  #log { font: 12px monospace; background: #ffef9f; padding: 6px; white-space: pre-wrap; }
+  #log { font: 12px monospace; background: #ffef9f; padding: 6px; white-space: pre-wrap; position: fixed; top: 0; left: 0; right: 0; z-index: 9999; }
   label { font-size: 12px; }
 </style>
-<script src="../js/database/mainSigns.js?v=224329"></script>
-<script src="../js/database/translit.js?v=224329"></script>
-<script src="../js/database/glyphZones.js?v=224329"></script>
-<script src="../js/database/serekhTail.js?v=224329"></script>
-<script src="../js/plugin/MdCRndr.js?v=224329"></script>
-<script src="../js/ui/glyphs.js?v=224329"></script>
+<script src="../js/database/mainSigns.js?v=v1794149314930"></script>
+<script src="../js/database/translit.js?v=v1794149314930"></script>
+<script src="../js/database/glyphZones.js?v=v1794149314930"></script>
+<script src="../js/database/serekhTail.js?v=v1794149314930"></script>
+<script src="../js/plugin/MdCRndr.js?v=v1794149314930"></script>
+<script src="../js/ui/glyphs.js?v=v1794149314930"></script>
 </head>
 <body>
 <h1>照型 VRG 测试台（不改动 index.html / 插件测试台）</h1>
@@ -134,12 +134,21 @@ function drawAll() {
       }
     }
   } catch (e) { console.error(e); }
+  var __diag = "";
+  try {
+    var g1 = Glyphs.inkGrid ? Glyphs.inkGrid("I10") : null;
+    var zz = Glyphs.zoneFor ? Glyphs.zoneFor("I10") : null;
+    var busyBL = Glyphs.overlapsInk ? Glyphs.overlapsInk("I10", -0.5, 0.3, 0.25, 0.25) : "n/a";
+    __diag = " | grid=" + (g1 ? (g1.N + "," + Math.round(g1.w) + "x" + Math.round(g1.h)) : "null") +
+             " busy(BL)=" + busyBL +
+             " zones=" + JSON.stringify(zz);
+  } catch (e) { __diag = " | diagERR=" + e.message; }
   document.getElementById("log").textContent =
     "mode=" + (jseshEl.checked ? "jsesh" : "flow") +
     "  size=" + size +
     "  calls=" + JSON.stringify(globalThis.__quadratCalls) +
     "  hie=" + ["a","b","c","d","e","f","g","h","i","j","k","l","m"].map(k => k + ":" + document.querySelectorAll("#" + k + " .hie").length).join(" ") +
-    "  ZD=" + JSON.stringify(window.__zonesD || {}) + "  EC=" + (function(){ var v=document.querySelector("#c .vrg"); if(!v) return "none";
+    "  ZD=" + JSON.stringify(window.__zonesD || {}) + __diag + "  EC=" + (function(){ var v=document.querySelector("#c .vrg"); if(!v) return "none";
       var r=v.getBoundingClientRect(); var hs=[].map.call(v.querySelectorAll(".hie"), function(e){var b=e.getBoundingClientRect();return Math.round(b.height);});
       return "vrg=" + Math.round(r.width) + "x" + Math.round(r.height) + " hie=" + hs.join("/"); })() +
     "  ELIG lig=" + document.querySelectorAll("#e .lig").length +
@@ -148,6 +157,7 @@ function drawAll() {
 }
 
 sizeEl.addEventListener("input", drawAll);
+setInterval(function () { if (document.getElementById("log")) drawAll(); }, 2500);
 jseshEl.addEventListener("change", drawAll);
 
 (async function init() {
