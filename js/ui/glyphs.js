@@ -29,6 +29,7 @@
     const urls = new Map();          // code → objectURL | null
     const rawSvg = new Map();      // 原始 SVG 文本（Tier 2 推导用）
     const derivedZones = new Map(); // 推导得到的连字区缓存
+    let ZONE_B_VARIANT = "B";   // "A" = Java 语义（矩形延伸到 18）；"B" = 屏幕语义（贴底带）
     const busy = new Set();          // 正在解压的 code
     const boxesEm = new Map();       // code → { x, y, w, h }（em，字形格左上角为原点）
     const metricsEm = new Map();     // code → { w, h }（单位：em，来自 JSesh 的 18 单位网格）
@@ -641,34 +642,63 @@
         deriveZones(code) {
             const g = this.inkGrid(code);
             if (!g) return null;
+            // 归一化坐标：x∈[0,1] 相对字形左缘，y∈[0,1] 自底向上（与字形 bbox 一致）
+            const MARGIN = 1 / 18;
+            const busy = (x, y, w, h) => this._busy(g, x, y, x + Math.abs(w), y + Math.abs(h));
+            // 沿 outer→inner 二分，返回"仍不重叠"的最大 t（照 findBestZonePosition）
+            const bestT = (ox, oy, ix, iy, w, h) => {
+                let innerT = 1, outerT = 0;
+                while (Math.abs(innerT - outerT) > 0.01) {
+                    const t = (innerT + outerT) / 2;
+                    const px = ox + t * (ix - ox), py = oy + t * (iy - oy);
+                    const x0 = (w < 0) ? px + w - MARGIN : px - MARGIN;
+                    const y0 = (h < 0) ? py + h - MARGIN : py - MARGIN;
+                    if (busy(x0, y0, Math.abs(w) + 2 * MARGIN, Math.abs(h) + 2 * MARGIN)) innerT = t;
+                    else outerT = t;
+                }
+                return outerT;
+            };
             const out = {};
-            // 前槽：宽 w/2、高 h/3、y=0.5h；从左外侧向字形二分找"不重叠"的最靠内位置
-            let zx = null;
-            for (let t = 1.0; t >= 0.05; t -= 0.05) {
-                const x0 = -0.5 * t, x1 = x0 + 0.5;
-                const y0 = 0.5 - (1 / 6), y1 = y0 + 1 / 3;
-                if (!this._busy(g, x0, y0, x1, y1)) { zx = x0; break; }
+            // ---- 槽 0：前置（左），失败则矩形减半 ----
+            {
+                const h0 = 1 / 3, w0 = 1 / 2, y0 = 0.5;
+                let t = bestT(-w0, y0, 0, y0, w0, h0);
+                let w = w0, h = h0;
+                if (t < 0.2) { w = 1 / 4; h = 1 / 4; t = bestT(-w, y0, 0, y0, w, h); }
+                if (t >= 0.1) {
+                    const px = -w + t * w;
+                    out.zone1 = { x: px, y: y0 - h / 2, w: w, h: h, gh: "e", gv: "b" };
+                }
             }
-            if (zx !== null) out.zone1 = { x: zx * g.w / 18, y: (0.5 - 1 / 6) * g.h / 18,
-                                           w: 0.5 * g.w / 18, h: (1 / 3) * g.h / 18, gh: "e", gv: "b" };
-            // 后槽：宽 w/2、高 h/2.5；从右外侧向字形内找
-            let bx = null;
-            for (let t = 1.0; t >= 0.25; t -= 0.05) {
-                const x0 = t, x1 = x0 + 0.5;
-                const y0 = 0, y1 = 1 / 2.5;
-                if (!this._busy(g, x0, y0, x1, y1)) { bx = x0; break; }
+            // ---- 槽 1：后接（右），失败则高度改 h/3 ----
+            {
+                const w1 = 1 / 2;
+                let h = 1 / 2.5;
+                let t = bestT(1, 0, 0.5, 0, w1, h);
+                if (t < 0.2) { h = 1 / 3; t = bestT(1, 0, 0.5, 0, w1, h); }
+                if (t >= 0.1) {
+                    const px = 1 + t * (0.5 - 1);
+                    out.zone2 = { x: px, y: 0, w: w1, h: h, gh: "s", gv: "t" };
+                }
             }
-            if (bx !== null) out.zone2 = { x: bx * g.w / 18, y: 0,
-                                           w: 0.5 * g.w / 18, h: (1 / 2.5) * g.h / 18, gh: "s", gv: "t" };
-            // 底部槽（对应 JSesh computeThirdArea）：沿对角线 (w/2,h)→(w,0) 二分，取不与字形相交的位置
-            let bt = null;
-            for (let u = 0.2; u <= 1.0; u += 0.05) {
-                const px = (0.5 + 0.5 * u);         // 0.5 → 1.0
-                const py = (1 - u);                 // 1.0 → 0
-                if (!this._busy(g, 0, py, px, 1.0)) { bt = { x: 0, y: py, w: px, h: 1 - py }; break; }
+            // ---- 槽 2：底部（下），失败则把 outer.x 改为 0 再试 ----
+            {
+                let t = bestT(0.5, 1, 1, 0, -1, 1);
+                let px = 0.5 + t * 0.5, py = 1 - t;
+                if (t <= 0.2) {
+                    t = bestT(0, 1, 1, 0, -1, 1);
+                    px = t; py = 1 - t;
+                }
+                if (t > 0.2) {
+                    if (ZONE_B_VARIANT === "A") {
+                        // Java 语义：矩形从 p.y 向上到 18（y 向上）
+                        out.zoneB = { x: 0, y: py, w: px, h: 1 - py, gh: "c", gv: "b" };
+                    } else {
+                        // 屏幕语义：贴在字形下方的一条带
+                        out.zoneB = { x: 0, y: 0, w: px, h: py, gh: "c", gv: "b" };
+                    }
+                }
             }
-            if (bt) out.zoneB = { x: bt.x * g.w / 18, y: bt.y * g.h / 18,
-                                  w: bt.w * g.w / 18, h: bt.h * g.h / 18, gh: "s", gv: "b" };
             return (out.zone1 || out.zone2 || out.zoneB) ? out : null;
         },
 
@@ -683,6 +713,9 @@
         },
 
         /** 连字区：优先显式数据（Tier 1），否则按墨迹网格推导（Tier 2）。 */
+        /** 切换 zoneB 的 y 轴约定（用于与 JSesh 对照实测）。 */
+        setZoneBVariant(v) { ZONE_B_VARIANT = (v === "A") ? "A" : "B"; derivedZones.clear(); return this; },
+
         zoneFor(code) {
             const explicit = (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;
             if (!derivedZones.has(code)) derivedZones.set(code, this.deriveZones(code));

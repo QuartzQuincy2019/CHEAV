@@ -14,12 +14,12 @@
   #log { font: 12px monospace; background: #ffef9f; padding: 6px; white-space: pre-wrap; }
   label { font-size: 12px; }
 </style>
-<script src="../js/database/mainSigns.js?v=223206"></script>
-<script src="../js/database/translit.js?v=223206"></script>
-<script src="../js/database/glyphZones.js?v=223206"></script>
-<script src="../js/database/serekhTail.js?v=223206"></script>
-<script src="../js/plugin/MdCRndr.js?v=223206"></script>
-<script src="../js/ui/glyphs.js?v=223206"></script>
+<script src="../js/database/mainSigns.js?v=223959"></script>
+<script src="../js/database/translit.js?v=223959"></script>
+<script src="../js/database/glyphZones.js?v=223959"></script>
+<script src="../js/database/serekhTail.js?v=223959"></script>
+<script src="../js/plugin/MdCRndr.js?v=223959"></script>
+<script src="../js/ui/glyphs.js?v=223959"></script>
 </head>
 <body>
 <h1>照型 VRG 测试台（不改动 index.html / 插件测试台）</h1>
@@ -50,6 +50,10 @@
   <div class="cell"><b>N · t&amp;A17（Tier1）</b><div class="stage" id="n"></div></div>
   <div class="cell"><b>O · A17&amp;t</b><div class="stage" id="o"></div></div>
   <div class="cell"><b>P · t&amp;D</b><div class="stage" id="p"></div></div>
+</div>
+<div class="row">
+  <div class="cell"><b>ZA · D&amp;t（zoneB 变体 A）</b><div class="stage" id="za"></div></div>
+  <div class="cell"><b>ZB · D&amp;t（zoneB 变体 B）</b><div class="stage" id="zb"></div></div>
 </div>
 <div id="log">loading…</div>
 <script>
@@ -92,6 +96,15 @@ function drawAll() {
       host.innerHTML = '<span style="color:#c00">' + err.message + "</span>";
     }
   }
+  try {
+    if (Glyphs.setZoneBVariant) {
+      Glyphs.setZoneBVariant("A");
+      var za = document.getElementById("za"); if (za) { za.innerHTML = ""; MdCRndr.renderText(za, "D&t", size); }
+      Glyphs.setZoneBVariant("B");
+      var zb = document.getElementById("zb"); if (zb) { zb.innerHTML = ""; MdCRndr.renderText(zb, "D&t", size); }
+      Glyphs.setZoneBVariant("B");
+    }
+  } catch (e) { console.error(e); }
   document.getElementById("log").textContent =
     "mode=" + (jseshEl.checked ? "jsesh" : "flow") +
     "  size=" + size +
