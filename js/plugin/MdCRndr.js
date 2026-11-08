@@ -7919,7 +7919,7 @@ function splitLines(tree) {
             "}",
             ".enc-S-tail {",
             "    display: inline-block;",
-            "    width: 0.847em;",
+            "    width: 0.883em;",
             "    background: 0 0 / 100% 100% no-repeat;",
             "}",
             S + ".enc-S-svg::after {",
