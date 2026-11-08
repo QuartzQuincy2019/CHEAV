@@ -7280,6 +7280,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
             ? SEREKH_TAIL_SVG
             : SER_TAIL_SVG;
         const wrap = document.createElement("span");
+        box.classList.add("enc-S-svg");   // 压制字体伪元素尾部（否则与矢量尾重叠）
         wrap.className = "enc-S-wrap";
         wrap.appendChild(box);
         const tail = document.createElement("span");
