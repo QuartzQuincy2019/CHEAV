@@ -770,7 +770,7 @@ function setViewBox(svgText, vb) {
                 if (t < 0.2) { w = 1 / 4; h = 1 / 4; t = bestT(-w, y0, 0, y0, w, h); } dbg.t1b = t;
                 if (t >= 0.1) {
                     const px = -w + t * w;
-                    out.zone1 = { x: px, y: y0 - h / 2, w: w, h: h, gh: "e", gv: "b" };
+                    out.zone1 = { x: px, y: y0 - h / 2, w: w, h: h, gh: "e", gv: "c" };
                 }
             }
             // ---- 槽 1：后接（右），失败则高度改 h/3 ----
