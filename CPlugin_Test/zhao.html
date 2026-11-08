@@ -14,12 +14,12 @@
   #log { font: 12px monospace; background: #ffef9f; padding: 6px; white-space: pre-wrap; }
   label { font-size: 12px; }
 </style>
-<script src="../js/database/mainSigns.js?v=221940"></script>
-<script src="../js/database/translit.js?v=221940"></script>
-<script src="../js/database/glyphZones.js?v=221940"></script>
-<script src="../js/database/serekhTail.js?v=221940"></script>
-<script src="../js/plugin/MdCRndr.js?v=221940"></script>
-<script src="../js/ui/glyphs.js?v=221940"></script>
+<script src="../js/database/mainSigns.js?v=222120"></script>
+<script src="../js/database/translit.js?v=222120"></script>
+<script src="../js/database/glyphZones.js?v=222120"></script>
+<script src="../js/database/serekhTail.js?v=222120"></script>
+<script src="../js/plugin/MdCRndr.js?v=222120"></script>
+<script src="../js/ui/glyphs.js?v=222120"></script>
 </head>
 <body>
 <h1>照型 VRG 测试台（不改动 index.html / 插件测试台）</h1>
@@ -67,7 +67,10 @@ function drawAll() {
     "mode=" + (jseshEl.checked ? "jsesh" : "flow") +
     "  size=" + size +
     "  calls=" + JSON.stringify(globalThis.__quadratCalls) +
-    "  hie=" + ["a","b","c","d","e"].map(k => k + ":" + document.querySelectorAll("#" + k + " .hie").length).join(" ");
+    "  hie=" + ["a","b","c","d","e"].map(k => k + ":" + document.querySelectorAll("#" + k + " .hie").length).join(" ") +
+    "  ELIG lig=" + document.querySelectorAll("#e .lig").length +
+    " vrg=" + document.querySelectorAll("#e .vrg").length +
+    " html=" + (document.getElementById("e").innerHTML.slice(0, 60).replace(/</g, "("));
 }
 
 sizeEl.addEventListener("input", drawAll);
@@ -82,6 +85,9 @@ jseshEl.addEventListener("change", drawAll);
     if (MdCRndr.setGlyphMetricsProvider) MdCRndr.setGlyphMetricsProvider(c => Glyphs.metrics(c));
     if (MdCRndr.setGlyphBoxProvider) MdCRndr.setGlyphBoxProvider(c => Glyphs.box(c));
     if (MdCRndr.setGlyphAspectProvider) MdCRndr.setGlyphAspectProvider(c => Glyphs.aspect(c));
+    // 与 index.html 一致：注入连字区与墨迹密度提供者（否则 & 连字的插槽定位会失效）
+    if (MdCRndr.setGlyphZoneProvider) MdCRndr.setGlyphZoneProvider(function (code) { return Glyphs.zoneFor(code); });
+    if (MdCRndr.setGlyphDensityProvider) MdCRndr.setGlyphDensityProvider(function (code, n) { return Glyphs.densityFor ? Glyphs.densityFor(code, n) : null; });
     await Glyphs.preload(CODES);
     ready = true;
     drawAll();
