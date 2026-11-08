@@ -7698,18 +7698,26 @@ function parseInput(text) {
         const codes = all.split("&").map((x) => x.trim()).filter((x) => x.length)
             .map((c) => resolveTranslitCode(c));
         if (codes.length < 2) return all;
-        const hasSlots = codes.map((c) => {
-            const z = (typeof GLYPH_ZONES !== "undefined") ? GLYPH_ZONES[c] : null;
-            return !!(z && (z.zone1 || z.zone2));
-        });
-        const hostIdx = hasSlots.indexOf(true);
-        if (hostIdx < 0 || hasSlots.filter(Boolean).length !== 1) return codes.join("-");   // 非法：不合并，改为依次排列
+        // 照 JSesh Layout.visitLigature 的规则选择"宿主"与插槽：
+        //   · 2 个符号：宿主 = 两者中**更高**的那个；
+        //       小符号在宿主之前 → zone1（左）；在宿主之后 → 底部槽（zoneB），无则 zone2（右）
+        //   · 3 个符号：**中间**符号为宿主，前 → zone1，后 → zone2（JSesh 只查 zone0/zone1）
+        const heightOf = (c) => {
+            try { const m = getMetrics(c); return Math.max(m.height, 1); } catch (err) { return 1; }
+        };
+        let hostIdx = 0;
+        if (codes.length === 3) {
+            hostIdx = 1;
+        } else if (codes.length === 2) {
+            hostIdx = (heightOf(codes[1]) * 0.8 > heightOf(codes[0])) ? 1 : 0;
+        }
         const nm = codes.join("&");
         if (!LIGATURES[nm]) {
             const parts = [{ code: codes[hostIdx], dx: 0, dy: 0, scale: 1 }];
             codes.forEach((c, i) => {
                 if (i === hostIdx) return;
-                parts.push({ code: c, zone: i < hostIdx ? "zone1" : "zone2" });
+                const rearZone = (codes.length === 3) ? "zone2" : "zoneB";   // 3 个：右槽；2 个：底部槽
+                parts.push({ code: c, zone: i < hostIdx ? "zone1" : rearZone });
             });
             LIGATURES[nm] = { name: nm, parts: parts };
         }
