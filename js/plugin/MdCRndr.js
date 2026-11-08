@@ -7502,12 +7502,13 @@ function render(parent, tree, fontSize) {
         } else {
             renderVRG(parent, tree.layers, fontSize);
         }
-    } else if (tree.type === "sub" || tree.type === "word") {
+    } else if (tree.type === "sub") {
         // 子 cadrat（括号组）：纵向铺满所在行，内部各层按比例分布
         // 这与 JSesh 的 ViewVerticalEnlarger 行为一致 —— 行高被更高的兄弟撑满后，
         // 子组内部的行会重新分配高度，从而出现"日跨两层"的照型。
         const subBox = document.createElement("span");
         subBox.className = "sub";
+        subBox.style.cssText = "display:inline-flex;flex-direction:column;justify-content:space-between;align-items:center;height:100%;align-self:stretch;vertical-align:bottom;";
         const inner = tree.units || [];
         if (inner.length === 1 && inner[0] && inner[0].type === "vrg") {
             for (const layerRow of inner[0].layers) {
@@ -7875,6 +7876,17 @@ function parseInput(text) {
         const items = [{ unit: parseUnit(), sep: null }];
         while (pos < s.length) {
             const ch = s[pos];
+            // 子 cadrat：( … ) —— 递归解析，遇 ")" 返回上一层（JSesh 的 SubCadrat）
+            if (ch === "(") {
+                pos++;
+                const inner = parseQuadrat();
+                items.push({ unit: { type: "sub", units: inner }, sep: null });
+                continue;
+            }
+            if (ch === ")") {
+                pos++;
+                break;
+            }
             if (ch === "*" || ch === ":") {
                 // 同层并列 / 下移一层
                 pos++;
@@ -8035,8 +8047,8 @@ function parseInput(text) {
             return { type: "enc", kind: u.kind, units: u.units || [] };
         }
         if (u.type === "word") {
-            // 括号组（子 cadrat）：保留包装，渲染时纵向拉满所在行（照型）
-            return { type: "word", units: u.inner.map(expandUnit).filter(x => x) };
+            // 词（lexis）：功能暂留空，内部按普通序列展开
+            return { type: "seq", units: u.inner.map(expandUnit).filter(x => x) };
         }
         return null;
     }
