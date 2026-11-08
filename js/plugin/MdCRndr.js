@@ -7275,11 +7275,19 @@ function renderEnclosure(parent, u, fontSize, vertical) {
         for (const x of (u.units || [])) render(inner, x, innerSize);
     }
     if (u.kind === "S" && glyphProvider) {
-        // 尾部不是独立字符：用与 JSesh 一致的"两道竖线 + 三条宫墙格"手描图
-        const tailSvg = (typeof SEREKH_TAIL_SVG !== "undefined") ? SEREKH_TAIL_SVG : SER_TAIL_SVG;
-        const tailUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(tailSvg);
-        box.classList.add("enc-S-svg");
-        box.style.setProperty("--enc-tail", 'url("' + tailUrl + '")');
+        // 尾部不是独立字符：用 img/S_tail.png 的测量几何作背景，放在框外层的 wrap 里
+        const tailSvg = (typeof SEREKH_TAIL_SVG === "string" && SEREKH_TAIL_SVG.indexOf("763 901") >= 0)
+            ? SEREKH_TAIL_SVG
+            : SER_TAIL_SVG;
+        const wrap = document.createElement("span");
+        wrap.className = "enc-S-wrap";
+        wrap.appendChild(box);
+        const tail = document.createElement("span");
+        tail.className = "enc-S-tail";
+        tail.style.backgroundImage = 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(tailSvg) + '")';
+        wrap.appendChild(tail);
+        parent.appendChild(wrap);
+        return wrap;
     }
     parent.appendChild(box);
     return box;
@@ -7900,11 +7908,23 @@ function splitLines(tree) {
             S + " {",                       // 塞拉赫框：矩形 + 底部宫墙纹
             "    border: 0.05em solid #000;",   // 与 JSesh 一致：细框线
             "    padding: 0.13em 0.08em;",           // 0.64 + 0.26 + 0.10 = 1em（与尾部等高）
-            "    margin-right: 0.847em;",       // 尾宽 0.847em × 1em（与手描图一致）
+            "    margin-right: 0;",             // 尾部由 .enc-S-tail 占位
             "    box-sizing: content-box;",      // 0.55 + 0.1 + 0.3 + 0.05×2 ≈ 1em
             "    position: relative;",
             "}",
-            S + ".enc-S-svg::after {",     // JSesh 模式：右尾改用 JSesh 的 O33A 字形
+            ".enc-S-wrap {",
+            "    display: inline-flex;",
+            "    align-items: stretch;",     // 尾部随框高度拉伸
+            "    vertical-align: bottom;",
+            "}",
+            ".enc-S-tail {",
+            "    display: inline-block;",
+            "    width: 0.847em;",
+            "    background: 0 0 / 100% 100% no-repeat;",
+            "}",
+            S + ".enc-S-svg::after {",
+            "    content: none;",             // 旧伪元素方案作废
+            S + ".enc-S-svg-old::after {",     // JSesh 模式：右尾改用 JSesh 的 O33A 字形
             "    content: \"\";",
             "    background: var(--enc-tail) 0 0 / 100% 100% no-repeat;",
             "    width: 0.847em;",
