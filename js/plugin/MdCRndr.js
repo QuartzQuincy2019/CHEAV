@@ -7110,7 +7110,9 @@ function layoutQuadratAbs(layers, fontSize, scaleOverride) {
     const wNat = rows.map((r) => r.reduce((a, x) => a + x.m.w, 0));
     const n = rows.length;
     const totalNat = hNat.reduce((a, b) => a + b, 0) + gapEm * (n - 1);
-    const s = (scaleOverride != null) ? scaleOverride : Math.min(1, 1 / totalNat);
+    // targetH（px）给定时，精确缩放到该高度（子 cadrat 填满所在行）；否则缩到 1em
+    const targetH = (typeof scaleOverride === "number" && scaleOverride > 0) ? scaleOverride : fontSize;
+    const s = Math.min(1, targetH / (totalNat * fontSize));
     const Wpx = Math.max(...wNat, 0.05) * s * fontSize;
     const Hpx = totalNat * s * fontSize;
     const box = document.createElement("span");
@@ -7143,10 +7145,10 @@ function placeAbs(rowBox, u, x, rowH, m, s, fontSize) {
     const isGroup = (u.type === "vrg" && u.layers && u.layers.length > 1);
     const holder = document.createElement("span");
     const wPx = m.w * s * fontSize;
-    const hPx = isGroup ? rowH : m.h * s * fontSize;
+    const hPx = isGroup ? rowH : Math.min(m.h * s * fontSize, rowH);
     holder.style.cssText = "position:absolute;left:" + px(x) + "px;bottom:0;width:" + px(wPx) + "px;height:" + px(hPx) + "px;line-height:1;";
     if (isGroup) {
-        const sub = layoutQuadratAbs(u.layers, fontSize, s);
+        const sub = layoutQuadratAbs(u.layers, fontSize, rowH);
         sub.style.position = "absolute";
         sub.style.left = "0";
         sub.style.bottom = "0";
@@ -7159,7 +7161,7 @@ function placeAbs(rowBox, u, x, rowH, m, s, fontSize) {
 
 function renderVRG(parent, layers, fontSize) {
     if (quadratMode === "jsesh") {
-        parent.appendChild(layoutQuadratAbs(layers, fontSize, null));
+        parent.appendChild(layoutQuadratAbs(layers, fontSize, fontSize));
         return;
     }
     const scale = fontSize / EM_SQUARE;
