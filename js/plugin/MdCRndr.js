@@ -7390,7 +7390,8 @@ function renderLigature(parent, name, fontSize) {
             const explicitZone = (part.zone === "zone1" || part.zone === "zone2");
             const prevP = explicitZone ? (placed[0] || null) : (placed[i - 1] || placed[0] || null);
             const anchor0 = prevP || { code: (lig.parts[0] || {}).code || "", dx: (lig.parts[0] || {}).dx || 0, dy: (lig.parts[0] || {}).dy || 0 };
-            const zones0 = glyphZoneProvider(anchor0.code) || null;
+            let zones0 = glyphZoneProvider(anchor0.code) || null;
+            if (!zones0) zones0 = autoZonesFor(anchor0.code);      // Tier 2 自动推导
             let z = null;
             if (part.zone === "auto") {
                 z = zones0 ? (zones0.zone2 || zones0.zone1) : null;
@@ -7561,6 +7562,36 @@ function protectCompounds(text) {
     return out;
 }
 
+/**
+ * Tier 2：无显式连字区时，按字形墨迹推导两个区（em 坐标，y 向下）。
+ *   · 竖长（h/w > 1.2）：zone1 = 下 35%，zone2 = 上 35%
+ *   · 横宽（w/h > 1.2）：zone1 = 右 35%，zone2 = 左 35%
+ *   · 近方形：zone1 = 左下象限，zone2 = 左上象限
+ */
+function autoZonesFor(code) {
+    const am = getMetrics(code);
+    const w = Math.max(0.05, am.width / EM_SQUARE);
+    const h = Math.max(0.05, am.height / EM_SQUARE);
+    const x0 = (1 - w) / 2, y0 = (1 - h) / 2;          // 墨迹在 1em 格内的近似位置
+    const band = 0.35;
+    if (h / w > 1.2) {
+        return {
+            zone1: { x: x0, y: y0 + h * (1 - band), w: w, h: h * band, gh: null, gv: null, gravity: null },
+            zone2: { x: x0, y: y0, w: w, h: h * band, gh: null, gv: null, gravity: null },
+        };
+    }
+    if (w / h > 1.2) {
+        return {
+            zone1: { x: x0 + w * (1 - band), y: y0, w: w * band, h: h, gh: null, gv: null, gravity: null },
+            zone2: { x: x0, y: y0, w: w * band, h: h, gh: null, gv: null, gravity: null },
+        };
+    }
+    return {
+        zone1: { x: x0, y: y0 + h / 2, w: w / 2, h: h / 2, gh: null, gv: null, gravity: null },
+        zone2: { x: x0, y: y0, w: w / 2, h: h / 2, gh: null, gv: null, gravity: null },
+    };
+}
+
 /** 把一个写法（Gardiner 码或转写）解析成 Gardiner 码：与 expandUnit 同一套规则。 */
 function resolveTranslitCode(c) {
     if (typeof MAIN_SIGNS !== "undefined" && MAIN_SIGNS[c]) return MAIN_SIGNS[c];
@@ -7584,8 +7615,22 @@ function parseInput(text) {
             const z = (typeof GLYPH_ZONES !== "undefined") ? GLYPH_ZONES[c] : null;
             return !!(z && (z.zone1 || z.zone2));
         });
-        const hostIdx = hasSlots.indexOf(true);
-        if (hostIdx < 0 || hasSlots.filter(Boolean).length !== 1) return codes.join("-");   // 非法：不合并，改为依次排列
+        let hostIdx = hasSlots.indexOf(true);
+        const explicitCount = hasSlots.filter(Boolean).length;
+        let tier2 = false;
+        if (hostIdx < 0) {
+            // Tier 2：整串没有任何显式连字区 → 取墨迹面积最大者为宿主
+            let best = 0, bestArea = -1;
+            codes.forEach((c, k) => {
+                const am = getMetrics(c);
+                const area = (am.width / EM_SQUARE) * (am.height / EM_SQUARE);
+                if (area > bestArea) { bestArea = area; best = k; }
+            });
+            hostIdx = best;
+            tier2 = true;
+        } else if (explicitCount !== 1) {
+            return codes.join("-");   // 多个显式宿主 → 非法，依次排列
+        }
         const nm = codes.join("&");
         if (!LIGATURES[nm]) {
             const parts = [{ code: codes[hostIdx], dx: 0, dy: 0, scale: 1 }];
@@ -7593,7 +7638,7 @@ function parseInput(text) {
                 if (i === hostIdx) return;
                 parts.push({ code: c, zone: i < hostIdx ? "zone1" : "zone2" });
             });
-            LIGATURES[nm] = { name: nm, parts: parts };
+            LIGATURES[nm] = { name: nm, parts: parts, tier2: tier2 };
         }
         return "{" + nm + "}";
     });
