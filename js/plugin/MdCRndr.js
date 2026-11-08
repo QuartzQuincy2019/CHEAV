@@ -86,6 +86,9 @@ const ENC_PAD = 0.12;               // 包围框内边距（em 比例）
 //       许可全文见项目 fonts/OFL.txt；提取脚本 gen_metrics.py / g.py 不随仓库分发
 const EM_SQUARE = 1000;
 
+// 四开组布局模式："flow"（默认，现行流式）| "jsesh"（显式几何，实验）
+let quadratMode = "flow";
+
 const visuHeight = {
   "x005b": 999, "x005d": 1000, "x007b": 1000, "x007d": 1000, "x27e6": 1000,
   "x27e7": 1000, "x27e8": 1001, "x27e9": 1001, "x2e22": 999, "x2e23": 1000,
@@ -7071,7 +7074,94 @@ function vrgBoxWidth(layers) {
  * @param {Array[]} layers 已分层的单位（二维数组，自上而下）
  * @param {number} fontSize 基准字号（px）
  */
+/**
+ * 显式几何布局（JSesh MDCView / QuadratLayout 语义）
+ *   · 每层自然高 h_i、层间 gap = 0.111em（smallSkip = 2/18）
+ *   · 总高超过 1em 时整组只缩一次 s = 1em / totalNat
+ *   · 组宽 = 最宽层 × s；单元素层居中，多元素层 space-between
+ *   · 层内元素底部对齐；子 cadrat 递归且沿用父级 s（不二次缩放）
+ */
+function measureUnitEm(u) {
+    if (!u) return { w: 0.3, h: 0.3 };
+    if (u.type === "vrg" && u.layers && u.layers.length > 1) {
+        const gap = 0.111;
+        let wMax = 0, hSum = 0;
+        for (const row of u.layers) {
+            let w = 0, h = 0.15;
+            for (const x of row) { const m = measureUnitEm(x); w += m.w; h = Math.max(h, m.h); }
+            wMax = Math.max(wMax, w); hSum += h;
+        }
+        hSum += gap * (u.layers.length - 1);
+        return { w: Math.max(wMax, 0.05), h: Math.max(hSum, 0.05) };
+    }
+    if (u.type === "char") {
+        const am = getMetrics(u.code);
+        return { w: Math.max(am.width, 1) / EM_SQUARE, h: Math.max(am.height, 1) / EM_SQUARE };
+    }
+    if (u.type === "lig") return { w: Math.max(ligatureWidth(u.name), 1) / EM_SQUARE, h: 1 };
+    if (u.type === "text") return { w: 0.24 * (u.text || "").length, h: 0.4 };
+    return { w: 0.6, h: 1 };
+}
+
+function layoutQuadratAbs(layers, fontSize, scaleOverride) {
+    const gapEm = 0.111;
+    const rows = layers.map((row) => row.map((u) => ({ u, m: measureUnitEm(u) })));
+    const hNat = rows.map((r) => Math.max(0.15, ...r.map((x) => x.m.h)));
+    const wNat = rows.map((r) => r.reduce((a, x) => a + x.m.w, 0));
+    const n = rows.length;
+    const totalNat = hNat.reduce((a, b) => a + b, 0) + gapEm * (n - 1);
+    const s = (scaleOverride != null) ? scaleOverride : Math.min(1, 1 / totalNat);
+    const Wpx = Math.max(...wNat, 0.05) * s * fontSize;
+    const Hpx = totalNat * s * fontSize;
+    const box = document.createElement("span");
+    box.className = "vrg";
+    box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;width:" + px(Wpx) + "px;height:" + px(Hpx) + "px;";
+    let y = 0;
+    for (let i = 0; i < n; i++) {
+        const hPx = hNat[i] * s * fontSize;
+        const rowW = wNat[i] * s * fontSize;
+        const rowBox = document.createElement("span");
+        rowBox.style.cssText = "position:absolute;left:0;top:" + px(y) + "px;width:" + px(Wpx) + "px;height:" + px(hPx) + "px;";
+        const items = rows[i];
+        if (items.length === 1) {
+            placeAbs(rowBox, items[0].u, (Wpx - rowW) / 2, hPx, items[0].m, s, fontSize);
+        } else {
+            const step = (Wpx - rowW) / (items.length - 1);
+            let x = 0;
+            for (let k = 0; k < items.length; k++) {
+                placeAbs(rowBox, items[k].u, x + step * k, hPx, items[k].m, s, fontSize);
+                x += items[k].m.w * s * fontSize;
+            }
+        }
+        box.appendChild(rowBox);
+        y += hPx + gapEm * s * fontSize;
+    }
+    return box;
+}
+
+function placeAbs(rowBox, u, x, rowH, m, s, fontSize) {
+    const isGroup = (u.type === "vrg" && u.layers && u.layers.length > 1);
+    const holder = document.createElement("span");
+    const wPx = m.w * s * fontSize;
+    const hPx = isGroup ? rowH : m.h * s * fontSize;
+    holder.style.cssText = "position:absolute;left:" + px(x) + "px;bottom:0;width:" + px(wPx) + "px;height:" + px(hPx) + "px;line-height:1;";
+    if (isGroup) {
+        const sub = layoutQuadratAbs(u.layers, fontSize, s);
+        sub.style.position = "absolute";
+        sub.style.left = "0";
+        sub.style.bottom = "0";
+        holder.appendChild(sub);
+    } else {
+        render(holder, u, fontSize * s);
+    }
+    rowBox.appendChild(holder);
+}
+
 function renderVRG(parent, layers, fontSize) {
+    if (quadratMode === "jsesh") {
+        parent.appendChild(layoutQuadratAbs(layers, fontSize, null));
+        return;
+    }
     const scale = fontSize / EM_SQUARE;
     const N = layers.length;
 
@@ -8338,6 +8428,12 @@ function splitLines(tree) {
          * 设置字形绘制矩形提供者（code → { x, y, w, h }，单位 em）。
          * JSesh 模式用它按画框/墨迹把 SVG 精确摆进字形格（底边对基线、允许越界）。
          */
+        /** 切换四开组布局模式："flow"（默认）| "jsesh"（显式几何，实验） */
+        setQuadratMode: function (mode) {
+            quadratMode = (mode === "jsesh") ? "jsesh" : "flow";
+            return MdCRndr;
+        },
+
         setGlyphBoxProvider: function (fn) {
             glyphBoxProvider = (typeof fn === "function") ? fn : null;
             return MdCRndr;

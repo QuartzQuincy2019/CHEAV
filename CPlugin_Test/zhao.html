@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>照型 VRG 测试台</title>
+<style>
+  body { font-family: system-ui, "Segoe UI", sans-serif; margin: 0; padding: 12px; background: #fff; }
+  h1 { font-size: 15px; margin: 0 0 8px; }
+  .row { display: flex; gap: 24px; align-items: flex-start; margin-bottom: 18px; }
+  .cell { display: flex; flex-direction: column; gap: 4px; }
+  .cell b { font: 12px monospace; color: #555; }
+  .stage { background: #f7f7f7; border: 1px solid #ddd; padding: 6px; }
+  .stage .line { line-height: 1.25; }
+  #log { font: 12px monospace; background: #ffef9f; padding: 6px; white-space: pre-wrap; }
+  label { font-size: 12px; }
+</style>
+<script src="../js/database/mainSigns.js"></script>
+<script src="../js/database/translit.js"></script>
+<script src="../js/database/glyphZones.js"></script>
+<script src="../js/database/serekhTail.js"></script>
+<script src="../js/plugin/MdCRndr.js"></script>
+<script src="../js/ui/glyphs.js"></script>
+</head>
+<body>
+<h1>照型 VRG 测试台（不改动 index.html / 插件测试台）</h1>
+<label><input type="checkbox" id="jsesh" checked> JSesh 四开组布局（绝对定位）</label>
+<label style="margin-left:12px">字号 <input type="range" id="size" min="60" max="220" step="10" value="150"><span id="sizeVal">150</span></label>
+<div class="row">
+  <div class="cell"><b>A · n:(ra:Z1)*A40</b><div class="stage" id="a"></div></div>
+  <div class="cell"><b>B · (ra:Z1)*A40</b><div class="stage" id="b"></div></div>
+</div>
+<div class="row">
+  <div class="cell"><b>C · A1:B2</b><div class="stage" id="c"></div></div>
+  <div class="cell"><b>D · A1*B2</b><div class="stage" id="d"></div></div>
+  <div class="cell"><b>E · t&amp;w&amp;t</b><div class="stage" id="e"></div></div>
+</div>
+<div id="log">loading…</div>
+<script>
+const SAMPLES = {
+  a: "n:(ra:Z1)*A40",
+  b: "(ra:Z1)*A40",
+  c: "A1:B2",
+  d: "A1*B2",
+  e: "t&w&t"
+};
+const CODES = ["N35","N5","Z1","A40","A1","B2","G43","X1"];
+const sizeEl = document.getElementById("size");
+const jseshEl = document.getElementById("jsesh");
+let ready = false;
+
+function drawAll() {
+  if (!ready) return;
+  const size = Number(sizeEl.value);
+  document.getElementById("sizeVal").textContent = size;
+  MdCRndr.setQuadratMode(jseshEl.checked ? "jsesh" : "flow");
+  for (const key of Object.keys(SAMPLES)) {
+    const host = document.getElementById(key);
+    host.innerHTML = "";
+    try {
+      MdCRndr.renderText(host, SAMPLES[key], size);
+    } catch (err) {
+      host.innerHTML = '<span style="color:#c00">' + err.message + "</span>";
+    }
+  }
+  document.getElementById("log").textContent =
+    "mode=" + (jseshEl.checked ? "jsesh" : "flow") +
+    "  size=" + size +
+    "  build=" + (window.Glyphs && Glyphs.build ? Glyphs.build() : "?") +
+    "  hie=" + ["a","b","c","d","e"].map(k => k + ":" + document.querySelectorAll("#" + k + " .hie").length).join(" ");
+}
+
+sizeEl.addEventListener("input", drawAll);
+jseshEl.addEventListener("change", drawAll);
+
+(async function init() {
+  try {
+    if (typeof SETTINGS !== "undefined") SETTINGS.glyphSource = "svg";
+    await Glyphs.useSiteDir();
+    Glyphs.setRenderer(MdCRndr);
+    Glyphs.setEnabled(true);
+    if (MdCRndr.setGlyphMetricsProvider) MdCRndr.setGlyphMetricsProvider(c => Glyphs.metrics(c));
+    if (MdCRndr.setGlyphBoxProvider) MdCRndr.setGlyphBoxProvider(c => Glyphs.box(c));
+    if (MdCRndr.setGlyphAspectProvider) MdCRndr.setGlyphAspectProvider(c => Glyphs.aspect(c));
+    await Glyphs.preload(CODES);
+    ready = true;
+    drawAll();
+  } catch (e) {
+    document.getElementById("log").textContent = "init 失败: " + e.message;
+  }
+})();
+</script>
+</body>
+</html>
