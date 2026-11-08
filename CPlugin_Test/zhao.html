@@ -14,12 +14,12 @@
   #log { font: 12px monospace; background: #ffef9f; padding: 6px; white-space: pre-wrap; }
   label { font-size: 12px; }
 </style>
-<script src="../js/database/mainSigns.js"></script>
-<script src="../js/database/translit.js"></script>
-<script src="../js/database/glyphZones.js"></script>
-<script src="../js/database/serekhTail.js"></script>
-<script src="../js/plugin/MdCRndr.js"></script>
-<script src="../js/ui/glyphs.js"></script>
+<script src="../js/database/mainSigns.js?v=202611082217"></script>
+<script src="../js/database/translit.js?v=202611082217"></script>
+<script src="../js/database/glyphZones.js?v=202611082217"></script>
+<script src="../js/database/serekhTail.js?v=202611082217"></script>
+<script src="../js/plugin/MdCRndr.js?v=202611082217"></script>
+<script src="../js/ui/glyphs.js?v=202611082217"></script>
 </head>
 <body>
 <h1>照型 VRG 测试台（不改动 index.html / 插件测试台）</h1>
@@ -65,7 +65,7 @@ function drawAll() {
   document.getElementById("log").textContent =
     "mode=" + (jseshEl.checked ? "jsesh" : "flow") +
     "  size=" + size +
-    "  build=" + (window.Glyphs && Glyphs.build ? Glyphs.build() : "?") +
+    "  页面版本=$token" +
     "  hie=" + ["a","b","c","d","e"].map(k => k + ":" + document.querySelectorAll("#" + k + " .hie").length).join(" ");
 }
 
