@@ -673,6 +673,7 @@
 
         /** 推导 zone1（前置）/ zone2（后接）；风格沿用 glyphZones.js 的数据格式（em）。 */
         deriveZones(code) {
+            const dbg = {};   // 诊断：各槽搜索的 t 值
             const g = this.inkGrid(code);
             if (!g) return null;
             // 归一化坐标：x∈[0,1] 相对字形左缘，y∈[0,1] 自底向上（与字形 bbox 一致）
@@ -695,9 +696,9 @@
             // ---- 槽 0：前置（左），失败则矩形减半 ----
             {
                 const h0 = 1 / 3, w0 = 1 / 2, y0 = 0.5;
-                let t = bestT(-w0, y0, 0, y0, w0, h0);
+                let t = bestT(-w0, y0, 0, y0, w0, h0); dbg.t1 = t;
                 let w = w0, h = h0;
-                if (t < 0.2) { w = 1 / 4; h = 1 / 4; t = bestT(-w, y0, 0, y0, w, h); }
+                if (t < 0.2) { w = 1 / 4; h = 1 / 4; t = bestT(-w, y0, 0, y0, w, h); } dbg.t1b = t;
                 if (t >= 0.1) {
                     const px = -w + t * w;
                     out.zone1 = { x: px, y: y0 - h / 2, w: w, h: h, gh: "e", gv: "b" };
@@ -707,32 +708,31 @@
             {
                 const w1 = 1 / 2;
                 let h = 1 / 2.5;
-                let t = bestT(1, 0, 0.5, 0, w1, h);
-                if (t < 0.2) { h = 1 / 3; t = bestT(1, 0, 0.5, 0, w1, h); }
+                let t = bestT(1, 0, 0.5, 0, w1, h); dbg.t2 = t; dbg.t2b = t;
+                if (t < 0.2) { h = 1 / 3; t = bestT(1, 0, 0.5, 0, w1, h); } dbg.t2b = t;
                 if (t >= 0.1) {
                     const px = 1 + t * (0.5 - 1);
                     out.zone2 = { x: px, y: 0, w: w1, h: h, gh: "s", gv: "t" };
                 }
             }
-            // ---- 槽 2：底部（照 computeThirdArea，18 单位制）----
+            // ---- 槽 2：底部（computeThirdArea，y 向下）----
+            //   outer = 底边中点 (0.5, 1) → inner = 右上角 (1, 0)（Y 向下：0=顶边）
+            //   矩形 x∈[p.X-1, p.X]、y∈[p.Y, p.Y+1]（向下延伸）
+            //   失败则 outer.x 改 0 重试；t 必须 > 0.2
+            //   注意：_busy 使用 y 向上，故此处 y 取 (1 - Y向下)，高度取负表示向下延伸
             {
-                // 搜索框：width = -字形宽、height = 字形高，沿 (w/2,h) → (w,0) 二分；
-                // 失败则把 outer.x 改为 0 再试；t 必须 > 0.2
-                let t = bestT(0.5, 1, 1, 0, -1, 1);
-                if (t <= 0.2) t = bestT(0, 1, 1, 0, -1, 1);
+                let t = bestT(0.5, 0, 1, 1, -1, -1);
+                dbg.tB1 = t;
+                if (t <= 0.2) { t = bestT(0, 0, 1, 1, -1, -1); dbg.tB2 = t; }
                 if (t > 0.2) {
-                    const p = { x: 0.5 + t * 0.5, y: 1 - t };        // 归一化 [0,1]，y 向上
-                    const yUnits = p.y * 18;
-                    const hUnits = 19 - yUnits;                       // 18 - y + 1
-                    if (ZONE_B_VARIANT === "A") {
-                        // Java 语义：矩形从 p.y 向上延伸（y 向上）
-                        out.zoneB = { x: 0, y: p.y, w: p.x, h: hUnits / 18, gh: "c", gv: "b" };
-                    } else {
-                        // 屏幕语义：贴在字形下方的带
-                        out.zoneB = { x: 0, y: 0, w: p.x, h: p.y, gh: "c", gv: "b" };
-                    }
+                    const pX = 0.5 + t * 0.5;                 // 0.5 → 1
+                    const pYdown = 1 - t;                     // 顶边起算（y 向下）
+                    const hUnits = 18 - pYdown * 18 + 1;      // 源码：MAXHEIGHT - p.y + 1
+                    out.zoneB = { x: 0, y: pYdown, w: pX,
+                                  h: hUnits / 18, gh: "c", gv: "b" };
                 }
             }
+out.__debug = dbg;
             return (out.zone1 || out.zone2 || out.zoneB) ? out : null;
         },
 
