@@ -7502,25 +7502,6 @@ function render(parent, tree, fontSize) {
         } else {
             renderVRG(parent, tree.layers, fontSize);
         }
-    } else if (tree.type === "sub") {
-        // 子 cadrat（括号组）：纵向铺满所在行，内部各层按比例分布
-        // 这与 JSesh 的 ViewVerticalEnlarger 行为一致 —— 行高被更高的兄弟撑满后，
-        // 子组内部的行会重新分配高度，从而出现"日跨两层"的照型。
-        const subBox = document.createElement("span");
-        subBox.className = "sub";
-        subBox.style.cssText = "display:inline-flex;flex-direction:column;justify-content:space-between;align-items:center;height:100%;align-self:stretch;vertical-align:bottom;";
-        const inner = tree.units || [];
-        if (inner.length === 1 && inner[0] && inner[0].type === "vrg") {
-            for (const layerRow of inner[0].layers) {
-                const row = document.createElement("span");
-                row.style.cssText = "display:inline-flex;align-items:flex-end;justify-content:center;width:100%;";
-                for (const u of layerRow) render(row, u, fontSize);
-                subBox.appendChild(row);
-            }
-        } else {
-            for (const u of inner) render(subBox, u, fontSize);
-        }
-        parent.appendChild(subBox);
     } else if (tree.type === "lig") {
         renderLigature(parent, tree.name, fontSize);
     } else if (tree.type === "newline") {
@@ -7876,17 +7857,6 @@ function parseInput(text) {
         const items = [{ unit: parseUnit(), sep: null }];
         while (pos < s.length) {
             const ch = s[pos];
-            // 子 cadrat：( … ) —— 递归解析，遇 ")" 返回上一层（JSesh 的 SubCadrat）
-            if (ch === "(") {
-                pos++;
-                const inner = parseQuadrat();
-                items.push({ unit: { type: "sub", units: inner }, sep: null });
-                continue;
-            }
-            if (ch === ")") {
-                pos++;
-                break;
-            }
             if (ch === "*" || ch === ":") {
                 // 同层并列 / 下移一层
                 pos++;
@@ -8026,10 +7996,6 @@ function parseInput(text) {
         }
         if (u.type === "vrg") {
             return { type: "vrg", layers: u.layers.map(line => line.map(expandUnit).filter(x => x)), shadow: u.shadow };
-        if (u.type === "sub") {
-            const inner = (u.units || []).map(expandUnit).filter(x => x);
-            return inner.length ? { type: "sub", units: inner } : null;
-        }
         }
         if (u.type === "lig") {
             if (LIGATURES[u.name]) return u; // 连字名保留，渲染时查 LIGATURES 表
