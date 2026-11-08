@@ -598,8 +598,17 @@
 
         /** 连字区（来自 js/database/glyphZones.js，Tier 1）。 */
         /** Tier 2：按墨迹占据网格推导连字区（JSesh LigatureZoneBuilder 的网格版）。 */
+        /** 诊断：已缓存的原始 SVG 数量与样例键。 */
+        rawSize() { return { n: rawSvg.size, keys: Array.from(rawSvg.keys()).slice(0, 5) }; },
+
         inkGrid(code) {
-            const svg = rawSvg.get(code);
+            // 取源：优先 rawSvg，其次从 data URI 反解（两条加载路径都覆盖）
+            let svg = rawSvg.get(code);
+            if (!svg) {
+                const url = urls.get(code) || "";
+                const comma = url.indexOf(",");
+                if (url.indexOf("data:") === 0 && comma > 0) svg = decodeURIComponent(url.slice(comma + 1));
+            }
             if (!svg) return null;
             const N = 24;
             const pts = [];
