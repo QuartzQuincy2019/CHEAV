@@ -6721,14 +6721,14 @@ defineLigature("Q3-G43", [
 // 鹌鹑雏+t tw
 defineLigature("X1-G43", [
     { code: "G43", dx: 0.0, dy: 0.0, scale: 1.0 },
-    { code: "X1", dx: 0.0, dy: 0.15, scale: 0.5 },
+    { code: "X1", dx: 0.0, dy: 0.15, scale: 0.75 },
 ], "tw");
 
 // 鹌鹑雏+t+t tw
 defineLigature("X1-G43-X1", [
     { code: "G43", dx: 0.0, dy: 0.0, scale: 1.0 },
-    { code: "X1", dx: 0.0, dy: 0.15, scale: 0.5 },
-    { code: "X1", dx: 0.45, dy: 0.8, scale: 0.5 },
+    { code: "X1", dx: 0.0, dy: 0.15, scale: 0.75 },
+    { code: "X1", dx: 0.45, dy: 0.8, scale: 0.75 },
 ], "twt");
 
 // 鹌鹑雏+Z4
