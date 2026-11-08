@@ -7276,7 +7276,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     }
     if (u.kind === "S" && glyphProvider) {
         // 尾部不是独立字符：用 img/S_tail.png 的测量几何作背景，放在框外层的 wrap 里
-        const tailSvg = (typeof SEREKH_TAIL_SVG === "string" && SEREKH_TAIL_SVG.indexOf("763 901") >= 0)
+        const tailSvg = (typeof SEREKH_TAIL_SVG === "string" && SEREKH_TAIL_SVG.indexOf("<svg") === 0)
             ? SEREKH_TAIL_SVG
             : SER_TAIL_SVG;
         const wrap = document.createElement("span");
