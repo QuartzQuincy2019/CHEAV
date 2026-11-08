@@ -6889,7 +6889,6 @@ function renderInShadedCell(parent, fontSize, digits, draw, alignEnd, emWidth) {
 let glyphProvider = null;
 let zoneFitMode = "shrink";      // 连字区缩放策略：shrink=只缩不放 / fill=填满 / fill85=填满留 15% 边距
 let glyphZoneProvider = null;
-let glyphCellMode = "cell";     // "cell" = 盒=1em 方格（字体模型，默认）；"ink" = 盒=墨迹（旧行为）
 let glyphDensityProvider = null;   // code -> 3x3 密度（Tier 2）   // code -> { zone1, zone2 }（连字区，em 坐标）
 /** 字形宽高比提供者（可选）：code → 宽/高（数字）或 null。用于让宽符号不被压进 1em 方格。 */
 let glyphAspectProvider = null;
@@ -6954,26 +6953,17 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
             // 仅当墨迹极端超出（>2.2em）时收缩，避免与 JSesh 相比整体偏小、上下留白。
             const capEm = 2.2;
             const fit = Math.min(1, capEm / Math.max(wEm, hEm, 1e-6));
-            let w = wEm * fit * fontSize;
-            let h = hEm * fit * fontSize;
+            const w = wEm * fit * fontSize;
+            const h = hEm * fit * fontSize;
             const dy = ((bx && bx.dy) ? bx.dy : 0) * fit * fontSize;       // 墨迹底边距基线
+            // 盒宽 = 图片宽：字距贴合，也不会被 background-clip 裁掉
             el.style.display = "inline-block";
-            if (glyphCellMode === "cell") {
-                // 字体模型：每个符号占固定 1em 方格（= advance），图形等比放进方格、贴底居中
-                w = fontSize; h = fontSize;
-                el.style.width = px(w) + "px";
-                el.style.height = px(h) + "px";
-                el.style.verticalAlign = "bottom";
-                attachSvgOverlay(el, customGlyph, null, null, 0, "center bottom");
-            } else {
-                // 墨迹模型（当前）：盒 = 墨迹尺寸，字距贴合
-                el.style.width = px(w) + "px";
-                el.style.height = px(h) + "px";
-                el.style.verticalAlign = "bottom";
-                if (dy) el.style.marginBottom = px(dy) + "px";
-                attachSvgOverlay(el, customGlyph, w, h, 0,
-                    (align === "center") ? "center center" : "center");
-            }
+            el.style.width = px(w) + "px";
+            el.style.height = px(h) + "px";        // 盒高=墨迹高：底部贴基线时不产生上下留白
+            el.style.verticalAlign = "bottom";
+            if (dy) el.style.marginBottom = px(dy) + "px";   // 墨迹底边相对基线的偏移（不再改背景位置）
+            attachSvgOverlay(el, customGlyph, w, h, 0,
+                (align === "center") ? "center center" : "center");
         }
     }
     parent.appendChild(el);
@@ -8445,12 +8435,6 @@ function splitLines(tree) {
         /** 连字区缩放策略："shrink"（默认，与 JSesh 一致） | "fill" | "fill85"。 */
         setZoneFit: function (mode) {
             zoneFitMode = (mode === "shrink" || mode === "fill" || mode === "fill85") ? mode : "shrink";
-            return MdCRndr;
-        },
-
-        /** 字形排布模型："ink"（盒=墨迹）或 "cell"（盒=1em 方格，等同字体 advance）。 */
-        setGlyphCellMode: function (mode) {
-            glyphCellMode = (mode === "ink") ? "ink" : "cell";
             return MdCRndr;
         },
 
