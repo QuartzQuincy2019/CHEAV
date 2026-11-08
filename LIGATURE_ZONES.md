@@ -152,7 +152,55 @@ return outerT;      // 返回"仍不重叠"的最大 t
 
 ## 二、未解之谜（关键线索）
 
-### Q1 · `MAXHEIGHT - p.y + 1` 的 y 方向
+### Q1 · ~~`MAXHEIGHT - p.y + 1` 的 y 方向~~ —— **已解决**
+
+**结论：全程 y 向下，没有翻转。**
+
+证据链：
+
+1. `SVGSignSource` 构造路径时**直接使用 SVG 坐标**，没有取负：
+
+```java
+subPath.moveTo(Float.parseFloat(coords[0]), Float.parseFloat(coords[1]));
+// 全部 lineTo / curveTo 同此，无 -y
+```
+
+2. `ShapeChar.fixShape()` 只做平移，不翻转：
+
+```java
+shape = translate(-r.getMinX(), -r.getMinY());
+setBBox(0, maxY - minY, maxX - minX, 0);     // bbox = (0,0,w,h)
+```
+
+3. Java2D 屏幕坐标本身就是 **y 向下**，无需额外变换；`PageCoordinateSystem` 只记录/还原变换，不做翻转。
+
+因此（关键）：
+
+```
+字形占 y ∈ [0, h]（y 向下，0 = 墨迹顶边）
+cadrat 高 18，也是 y 向下
+zones[2] = (0, p.y, p.x, 18 - p.y + 1)
+         → 从 p.y 向**下**延伸到 ~19，即落在字形**下方** ✓
+VerticalGravity.BOTTOM → 子视图贴该矩形下边 = 19 - subH ≈ cadrat 底部 ✓
+```
+
+这与"`D&t` 的面包在蛇下方"**完全自洽**。
+
+**对实现的影响**：`computeThirdArea` 的对角线 `(w/2, h) → (w, 0)`
+在 y 向下时表示"**底边中点 → 右上角**"；我们此前按 y 向上（`1 - t`）实现，
+方向正好相反 —— 这才是 `tB = 0` 的根因，而不是网格精度问题。
+
+**修正后的口径（统一用 y 向下归一化，Y=0 顶边、Y=1 底边）**：
+
+```
+outer = (0.5, 1.0)   // 底边中点
+inner = (1.0, 0.0)   // 右上角
+矩形   = x ∈ [p.X - 1, p.X]，y ∈ [p.Y, p.Y + 1]（向下延伸，外扩 MARGIN）
+zone   = (x=0, y=p.Y, w=p.X, h=(18 - p.Y*18 + 1)/18)
+gravity= 垂直 BOTTOM，水平 CENTER
+```
+
+### Q1-旧述（保留存档）· `MAXHEIGHT - p.y + 1` 的 y 方向
 
 坐标系是 **y 向下**（F4），那么 `18 - p.y` 是向**上**延伸（朝向更小的 y）。再配合 `VerticalGravity.BOTTOM`（子视图贴矩形下边）：
 
