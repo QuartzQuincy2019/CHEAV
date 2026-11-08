@@ -6949,9 +6949,10 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
             const bx = glyphBoxProvider ? glyphBoxProvider(code) : null;   // 墨迹（em）+ dy 偏移
             const wEm = bx ? bx.w : gm.width / EM_SQUARE;
             const hEm = bx ? bx.h : gm.height / EM_SQUARE;
-            // JSesh 会把每个符号缩放到"填满 1 cadrat"：fit = 1 / max(墨迹宽, 墨迹高)。
-            // 这样墨迹未满画布的字形（如 N25、N21）也会与 JSesh 一样占满 1em。
-            const fit = 1 / Math.max(wEm, hEm, 1e-6);
+            // 不再"塞进 1em"：按画布 1:1（1em = 画布 18/1800 单位）绘制，
+            // 仅当墨迹极端超出（>2.2em）时收缩，避免与 JSesh 相比整体偏小、上下留白。
+            const capEm = 2.2;
+            const fit = Math.min(1, capEm / Math.max(wEm, hEm, 1e-6));
             const w = wEm * fit * fontSize;
             const h = hEm * fit * fontSize;
             const dy = ((bx && bx.dy) ? bx.dy : 0) * fit * fontSize;       // 墨迹底边距基线
