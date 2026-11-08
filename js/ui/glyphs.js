@@ -310,6 +310,7 @@ function setViewBox(svgText, vb) {
     }
 
     async function loadOne(code) {
+    if (api.canon) code = api.canon(code);
         if (urls.has(code)) return urls.get(code);
         if (busy.has(code)) return null;
         // JSesh 的文件名大小写并不总与码表一致（如 AA1 → Aa1.svg）：先精确匹配，再忽略大小写
@@ -531,6 +532,7 @@ function setViewBox(svgText, vb) {
 
         /** 预载一批码（逐个解压，失败不影响其它）。 */
         async preload(codes) {
+            if (Array.isArray(codes)) codes = codes.map(function (c) { return api.canon(c); });
             let loaded = 0;
             for (const c of codes) {
                 if (!c || urls.has(c)) continue;
@@ -555,19 +557,29 @@ function setViewBox(svgText, vb) {
         },
 
         /** 某个码在字形格内的绘制矩形（单位 em，左上角为原点）；未知返回 null。 */
-        box(code) { return boxesEm.has(code) ? boxesEm.get(code) : null; },
+        box(code) {
+            code = this.canon(code);
+            return boxesEm.has(code) ? boxesEm.get(code) : null;
+        },
 
         /** 某个码的 JSesh 自有度量（单位 em）；未知返回 null。 */
-        metrics(code) { return metricsEm.has(code) ? metricsEm.get(code) : null; },
+        metrics(code) {
+            code = this.canon(code);
+            return metricsEm.has(code) ? metricsEm.get(code) : null;
+        },
 
         /** 某个码的宽高比（宽/高）；未知返回 null。 */
-        aspect(code) { return aspects.has(code) ? aspects.get(code) : null; },
+        aspect(code) {
+            code = this.canon(code);
+            return aspects.has(code) ? aspects.get(code) : null;
+        },
 
         /** 是否已尝试过（无论成功或失败）——用于避免反复重试。 */
         tried(code) { return urls.has(code); },
 
         /** 同步查询某个码的 URL（未就绪返回 null，无副作用）。 */
         urlFor(code) {
+            code = this.canon(code);
             return urls.has(code) ? urls.get(code) : null;
         },
 
@@ -608,6 +620,18 @@ function setViewBox(svgText, vb) {
 
         /** 连字区（来自 js/database/glyphZones.js，Tier 1）。 */
         /** Tier 2：按墨迹占据网格推导连字区（JSesh LigatureZoneBuilder 的网格版）。 */
+        /** 转写 → 规范 Gardiner 码（多数用户输入转写，度量/区/加载前必须规范化）。 */
+        canon(code) {
+            const c = String(code == null ? "" : code);
+            if (typeof MAIN_SIGNS !== "undefined" && MAIN_SIGNS[c]) return MAIN_SIGNS[c];
+            if (typeof TRANSLIT_SIGNS !== "undefined") {
+                const v = TRANSLIT_SIGNS[c];
+                if (Array.isArray(v) && v.length) return v[0];
+                if (typeof v === "string" && v) return v;
+            }
+            return c;
+        },
+
         /** 诊断：已缓存的原始 SVG 数量与样例键。 */
         rawSize() { return { n: rawSvg.size, keys: Array.from(rawSvg.keys()).slice(0, 5) }; },
 
@@ -654,6 +678,7 @@ function setViewBox(svgText, vb) {
 
         /** 取占据网格；未就绪返回 null 并后台栅格化。 */
         inkGrid(code) {
+            code = this.canon(code);
             const g = inkGrids.get(code);
             if (g) return g;
             this.requestGrid(code);
@@ -661,6 +686,7 @@ function setViewBox(svgText, vb) {
         },
         /** 矢量命中测试的 DOM 缓存（等价 JSesh 的 Area 语义，不看描边）。 */
         fillProbe(code) {
+            code = this.canon(code);
             if (fillCache.has(code)) return fillCache.get(code);
             const url = urls.get(code);
             if (!url || url.indexOf("data:") !== 0) return null;
@@ -686,7 +712,7 @@ function setViewBox(svgText, vb) {
             const rec = this.fillProbe(code);
             if (!rec || !rec.vb || !rec.svg) return null;
             const vb = rec.vb;
-            const N = 10;
+            const N = 20;
             for (let i = 0; i <= N; i++) {
                 for (let j = 0; j <= N; j++) {
                     const x = x0 + (x1 - x0) * i / N;
@@ -838,6 +864,7 @@ out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
         setZoneBVariant(v) { ZONE_B_VARIANT = (v === "A") ? "A" : "B"; derivedZones.clear(); return this; },
 
         zoneFor(code) {
+            code = this.canon(code);
             const explicit = (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;
             if (!derivedZones.has(code)) derivedZones.set(code, this.deriveZones(code));
             const derived = derivedZones.get(code);
