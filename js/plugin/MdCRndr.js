@@ -7129,7 +7129,7 @@ function layoutQuadratAbs(layers, fontSize, targetH) {
     // 2) 统一缩放一次（目标是 1em；若外部指定 targetH 则用它）
     const goal = targetH || fontSize;
     const s = totalNat > goal ? goal / totalNat : 1;
-    const W = Math.max(goal, Math.max(1, ...wNat) * s);
+    const W = Math.max(1, ...wNat) * s;
     const H = totalNat * s;
     // 3) 容器
     const box = document.createElement("span");
