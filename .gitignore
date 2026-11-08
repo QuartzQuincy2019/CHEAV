@@ -32,3 +32,6 @@ js/plugin/keycast.js
 
 # 本机解包的 JSesh 字形目录（glyfs/ = jseshGlyphs jar 的解压内容，约 35MB，不入库）
 glyfs/
+
+# 塞拉赫尾部描摹源图（仅本地参考，不随仓库分发）
+img/S_tail.png
