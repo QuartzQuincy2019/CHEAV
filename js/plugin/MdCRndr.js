@@ -7499,9 +7499,12 @@ function renderLigature(parent, name, fontSize) {
                 z = zones0 ? (zones0.zone2 || zones0.zone1) : null;
             } else {
             // 与 JSesh Layout.visitLigature 一致：后接部件优先用"底部槽"，没有才用"右侧槽"
-            if (part.zone === "zone2" && zones0 && zones0.zoneB) z = zones0.zoneB;
-            else if (part.zone === "zone2") z = zones0 ? zones0.zone2 : null;
-            else z = zones0 ? zones0[part.zone] : null;
+            // 与 JSesh Layout.visitLigature 一致：后接部件优先"底部槽"，没有再退"右侧槽"
+            if (part.zone === "zoneB" || part.zone === "zone2") {
+                z = zones0 ? (zones0.zoneB || zones0.zone2 || null) : null;
+            } else {
+                z = zones0 ? zones0[part.zone] : null;
+            }
             }
             zUsed = !!(z && z.w > 0 && z.h > 0);
             if (zUsed) {
