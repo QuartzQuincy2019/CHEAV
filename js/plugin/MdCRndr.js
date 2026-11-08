@@ -7274,7 +7274,7 @@ function renderEnclosure(parent, u, fontSize, vertical) {
     } else {
         for (const x of (u.units || [])) render(inner, x, innerSize);
     }
-    if (u.kind === "S" && glyphProvider) {
+    if (u.kind === "S" && glyphProvider && !vertical) {
         // 尾部不是独立字符：用 img/S_tail.png 的测量几何作背景，放在框外层的 wrap 里
         const tailSvg = (typeof SEREKH_TAIL_SVG === "string" && SEREKH_TAIL_SVG.indexOf("<svg") === 0)
             ? SEREKH_TAIL_SVG
@@ -7288,6 +7288,14 @@ function renderEnclosure(parent, u, fontSize, vertical) {
         wrap.appendChild(tail);
         parent.appendChild(wrap);
         return wrap;
+    }
+    if (u.kind === "S" && glyphProvider && vertical) {
+        // 竖排：尾部在框下，沿用伪元素方案（.enc-S.enc-v::after）
+        const tailSvgV = (typeof SEREKH_TAIL_SVG === "string" && SEREKH_TAIL_SVG.indexOf("<svg") === 0)
+            ? SEREKH_TAIL_SVG
+            : SER_TAIL_SVG;
+        box.classList.add("enc-S-svg");
+        box.style.setProperty("--enc-tail", 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(tailSvgV) + '")');
     }
     parent.appendChild(box);
     return box;
@@ -7922,19 +7930,14 @@ function splitLines(tree) {
             "    width: 0.883em;",
             "    background: 0 0 / 100% 100% no-repeat;",
             "}",
-            S + ".enc-S-svg::after {",
-            "    content: none;",             // 旧伪元素方案作废
-            S + ".enc-S-svg-old::after {",     // JSesh 模式：右尾改用 JSesh 的 O33A 字形
-            "    content: \"\";",
-            "    background: var(--enc-tail) 0 0 / 100% 100% no-repeat;",
-            "    width: 0.847em;",
-            "    height: calc(100% + 0.10em);",
+            S + ".enc-S-svg:not(" + v + ")::after {",   // 横排：伪元素作废（尾部用 .enc-S-tail 元素）
+            "    content: none;",
             "}",
-            S + v + ".enc-S-svg::after {",   // 竖排：下尾同样用 O33A
+            S + v + ".enc-S-svg::after {",               // 竖排：下尾用同一份矢量背景
             "    content: \"\";",
-            "    background: var(--enc-tail) 0 0 / 100% 100% no-repeat;",
-            "    width: 0.847em;",
-            "    height: calc(100% + 0.10em);",
+            "    background: var(--enc-tail) center center / 100% 100% no-repeat;",
+            "    width: 0.883em;",
+            "    height: 1em;",
             "}",
             S + "::after {",                // 右尾（横排）：字体字形 U+13282
             "    content: \"\u{13282}\";",
