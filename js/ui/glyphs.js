@@ -27,6 +27,8 @@
     let dirHandle = null;            // 或：已解压目录
     let dirEntries = new Map();      // code → FileSystemFileHandle
     const urls = new Map();          // code → objectURL | null
+    const rawSvg = new Map();      // 原始 SVG 文本（Tier 2 推导用）
+    const derivedZones = new Map(); // 推导得到的连字区缓存
     const busy = new Set();          // 正在解压的 code
     const boxesEm = new Map();       // code → { x, y, w, h }（em，字形格左上角为原点）
     const metricsEm = new Map();     // code → { w, h }（单位：em，来自 JSesh 的 18 单位网格）
@@ -335,6 +337,7 @@
             if (!bytes) { urls.set(code, null); return null; }
             const raw = new TextDecoder("utf-8").decode(bytes);
             let svgText = stripGuides(fixSvgNs(raw));
+            rawSvg.set(code, svgText);      // 供 Tier 2 连字区推导
             // 用数值方法算墨迹范围（不依赖 DOM，getBBox 只作为交叉校验）：
             // JSesh 的画框 width/height 是符号的"自然尺寸"，18 单位 = 1em；
             // 墨迹偶尔会略微超出画框，viewBox 取「画框 ∪ 墨迹」，避免被 SVG 视口裁掉。
@@ -593,8 +596,79 @@
         },
 
         /** 连字区（来自 js/database/glyphZones.js，Tier 1）。 */
+        /** Tier 2：按墨迹占据网格推导连字区（JSesh LigatureZoneBuilder 的网格版）。 */
+        inkGrid(code) {
+            const svg = rawSvg.get(code);
+            if (!svg) return null;
+            const N = 24;
+            const pts = [];
+            const re = /<path[^>]*\bd="([^"]+)"/g;
+            let m;
+            while ((m = re.exec(svg))) {
+                const nums = (m[1].match(/-?\d+\.?\d*/g) || []).map(Number);
+                for (let k = 0; k + 1 < nums.length; k += 2) pts.push([nums[k], nums[k + 1]]);
+            }
+            if (pts.length < 8) return null;
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (const p of pts) {
+                if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0];
+                if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1];
+            }
+            const w = maxX - minX || 1, h = maxY - minY || 1;
+            const grid = new Uint8Array(N * N);
+            for (const p of pts) {
+                const gx = Math.min(N - 1, Math.max(0, Math.floor((p[0] - minX) / w * N)));
+                const gy = Math.min(N - 1, Math.max(0, Math.floor((p[1] - minY) / h * N)));
+                grid[gy * N + gx] = 1;
+            }
+            return { N, grid, w, h };
+        },
+
+        /** 网格区域是否被占据（坐标 0..1，y 自下而上）。 */
+        _busy(g, x0, y0, x1, y1) {
+            const N = g.N;
+            const c0 = Math.max(0, Math.floor(x0 * N)), c1 = Math.min(N - 1, Math.ceil(x1 * N) - 1);
+            const r0 = Math.max(0, Math.floor(y0 * N)), r1 = Math.min(N - 1, Math.ceil(y1 * N) - 1);
+            if (c1 < c0 || r1 < r0) return false;
+            for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+                // 网格 y 轴与原图相反（SVG 向下），换算
+                if (g.grid[(N - 1 - r) * N + c]) return true;
+            }
+            return false;
+        },
+
+        /** 推导 zone1（前置）/ zone2（后接）；风格沿用 glyphZones.js 的数据格式（em）。 */
+        deriveZones(code) {
+            const g = this.inkGrid(code);
+            if (!g) return null;
+            const out = {};
+            // 前槽：宽 w/2、高 h/3、y=0.5h；从左外侧向字形二分找"不重叠"的最靠内位置
+            let zx = null;
+            for (let t = 1.0; t >= 0.05; t -= 0.05) {
+                const x0 = -0.5 * t, x1 = x0 + 0.5;
+                const y0 = 0.5 - (1 / 6), y1 = y0 + 1 / 3;
+                if (!this._busy(g, x0, y0, x1, y1)) { zx = x0; break; }
+            }
+            if (zx !== null) out.zone1 = { x: zx * g.w / 18, y: (0.5 - 1 / 6) * g.h / 18,
+                                           w: 0.5 * g.w / 18, h: (1 / 3) * g.h / 18, gh: "e", gv: "b" };
+            // 后槽：宽 w/2、高 h/2.5；从右外侧向字形内找
+            let bx = null;
+            for (let t = 1.0; t >= 0.25; t -= 0.05) {
+                const x0 = t, x1 = x0 + 0.5;
+                const y0 = 0, y1 = 1 / 2.5;
+                if (!this._busy(g, x0, y0, x1, y1)) { bx = x0; break; }
+            }
+            if (bx !== null) out.zone2 = { x: bx * g.w / 18, y: 0,
+                                           w: 0.5 * g.w / 18, h: (1 / 2.5) * g.h / 18, gh: "s", gv: "t" };
+            return (out.zone1 || out.zone2) ? out : null;
+        },
+
+        /** 连字区：优先显式数据（Tier 1），否则按墨迹网格推导（Tier 2）。 */
         zoneFor(code) {
-            return (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;
+            const explicit = (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;
+            if (explicit) return explicit;
+            if (!derivedZones.has(code)) derivedZones.set(code, this.deriveZones(code));
+            return derivedZones.get(code);
         },
 
         /** 诊断快照。 */

@@ -14,12 +14,12 @@
   #log { font: 12px monospace; background: #ffef9f; padding: 6px; white-space: pre-wrap; }
   label { font-size: 12px; }
 </style>
-<script src="../js/database/mainSigns.js?v=222705"></script>
-<script src="../js/database/translit.js?v=222705"></script>
-<script src="../js/database/glyphZones.js?v=222705"></script>
-<script src="../js/database/serekhTail.js?v=222705"></script>
-<script src="../js/plugin/MdCRndr.js?v=222705"></script>
-<script src="../js/ui/glyphs.js?v=222705"></script>
+<script src="../js/database/mainSigns.js?v=222859"></script>
+<script src="../js/database/translit.js?v=222859"></script>
+<script src="../js/database/glyphZones.js?v=222859"></script>
+<script src="../js/database/serekhTail.js?v=222859"></script>
+<script src="../js/plugin/MdCRndr.js?v=222859"></script>
+<script src="../js/ui/glyphs.js?v=222859"></script>
 </head>
 <body>
 <h1>照型 VRG 测试台（不改动 index.html / 插件测试台）</h1>
@@ -40,6 +40,12 @@
   <div class="cell"><b>D · A1*B2</b><div class="stage" id="d"></div></div>
   <div class="cell"><b>E · t&amp;w&amp;t</b><div class="stage" id="e"></div></div>
 </div>
+<div class="row">
+  <div class="cell"><b>J · m&amp;G17（Tier2）</b><div class="stage" id="j"></div></div>
+  <div class="cell"><b>K · G17&amp;m（Tier2）</b><div class="stage" id="k"></div></div>
+  <div class="cell"><b>L · t&amp;A17（Tier2）</b><div class="stage" id="l"></div></div>
+  <div class="cell"><b>M · D&amp;t（Tier2）</b><div class="stage" id="m"></div></div>
+</div>
 <div id="log">loading…</div>
 <script>
 const SAMPLES = {
@@ -51,9 +57,13 @@ const SAMPLES = {
   f: "t&w",
   g: "w&t",
   h: "G43&X1",
-  i: "b&D28"
+  i: "b&D28",
+  j: "m&G17",
+  k: "G17&m",
+  l: "t&A17",
+  m: "D&t"
 };
-const CODES = ["N35","N5","Z1","A40","A1","B2","G43","X1","D58","D28","N35"];
+const CODES = ["N35","N5","Z1","A40","A1","B2","G43","X1","D58","D28","G17","M17","D21","V31","Aa1"];
 const sizeEl = document.getElementById("size");
 const jseshEl = document.getElementById("jsesh");
 let ready = false;
@@ -66,6 +76,7 @@ function drawAll() {
   MdCRndr.setQuadratMode(jseshEl.checked ? "jsesh" : "flow");
   for (const key of Object.keys(SAMPLES)) {
     const host = document.getElementById(key);
+    if (!host) continue;
     host.innerHTML = "";
     try {
       MdCRndr.renderText(host, SAMPLES[key], size);
@@ -77,7 +88,7 @@ function drawAll() {
     "mode=" + (jseshEl.checked ? "jsesh" : "flow") +
     "  size=" + size +
     "  calls=" + JSON.stringify(globalThis.__quadratCalls) +
-    "  hie=" + ["a","b","c","d","e"].map(k => k + ":" + document.querySelectorAll("#" + k + " .hie").length).join(" ") +
+    "  hie=" + ["a","b","c","d","e","f","g","h","i","j","k","l","m"].map(k => k + ":" + document.querySelectorAll("#" + k + " .hie").length).join(" ") +
     "  EC=" + (function(){ var v=document.querySelector("#c .vrg"); if(!v) return "none";
       var r=v.getBoundingClientRect(); var hs=[].map.call(v.querySelectorAll(".hie"), function(e){var b=e.getBoundingClientRect();return Math.round(b.height);});
       return "vrg=" + Math.round(r.width) + "x" + Math.round(r.height) + " hie=" + hs.join("/"); })() +
