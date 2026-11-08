@@ -14,12 +14,12 @@
   #log { font: 12px monospace; background: #ffef9f; padding: 6px; white-space: pre-wrap; }
   label { font-size: 12px; }
 </style>
-<script src="../js/database/mainSigns.js?v=222234"></script>
-<script src="../js/database/translit.js?v=222234"></script>
-<script src="../js/database/glyphZones.js?v=222234"></script>
-<script src="../js/database/serekhTail.js?v=222234"></script>
-<script src="../js/plugin/MdCRndr.js?v=222234"></script>
-<script src="../js/ui/glyphs.js?v=222234"></script>
+<script src="../js/database/mainSigns.js?v=222412"></script>
+<script src="../js/database/translit.js?v=222412"></script>
+<script src="../js/database/glyphZones.js?v=222412"></script>
+<script src="../js/database/serekhTail.js?v=222412"></script>
+<script src="../js/plugin/MdCRndr.js?v=222412"></script>
+<script src="../js/ui/glyphs.js?v=222412"></script>
 </head>
 <body>
 <h1>照型 VRG 测试台（不改动 index.html / 插件测试台）</h1>
@@ -28,6 +28,12 @@
 <div class="row">
   <div class="cell"><b>A · n:(ra:Z1)*A40</b><div class="stage" id="a"></div></div>
   <div class="cell"><b>B · (ra:Z1)*A40</b><div class="stage" id="b"></div></div>
+</div>
+<div class="row">
+  <div class="cell"><b>F · t&amp;w</b><div class="stage" id="f"></div></div>
+  <div class="cell"><b>G · w&amp;t</b><div class="stage" id="g"></div></div>
+  <div class="cell"><b>H · G43&amp;X1</b><div class="stage" id="h"></div></div>
+  <div class="cell"><b>I · b&amp;D28（非法，应分列）</b><div class="stage" id="i"></div></div>
 </div>
 <div class="row">
   <div class="cell"><b>C · A1:B2</b><div class="stage" id="c"></div></div>
@@ -41,9 +47,13 @@ const SAMPLES = {
   b: "(ra:Z1)*A40",
   c: "A1:B2",
   d: "A1*B2",
-  e: "t&w&t"
+  e: "t&w&t",
+  f: "t&w",
+  g: "w&t",
+  h: "G43&X1",
+  i: "b&D28"
 };
-const CODES = ["N35","N5","Z1","A40","A1","B2","G43","X1"];
+const CODES = ["N35","N5","Z1","A40","A1","B2","G43","X1","D58","D28","N35"];
 const sizeEl = document.getElementById("size");
 const jseshEl = document.getElementById("jsesh");
 let ready = false;

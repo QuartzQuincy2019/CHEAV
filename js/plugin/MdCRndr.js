@@ -7515,7 +7515,8 @@ function renderLigature(parent, name, fontSize) {
                 zdy = (z.gv === "b") ? zBottom : (z.gv === "t") ? (zBottom + z.h - h) : (zBottom + (z.h - h) / 2);
             }
         }
-        if (i > 0 && (!part.zone || part.zone === "auto") && !zUsed) { zdx = (part.dx || 0) + i; }   // 兜底：zone 不可用时并排
+        // 兜底并排仅适用于"按连字区摆放"的部件；预定义连字（无 zone 字段）沿用自己的 dx/dy
+        if (i > 0 && part.zone && !zUsed) { zdx = (part.dx || 0) + i; }
         const el = renderGlyph(box, part.code, zps, align);
         if (!el) return;
         // 绝对定位：part 的布局底边置于 (dx, dy) 处
@@ -7687,6 +7688,9 @@ function parseInput(text) {
         const hostIdx = hasSlots.indexOf(true);
         if (hostIdx < 0 || hasSlots.filter(Boolean).length !== 1) return codes.join("-");   // 非法：不合并，改为依次排列
         const nm = codes.join("&");
+        // 若该码序列已有预定义连字（如 X1-G43-X1，来自 Tksesh 的显式坐标），直接复用其几何
+        const preName = codes.join("-");
+        if (!LIGATURES[nm] && LIGATURES[preName]) LIGATURES[nm] = LIGATURES[preName];
         if (!LIGATURES[nm]) {
             const parts = [{ code: codes[hostIdx], dx: 0, dy: 0, scale: 1 }];
             codes.forEach((c, i) => {
