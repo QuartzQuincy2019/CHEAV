@@ -29,6 +29,7 @@
     const urls = new Map();          // code → objectURL | null
     const rawSvg = new Map();      // 原始 SVG 文本（Tier 2 推导用）
     const derivedZones = new Map(); // 推导得到的连字区缓存
+    const fillCache = new Map();   // code → {svg, vb, paths}（矢量命中测试用）
     const inkGrids = new Map();     // code → { N, bits: Uint32Array, w, h }
     const gridPending = new Set();  // 正在栅格化的码
     let gridLastMs = 0;             // 最近一次栅格化耗时（诊断用）
@@ -655,6 +656,50 @@ function setViewBox(svgText, vb) {
             this.requestGrid(code);
             return null;
         },
+        /** 矢量命中测试的 DOM 缓存（等价 JSesh 的 Area 语义，不看描边）。 */
+        fillProbe(code) {
+            if (fillCache.has(code)) return fillCache.get(code);
+            const url = urls.get(code);
+            if (!url || url.indexOf("data:") !== 0) return null;
+            const txt = decodeURIComponent(url.slice(url.indexOf(",") + 1));
+            const holder = document.createElement("div");
+            holder.style.cssText = "position:absolute;left:-99999px;top:0;width:1px;height:1px;overflow:hidden";
+            holder.innerHTML = txt;
+            document.body.appendChild(holder);
+            const svg = holder.querySelector("svg");
+            const rec = { holder: holder, svg: svg, vb: null, shapes: [] };
+            if (svg) {
+                const nums = (svg.getAttribute("viewBox") || "").split(/[\s,]+/).map(Number);
+                if (nums.length === 4) rec.vb = { x: nums[0], y: nums[1], w: nums[2], h: nums[3] };
+                rec.shapes = Array.prototype.slice.call(
+                    svg.querySelectorAll("path,rect,circle,ellipse,polygon,polyline"));
+            }
+            fillCache.set(code, rec);
+            return rec;
+        },
+
+        /** 矩形（归一化，y 向上）是否与字形**填充区**相交；未知返回 null。 */
+        fillBusy(code, x0, y0, x1, y1) {
+            const rec = this.fillProbe(code);
+            if (!rec || !rec.vb || !rec.svg) return null;
+            const vb = rec.vb;
+            const N = 10;
+            for (let i = 0; i <= N; i++) {
+                for (let j = 0; j <= N; j++) {
+                    const x = x0 + (x1 - x0) * i / N;
+                    const y = y0 + (y1 - y0) * j / N;
+                    const pt = rec.svg.createSVGPoint();
+                    pt.x = vb.x + x * vb.w;
+                    pt.y = vb.y + (1 - y) * vb.h;
+                    for (let k = 0; k < rec.shapes.length; k++) {
+                        const el = rec.shapes[k];
+                        try { if (el.isPointInFill && el.isPointInFill(pt)) return true; } catch (e) { }
+                    }
+                }
+            }
+            return false;
+        },
+
 
         /** 诊断：栅格缓存统计（含最近一次耗时）。 */
         gridStats() { return { cached: inkGrids.size, pending: gridPending.size, lastMs: Math.round(gridLastMs * 100) / 100 }; },
@@ -684,7 +729,13 @@ function setViewBox(svgText, vb) {
             if (!g) return null;
             // 归一化坐标：x∈[0,1] 相对字形左缘，y∈[0,1] 自底向上（与字形 bbox 一致）
             const MARGIN = 1 / 18;
-            const busy = (x, y, w, h) => this._busy(g, x, y, x + Math.abs(w), y + Math.abs(h));
+            // 判定"矩形是否压到字形"：位图粗筛（快） + 矢量复核（准，等价 Area.intersect）
+            const busy = (x, y, w, h) => {
+                const x0 = x, y0 = y, x1 = x + Math.abs(w), y1 = y + Math.abs(h);
+                if (!this._busy(g, x0, y0, x1, y1)) return false;      // 粗筛：位图判空 → 空
+                const exact = this.fillBusy(code, x0, y0, x1, y1);
+                return (exact === null) ? true : exact;                // 矢量复核
+            };
             // 诊断：记录被判为"被占据"的最小格子（用于定位 t 上不去的具体原因）
             const blockCells = [];
             const busyRec = (x, y, w, h) => {
