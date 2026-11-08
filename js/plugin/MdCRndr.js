@@ -7384,7 +7384,7 @@ function renderLigature(parent, name, fontSize) {
         // 其余 part 贴基线定位（墨迹底部落在 dx/dy 处）
         const align = i === 0 ? "center" : undefined;
         // part.zone：按锚字符（parts[0]）的连字区自动缩放并贴边（Tier 1）
-        let zdx = (part.dx || 0), zdy = (part.dy || 0), zps = ps;
+        let zdx = (part.dx || 0), zdy = (part.dy || 0), zps = ps, zUsed = false;
         if (part.zone && glyphZoneProvider) {
             const anchor0 = lig.parts[0] || { code: "", dx: 0, dy: 0 };
             const zones0 = glyphZoneProvider(anchor0.code) || null;
@@ -7394,7 +7394,8 @@ function renderLigature(parent, name, fontSize) {
             } else {
                 z = zones0 ? zones0[part.zone] : null;
             }
-            if (z && z.w > 0 && z.h > 0) {
+            zUsed = !!(z && z.w > 0 && z.h > 0);
+            if (zUsed) {
                 const am = getMetrics(part.code);
                 const inkW = Math.max(0.01, am.width / EM_SQUARE);
                 const inkH = Math.max(0.01, am.height / EM_SQUARE);
@@ -7411,7 +7412,7 @@ function renderLigature(parent, name, fontSize) {
                 zdy = (z.gv === "b") ? zBottom : (z.gv === "t") ? (zBottom + z.h - h) : (zBottom + (z.h - h) / 2);
             }
         }
-        if (i > 0 && !part.zone) { zdx = (part.dx || 0) + i; }   // 兜底：无 zone 时并排
+        if (i > 0 && (!part.zone || part.zone === "auto") && !zUsed) { zdx = (part.dx || 0) + i; }   // 兜底：zone 不可用时并排
         const el = renderGlyph(box, part.code, zps, align);
         if (!el) return;
         // 绝对定位：part 的布局底边置于 (dx, dy) 处
