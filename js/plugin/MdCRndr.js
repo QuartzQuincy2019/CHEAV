@@ -7426,6 +7426,22 @@ function renderLigature(parent, name, fontSize) {
         if (ligatureDebug()) el.classList.add("lig-debug");
     });
 
+    // 按部件真实范围撑开容器：允许左侧负偏移（前插槽）与右侧伸出（后插槽）
+    if (placed.length > 1) {
+        let minL = Infinity, maxR = -Infinity;
+        for (const child of box.children) {
+            const l = child.offsetLeft, r = l + child.offsetWidth;
+            if (l < minL) minL = l;
+            if (r > maxR) maxR = r;
+        }
+        if (isFinite(minL) && isFinite(maxR)) {
+            if (minL < 0) {
+                for (const child of box.children) child.style.left = px(child.offsetLeft - minL) + "px";
+                maxR -= minL;
+            }
+            box.style.width = px(Math.max(maxR, fontSize)) + "px";   // 至少一个 em
+        }
+    }
     parent.appendChild(box);
     return box;
 }
@@ -7540,6 +7556,13 @@ function protectCompounds(text) {
     return out;
 }
 
+/** 把一个写法（Gardiner 码或转写）解析成 Gardiner 码：与 expandUnit 同一套规则。 */
+function resolveTranslitCode(c) {
+    if (typeof MAIN_SIGNS !== "undefined" && MAIN_SIGNS[c]) return MAIN_SIGNS[c];
+    if (typeof TRANSLIT_SIGNS !== "undefined" && TRANSLIT_SIGNS[c] && TRANSLIT_SIGNS[c].length) return TRANSLIT_SIGNS[c][0];
+    return c;
+}
+
 function parseInput(text) {
     const invalid = [];
     // 复合转写（带 "-"）先保护起来，避免被当作 quadrat 分隔符
@@ -7550,7 +7573,7 @@ function parseInput(text) {
     //       两个及以上有插槽、或完全没有宿主 → 视为非法连字，保持原样不合并。
     text = text.replace(/([A-Za-z][A-Za-z0-9]{0,6}(?:\s*&\s*[A-Za-z][A-Za-z0-9]{0,6})+)/g, (all) => {
         const codes = all.split("&").map((x) => x.trim()).filter((x) => x.length)
-            .map((c) => ((typeof MAIN_SIGNS !== "undefined" && MAIN_SIGNS[c]) || c));
+            .map((c) => resolveTranslitCode(c));
         if (codes.length < 2) return all;
         const hasSlots = codes.map((c) => {
             const z = (typeof GLYPH_ZONES !== "undefined") ? GLYPH_ZONES[c] : null;
