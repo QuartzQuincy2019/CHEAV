@@ -7038,18 +7038,6 @@ function unitMetrics(u) {
         for (const x of (u.units || [])) w += unitMetrics(x).w;
         return { h: EM_SQUARE, w: Math.max(w + ENC_PAD * 2 * EM_SQUARE, 1) };
     }
-    if (u.type === "word" || u.type === "sub") {
-        // 子 cadrat：整体占 1em 高（内部按比例分配），宽取各层最宽者
-        let wMax = 0;
-        const rows = (u.units && u.units.length === 1 && u.units[0] && u.units[0].type === "vrg")
-            ? u.units[0].layers : [u.units || []];
-        for (const row of rows) {
-            let w = 0;
-            for (const x of row) w += unitMetrics(x).w;
-            wMax = Math.max(wMax, w);
-        }
-        return { h: EM_SQUARE, w: Math.max(wMax, 1) };
-    }
     if (u.type === "unsup") {
         // 字体不支持的码（占位框）：按 1em 方块计——与普通字符同位、参与 VRG 缩放
         return { h: EM_SQUARE, w: EM_SQUARE };
@@ -7518,17 +7506,18 @@ function render(parent, tree, fontSize) {
             renderVRG(parent, tree.layers, fontSize);
         }
     } else if (tree.type === "sub" || tree.type === "word") {
-        // 子 cadrat（照型）：按 JSesh 的 distributeFromTopToBottom
-        //   1) 各层自然高 h_i（em，取该层最高字形墨迹）
-        //   2) 总高 Σh_i，统一缩放 s = 1/Σh_i，使子组恰好占 1em
-        //   3) 逐层绝对定位（自下而上），层内字号 = fontSize*s，行宽按墨迹累加
+        // 子 cadrat（括号组）：照 JSesh 的 distributeFromTopToBottom 语义
+        //   1) 各层自然高度 h_i（该层最高字形墨迹高，em）
+        //   2) 可用高度 = 1em；统一缩放 s = 1 / Σh_i
+        //   3) 每层字号 = fontSize × s，行高 = h_i × fontSize × s
+        //   → 各层按比例压缩，"日"（较高的 ra）自然占到更多高度，形成照型
         const inner = tree.units || [];
         const layers = (inner.length === 1 && inner[0] && inner[0].type === "vrg")
             ? inner[0].layers : [inner];
-        const hs = layers.map((row) => {
+        const heights = layers.map((row) => {
             let h = 0.15;
             for (const u of row) {
-                const code = u && u.code;
+                const code = u && (u.code || (u.type === "char" ? u.code : null));
                 if (code) {
                     const am = getMetrics(code);
                     if (am && am.height) h = Math.max(h, am.height / EM_SQUARE);
@@ -7536,32 +7525,16 @@ function render(parent, tree, fontSize) {
             }
             return h;
         });
-        const totalH = hs.reduce((a, b) => a + b, 0) || 1;
-        const layerSize = fontSize / totalH;
-        // 宽度：各层墨迹宽之和的最大值
-        let wMax = 0;
-        for (const row of layers) {
-            let w = 0;
-            for (const u of row) {
-                const code = u && u.code;
-                const aw = code ? (getMetrics(code).width / EM_SQUARE) : 1;
-                w += aw;
-            }
-            wMax = Math.max(wMax, w);
-        }
+        const totalH = heights.reduce((a, b) => a + b, 0) || 1;
+        const layerSize = fontSize / totalH;          // 每层统一字号（= 缩放后）
         const box = document.createElement("span");
         box.className = "sub";
-        box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;height:" + px(fontSize) + "px;width:" + px(Math.max(wMax * layerSize, 1)) + "px;";
-        // 第 1 层在最上（JSesh：层自上而下），故自下而上的偏移 = totalH - 累计 - h_i
-        let acc = 0;
-        for (let li = 0; li < layers.length; li++) {
-            const yBottomEm = totalH - acc - hs[li];
+        box.style.cssText = "display:inline-flex;flex-direction:column;justify-content:flex-end;align-items:center;vertical-align:bottom;";
+        for (const row of layers) {
             const rowEl = document.createElement("span");
-            rowEl.style.cssText = "position:absolute;left:50%;transform:translateX(-50%);bottom:" + px(yBottomEm * layerSize) +
-                "px;display:inline-flex;align-items:flex-end;justify-content:center;white-space:nowrap;";
-            for (const u of layers[li]) render(rowEl, u, layerSize);
+            rowEl.style.cssText = "display:inline-flex;align-items:flex-end;justify-content:center;";
+            for (const u of row) render(rowEl, u, layerSize);
             box.appendChild(rowEl);
-            acc += hs[li];
         }
         parent.appendChild(box);
     } else if (tree.type === "lig") {
