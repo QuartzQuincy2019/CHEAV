@@ -6888,7 +6888,8 @@ function renderInShadedCell(parent, fontSize, digits, draw, alignEnd, emWidth) {
  */
 let glyphProvider = null;
 let zoneFitMode = "shrink";      // 连字区缩放策略：shrink=只缩不放 / fill=填满 / fill85=填满留 15% 边距
-let glyphZoneProvider = null;   // code -> { zone1, zone2 }（连字区，em 坐标）
+let glyphZoneProvider = null;
+let glyphDensityProvider = null;   // code -> 3x3 密度（Tier 2）   // code -> { zone1, zone2 }（连字区，em 坐标）
 /** 字形宽高比提供者（可选）：code → 宽/高（数字）或 null。用于让宽符号不被压进 1em 方格。 */
 let glyphAspectProvider = null;
 /** 字形度量提供者（可选）：code → { w, h }（单位 em）。JSesh 模式用它取代字体度量。 */
@@ -7572,7 +7573,29 @@ function autoZonesFor(code) {
     const am = getMetrics(code);
     const w = Math.max(0.05, am.width / EM_SQUARE);
     const h = Math.max(0.05, am.height / EM_SQUARE);
-    const x0 = (1 - w) / 2, y0 = (1 - h) / 2;          // 墨迹在 1em 格内的近似位置
+    const x0 = (1 - w) / 2, y0 = (1 - h) / 2;
+    const g = glyphDensityProvider ? glyphDensityProvider(code) : null;
+    if (g && g.length === 3) {
+        const cellRect = (c, r) => ({
+            x: x0 + (c / 3) * w, y: y0 + (r / 3) * h,
+            w: w / 3, h: h / 3, gh: null, gv: null, gravity: null,
+        });
+        const bottomSum = g[2][0] + g[2][1] + g[2][2];
+        if (bottomSum < 0.05) {
+            // 下半几乎全空（如 I10）：两槽都放下排 —— 前中、后左
+            return { zone1: cellRect(1, 2), zone2: cellRect(0, 2) };
+        }
+        const pickInCol = (col) => {
+            let best = 0, bestV = Infinity;
+            for (let r = 0; r < 3; r++) {
+                const v = g[r][col];
+                if (v < bestV - 1e-9) { bestV = v; best = r; }
+            }
+            return best;
+        };
+        return { zone1: cellRect(0, pickInCol(0)), zone2: cellRect(2, pickInCol(2)) };
+    }
+    // 兜底：无密度数据时仍按长宽比切条
     const band = 0.35;
     if (h / w > 1.2) {
         return {
@@ -8406,6 +8429,11 @@ function splitLines(tree) {
         /** 连字区缩放策略："shrink"（默认，与 JSesh 一致） | "fill" | "fill85"。 */
         setZoneFit: function (mode) {
             zoneFitMode = (mode === "shrink" || mode === "fill" || mode === "fill85") ? mode : "shrink";
+            return MdCRndr;
+        },
+
+        setGlyphDensityProvider: function (fn) {
+            glyphDensityProvider = (typeof fn === "function") ? fn : null;
             return MdCRndr;
         },
 

@@ -132,7 +132,11 @@
     async function syncGlyphs() {
         if (typeof Glyphs === "undefined" || typeof MdCRndr === "undefined") return;
         Glyphs.setRenderer(MdCRndr);
-        MdCRndr.setGlyphZoneProvider(function (code) {          // 连字区（Tier 1）
+        MdCRndr.setGlyphDensityProvider(function (code) {        // 墨迹 3x3 密度（Tier 2）
+        return (typeof Glyphs !== "undefined" && typeof Glyphs.densityFor === "function")
+            ? Glyphs.densityFor(code) : null;
+    });
+    MdCRndr.setGlyphZoneProvider(function (code) {          // 连字区（Tier 1）
             return (typeof Glyphs !== "undefined" && typeof Glyphs.zoneFor === "function")
                 ? Glyphs.zoneFor(code) : null;
         });
