@@ -661,6 +661,8 @@ function setViewBox(svgText, vb) {
 
         /** 网格区域是否被占据（坐标 0..1，y 自下而上）。 */
         _busy(g, x0, y0, x1, y1) {
+            // 与 JSesh 的 Area.intersect 等价：完全落在字形包围盒之外 → 必然为空
+            if (x1 <= 0 || x0 >= 1 || y1 <= 0 || y0 >= 1) return false;
             const N = g.N;
             const c0 = Math.max(0, Math.floor(x0 * N)), c1 = Math.min(N - 1, Math.ceil(x1 * N) - 1);
             const r0 = Math.max(0, Math.floor(y0 * N)), r1 = Math.min(N - 1, Math.ceil(y1 * N) - 1);
@@ -683,6 +685,18 @@ function setViewBox(svgText, vb) {
             // 归一化坐标：x∈[0,1] 相对字形左缘，y∈[0,1] 自底向上（与字形 bbox 一致）
             const MARGIN = 1 / 18;
             const busy = (x, y, w, h) => this._busy(g, x, y, x + Math.abs(w), y + Math.abs(h));
+            // 诊断：记录被判为"被占据"的最小格子（用于定位 t 上不去的具体原因）
+            const blockCells = [];
+            const busyRec = (x, y, w, h) => {
+                const hit = this._busy(g, x, y, x + Math.abs(w), y + Math.abs(h));
+                if (hit && blockCells.length < 8) {
+                    const N2 = g.N;
+                    const c = Math.min(N2 - 1, Math.max(0, Math.floor((x + Math.abs(w) / 2) * N2)));
+                    const r = Math.min(N2 - 1, Math.max(0, Math.floor((y + Math.abs(h) / 2) * N2)));
+                    blockCells.push({ x: +x.toFixed(2), y: +y.toFixed(2), w: +Math.abs(w).toFixed(2), h: +Math.abs(h).toFixed(2), c: c, r: r });
+                }
+                return hit;
+            };
             // 沿 outer→inner 二分，返回"仍不重叠"的最大 t（照 findBestZonePosition）
             const bestT = (ox, oy, ix, iy, w, h) => {
                 let innerT = 1, outerT = 0;
@@ -691,7 +705,7 @@ function setViewBox(svgText, vb) {
                     const px = ox + t * (ix - ox), py = oy + t * (iy - oy);
                     const x0 = (w < 0) ? px + w - MARGIN : px - MARGIN;
                     const y0 = (h < 0) ? py + h - MARGIN : py - MARGIN;
-                    if (busy(x0, y0, Math.abs(w) + 2 * MARGIN, Math.abs(h) + 2 * MARGIN)) innerT = t;
+                    if (busyRec(x0, y0, Math.abs(w) + 2 * MARGIN, Math.abs(h) + 2 * MARGIN)) innerT = t;
                     else outerT = t;
                 }
                 return outerT;
@@ -736,7 +750,7 @@ function setViewBox(svgText, vb) {
                                   h: hUnits / 18, gh: "c", gv: "b" };
                 }
             }
-out.__debug = dbg;
+out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
             // 归一化坐标（0..1 相对墨迹 bbox）→ em（渲染端与显式数据同一口径）
             {
                 const sx = (g.w || 18) / 18, sy = (g.h || 18) / 18;
