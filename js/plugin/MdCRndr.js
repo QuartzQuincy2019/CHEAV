@@ -7387,7 +7387,8 @@ function renderLigature(parent, name, fontSize) {
         // part.zone：按锚字符（parts[0]）的连字区自动缩放并贴边（Tier 1）
         let zdx = (part.dx || 0), zdy = (part.dy || 0), zps = ps, zUsed = false;
         if (part.zone && glyphZoneProvider) {
-            const prevP = placed[i - 1] || null;
+            const explicitZone = (part.zone === "zone1" || part.zone === "zone2");
+            const prevP = explicitZone ? (placed[0] || null) : (placed[i - 1] || placed[0] || null);
             const anchor0 = prevP || { code: (lig.parts[0] || {}).code || "", dx: (lig.parts[0] || {}).dx || 0, dy: (lig.parts[0] || {}).dy || 0 };
             const zones0 = glyphZoneProvider(anchor0.code) || null;
             let z = null;
@@ -7543,18 +7544,28 @@ function parseInput(text) {
     const invalid = [];
     // 复合转写（带 "-"）先保护起来，避免被当作 quadrat 分隔符
     text = protectCompounds(text);
-    // 即时连字：A&B、A&B&C…（& 是 JSesh 的连字连接符）——无需注册，链式登记几何
+    // 即时连字：A&B / t&G43&t …（& = JSesh 连字连接符）
+    // 规则：整串里必须且只能有一个"有插槽"的符号（宿主，zone1=前插槽 / zone2=后插槽）；
+    //       其余必须是"插头"（无插槽）。宿主排在第一，插头按在原串中的前后进入 zone1/zone2。
+    //       两个及以上有插槽、或完全没有宿主 → 视为非法连字，保持原样不合并。
     text = text.replace(/([A-Za-z][A-Za-z0-9]{0,6}(?:\s*&\s*[A-Za-z][A-Za-z0-9]{0,6})+)/g, (all) => {
-        const codes = all.split("&").map((x) => x.trim()).filter((x) => x.length);
+        const codes = all.split("&").map((x) => x.trim()).filter((x) => x.length)
+            .map((c) => ((typeof MAIN_SIGNS !== "undefined" && MAIN_SIGNS[c]) || c));
         if (codes.length < 2) return all;
+        const hasSlots = codes.map((c) => {
+            const z = (typeof GLYPH_ZONES !== "undefined") ? GLYPH_ZONES[c] : null;
+            return !!(z && (z.zone1 || z.zone2));
+        });
+        const hostIdx = hasSlots.indexOf(true);
+        if (hostIdx < 0 || hasSlots.filter(Boolean).length !== 1) return codes.join("-");   // 非法：不合并，改为依次排列
         const nm = codes.join("&");
         if (!LIGATURES[nm]) {
-            LIGATURES[nm] = {
-                name: nm,
-                parts: codes.map((c, i) => (i === 0
-                    ? { code: c, dx: 0, dy: 0, scale: 1 }
-                    : { code: c, zone: "auto" })),
-            };
+            const parts = [{ code: codes[hostIdx], dx: 0, dy: 0, scale: 1 }];
+            codes.forEach((c, i) => {
+                if (i === hostIdx) return;
+                parts.push({ code: c, zone: i < hostIdx ? "zone1" : "zone2" });
+            });
+            LIGATURES[nm] = { name: nm, parts: parts };
         }
         return "{" + nm + "}";
     });
