@@ -7908,13 +7908,13 @@ function splitLines(tree) {
             "    content: \"\";",
             "    background: var(--enc-tail) 0 0 / 100% 100% no-repeat;",
             "    width: 0.842em;",
-            "    height: 1em;",
+            "    height: calc(100% + 0.10em);",
             "}",
             S + v + ".enc-S-svg::after {",   // 竖排：下尾同样用 O33A
             "    content: \"\";",
             "    background: var(--enc-tail) 0 0 / 100% 100% no-repeat;",
             "    width: 0.842em;",
-            "    height: 1em;",
+            "    height: calc(100% + 0.10em);",
             "}",
             S + "::after {",                // 右尾（横排）：字体字形 U+13282
             "    content: \"\u{13282}\";",
