@@ -7381,7 +7381,7 @@ function renderLigature(parent, name, fontSize) {
                 const am = getMetrics(part.code);
                 const inkW = Math.max(0.01, am.width / EM_SQUARE);
                 const inkH = Math.max(0.01, am.height / EM_SQUARE);
-                const k = (part.scale || 1) * Math.min(z.w / inkW, z.h / inkH);
+                const k = (part.scale || 1) * Math.min(1, z.w / inkW, z.h / inkH);   // 只缩不放（保持符号原比例）
                 zps = fontSize * k;
                 const w = inkW * k, h = inkH * k;
                 const zLeft = (anchor0.dx || 0) + z.x;

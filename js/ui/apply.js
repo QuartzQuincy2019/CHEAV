@@ -1240,7 +1240,14 @@
     updateKeyCast();   // 按键展示（设置开启且为电脑端时显示）
 
     // 调试接口
-    globalThis.CHEAV = {
+    // 连字区（Tier 1）：启动即挂上，与字形来源无关（font 模式也要能按 zone 排版）
+if (typeof MdCRndr !== "undefined" && typeof MdCRndr.setGlyphZoneProvider === "function") {
+    MdCRndr.setGlyphZoneProvider(function (code) {
+        return (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;
+    });
+}
+
+globalThis.CHEAV = {
         refresh,
         // 调试/便捷入口：直接传一个 jar File（等价于在设置里选择）
         loadGlyphs: (file) => dropGlyphFile(file),
