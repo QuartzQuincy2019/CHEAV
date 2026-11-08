@@ -7521,18 +7521,14 @@ function renderLigature(parent, name, fontSize) {
         }
         // 兜底并排仅适用于"按连字区摆放"的部件；预定义连字（无 zone 字段）沿用自己的 dx/dy
         if (i > 0 && part.zone && !zUsed) { zdx = (part.dx || 0) + i; }
-        // 若该部件与宿主墨迹重叠（连字区数据不精确时会发生），沿"该槽的逃逸方向"外推：
-        //   zone1（左）→ 向左；zone2（右）→ 向右；zoneB（底）→ 向下
-        if (__ovlProvider && part.zone && zUsed) {
-            const dz = getMetrics(part.code);
-            const pw = (zps / fontSize) * (dz.width / EM_SQUARE);
-            const ph = (zps / fontSize) * (dz.height / EM_SQUARE);
-            const hostCode = (lig.parts[0] || {}).code || "";
-            for (let push = 0; push < 10; push++) {
-                if (!__ovlProvider(hostCode, zdx, zdy, pw, ph)) break;
-                if (part.zone === "zoneB") zdy -= 0.05;
-                else zdx += (part.zone === "zone1") ? -0.05 : 0.05;
-            }
+        // 说明：JSesh 的 placeView 直接按连字区定位，不做"防重叠外推"。
+        // 连字区本身就保证不与字形相交（二分搜索的判定），故此处保持与源码一致，不加额外位移。
+        if (typeof globalThis !== "undefined") {
+            const lg = globalThis.__ligDebug || (globalThis.__ligDebug = []);
+            lg.push({ name: name, part: part.code, zone: part.zone || null, zUsed: !!zUsed,
+                      host: (lig.parts[0] || {}).code,
+                      zx: +zdx.toFixed(3), zy: +zdy.toFixed(3),
+                      zdx: +zdx.toFixed(3), zdy: +zdy.toFixed(3), zps: +zps.toFixed(1), fontSize: fontSize });
         }
         const el = renderGlyph(box, part.code, zps, align);
         if (!el) return;

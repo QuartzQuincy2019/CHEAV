@@ -635,7 +635,7 @@ function setViewBox(svgText, vb) {
                     const data = ctx2.getImageData(0, 0, N, N).data;
                     const bits = new Uint32Array((N * N + 31) >> 5);
                     for (let i = 0; i < N * N; i++) {
-                        if (data[i * 4 + 3] > 30) bits[i >> 5] |= (1 << (i & 31));
+                        if (data[i * 4 + 3] > 128) bits[i >> 5] |= (1 << (i & 31));
                     }
                     const em2 = metricsEm.get(code) || { w: 1, h: 1 };
                     inkGrids.set(code, { N, bits, w: em2.w * 18, h: em2.h * 18 });
