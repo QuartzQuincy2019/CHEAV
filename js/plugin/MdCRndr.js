@@ -7378,6 +7378,7 @@ function renderLigature(parent, name, fontSize) {
     box.style.width = px(ligatureWidth(name) * fontSize / EM_SQUARE) + "px";
     box.style.height = fontSize + "px";
 
+    const placed = [];                     // placed[i] = 该部件最终位置（em），供链式定位
     lig.parts.forEach((part, i) => {
         const ps = fontSize * (part.scale || 1);
         // 基准字（parts[0]）以独立字为模板：1em 轨道内上下居中；
@@ -7386,7 +7387,8 @@ function renderLigature(parent, name, fontSize) {
         // part.zone：按锚字符（parts[0]）的连字区自动缩放并贴边（Tier 1）
         let zdx = (part.dx || 0), zdy = (part.dy || 0), zps = ps, zUsed = false;
         if (part.zone && glyphZoneProvider) {
-            const anchor0 = lig.parts[0] || { code: "", dx: 0, dy: 0 };
+            const prevP = placed[i - 1] || null;
+            const anchor0 = prevP || { code: (lig.parts[0] || {}).code || "", dx: (lig.parts[0] || {}).dx || 0, dy: (lig.parts[0] || {}).dy || 0 };
             const zones0 = glyphZoneProvider(anchor0.code) || null;
             let z = null;
             if (part.zone === "auto") {
@@ -7419,6 +7421,7 @@ function renderLigature(parent, name, fontSize) {
         el.style.position = "absolute";
         el.style.left = px(zdx * fontSize) + "px";
         el.style.bottom = px(zdy * fontSize) + "px";
+        placed[i] = { code: part.code, dx: zdx, dy: zdy };
         if (ligatureDebug()) el.classList.add("lig-debug");
     });
 
@@ -7540,16 +7543,17 @@ function parseInput(text) {
     const invalid = [];
     // 复合转写（带 "-"）先保护起来，避免被当作 quadrat 分隔符
     text = protectCompounds(text);
-    // 即时连字：A&B（& 是 JSesh 的连字连接符）——无需注册，自动登记几何后用 {A&B} 引用
-    text = text.replace(/([A-Za-z][A-Za-z0-9]{0,6})\s*&\s*([A-Za-z][A-Za-z0-9]{0,6})/g, (all, a, b) => {
-        const nm = a + "&" + b;
+    // 即时连字：A&B、A&B&C…（& 是 JSesh 的连字连接符）——无需注册，链式登记几何
+    text = text.replace(/([A-Za-z][A-Za-z0-9]{0,6}(?:\s*&\s*[A-Za-z][A-Za-z0-9]{0,6})+)/g, (all) => {
+        const codes = all.split("&").map((x) => x.trim()).filter((x) => x.length);
+        if (codes.length < 2) return all;
+        const nm = codes.join("&");
         if (!LIGATURES[nm]) {
             LIGATURES[nm] = {
                 name: nm,
-                parts: [
-                    { code: a, dx: 0, dy: 0, scale: 1 },
-                    { code: b, zone: "auto" },
-                ],
+                parts: codes.map((c, i) => (i === 0
+                    ? { code: c, dx: 0, dy: 0, scale: 1 }
+                    : { code: c, zone: "auto" })),
             };
         }
         return "{" + nm + "}";
