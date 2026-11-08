@@ -7103,64 +7103,64 @@ function measureUnitEm(u) {
     return { w: 0.6, h: 1 };
 }
 
-function layoutQuadratAbs(layers, fontSize, scaleOverride) {
-    if (typeof globalThis !== "undefined") {
-        const qc = globalThis.__quadratCalls || (globalThis.__quadratCalls = { flow: 0, jsesh: 0, abs: 0 });
-        qc.abs++;
-    }
+function layoutQuadratAbs(layers, fontSize, targetHpx) {
+    // 严格照 JSesh：QuadratLayout + MDCView.distributeFromTopToBottom
+    //   · 层高 h_i = 该层字形墨迹高（不拉伸字）
+    //   · 总高不足目标高时，差额均分为 interSpace（不放大判定）
+    //   · 超出目标高时整组只缩一次（reScale）
+    //   · 组宽 = 最宽层；单元素居中，多元素均分间隙
     const gapEm = 0.111;
     const rows = layers.map((row) => row.map((u) => ({ u, m: measureUnitEm(u) })));
+    const n = rows.length;
     const hNat = rows.map((r) => Math.max(0.15, ...r.map((x) => x.m.h)));
     const wNat = rows.map((r) => r.reduce((a, x) => a + x.m.w, 0));
-    const n = rows.length;
-    const totalNat = hNat.reduce((a, b) => a + b, 0) + gapEm * (n - 1);
-    // targetH（px）给定时，精确缩放到该高度（子 cadrat 填满所在行）；否则缩到 1em
-    const targetH = (typeof scaleOverride === "number" && scaleOverride > 0) ? scaleOverride : fontSize;
-    const s = Math.min(1, targetH / (totalNat * fontSize));
-    const Wpx = Math.max(...wNat, 0.05) * s * fontSize;
-    const Hpx = totalNat * s * fontSize;
+    const totalNatEm = hNat.reduce((a, b) => a + b, 0) + gapEm * (n - 1);
+    const targetEm = ((typeof targetHpx === "number" && targetHpx > 0) ? targetHpx : fontSize) / fontSize;
+    const s = Math.min(1, targetEm / totalNatEm);          // 只缩不放
+    const Hpx = Math.max(targetEm * fontSize, totalNatEm * s * fontSize);
+    const sumRowsPx = hNat.reduce((a, b) => a + b, 0) * s * fontSize;
+    const interPx = (n > 1) ? Math.max(0, (Hpx - sumRowsPx) / (n - 1)) : 0;
+    const Wpx = Math.max(Math.max(...wNat) * s * fontSize, 1);
     const box = document.createElement("span");
     box.className = "vrg";
-    box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;width:" + px(Wpx) + "px;height:" + px(Hpx) + "px;";
+    box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
+        "width:" + px(Wpx) + "px;height:" + px(Hpx) + "px;";
     let y = 0;
-    for (let i = 0; i < n; i++) {
-        const hPx = hNat[i] * s * fontSize;
-        const rowW = wNat[i] * s * fontSize;
-        const rowBox = document.createElement("span");
-        rowBox.style.cssText = "position:absolute;left:0;top:" + px(y) + "px;width:" + px(Wpx) + "px;height:" + px(hPx) + "px;";
-        const items = rows[i];
-        if (items.length === 1) {
-            placeAbs(rowBox, items[0].u, (Wpx - rowW) / 2, hPx, items[0].m, s, fontSize);
-        } else {
-            const step = (Wpx - rowW) / (items.length - 1);
-            let x = 0;
-            for (let k = 0; k < items.length; k++) {
-                placeAbs(rowBox, items[k].u, x + step * k, hPx, items[k].m, s, fontSize);
-                x += items[k].m.w * s * fontSize;
-            }
+    for (let ri = 0; ri < n; ri++) {
+        const items = rows[ri];
+        const hPx = hNat[ri] * s * fontSize;
+        const rowWpx = wNat[ri] * s * fontSize;
+        const interW = items.length > 1 ? Math.max(0, (Wpx - rowWpx) / (items.length - 1)) : 0;
+        let x = items.length === 1 ? (Wpx - rowWpx) / 2 : 0;
+        for (let k = 0; k < items.length; k++) {
+            placeAbs(box, items[k].u, x, y, hPx, items[k].m, s, fontSize);
+            x += items[k].m.w * s * fontSize + interW;
         }
-        box.appendChild(rowBox);
-        y += hPx + gapEm * s * fontSize;
+        y += hPx + interPx;
     }
     return box;
 }
 
-function placeAbs(rowBox, u, x, rowH, m, s, fontSize) {
+/** 在组内放置一个单位：底部对齐到本行底线；子组按行高重新分布（照型）。 */
+function placeAbs(box, u, x, yTop, rowH, m, s, fontSize) {
     const isGroup = (u.type === "vrg" && u.layers && u.layers.length > 1);
-    const holder = document.createElement("span");
     const wPx = m.w * s * fontSize;
-    const hPx = isGroup ? rowH : Math.min(m.h * s * fontSize, rowH);
-    holder.style.cssText = "position:absolute;left:" + px(x) + "px;bottom:0;width:" + px(wPx) + "px;height:" + px(hPx) + "px;line-height:1;";
+    const holder = document.createElement("span");
+    holder.style.cssText = "position:absolute;left:" + px(x) + "px;top:" + px(yTop) +
+        "px;width:" + px(wPx) + "px;height:" + px(rowH) + "px;";
     if (isGroup) {
-        const sub = layoutQuadratAbs(u.layers, fontSize, rowH);
+        const sub = layoutQuadratAbs(u.layers, fontSize, rowH);   // 填满本行高度
         sub.style.position = "absolute";
         sub.style.left = "0";
         sub.style.bottom = "0";
         holder.appendChild(sub);
     } else {
-        render(holder, u, fontSize * s);
+        const g = document.createElement("span");
+        g.style.cssText = "position:absolute;left:0;bottom:0;line-height:1;";
+        render(g, u, fontSize * s);
+        holder.appendChild(g);
     }
-    rowBox.appendChild(holder);
+    box.appendChild(holder);
 }
 
 function renderVRG(parent, layers, fontSize) {
