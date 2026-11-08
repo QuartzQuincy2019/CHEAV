@@ -6645,6 +6645,17 @@ function defineLigature(name, parts, pron) {
 }
 
 // 鸟背面包 sAt
+// G43 + X1（w&t / t&w）：用 G43 自带的连字区（zone2 = 右上、zone1 = 左下）驱动
+defineLigature("w&t", [
+    { code: "G43", dx: 0, dy: 0, scale: 1 },
+    { code: "X1", zone: "zone2" }
+], "w&t");
+
+defineLigature("t&w", [
+    { code: "G43", dx: 0, dy: 0, scale: 1 },
+    { code: "X1", zone: "zone1" }
+], "t&w");
+
 defineLigature("G39-X1", [
     { code: "G39", dx: 0.0, dy: 0.0, scale: 1.0 },
     { code: "X1", dx: 0.545, dy: 0.716, scale: 1.0 },
