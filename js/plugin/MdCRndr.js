@@ -7900,20 +7900,20 @@ function splitLines(tree) {
             S + " {",                       // 塞拉赫框：矩形 + 底部宫墙纹
             "    border: 0.05em solid #000;",   // 与 JSesh 一致：细框线
             "    padding: 0.13em 0.08em;",           // 0.64 + 0.26 + 0.10 = 1em（与尾部等高）
-            "    margin-right: 0.842em;",       // 尾宽 0.847em × 1em（与手描图一致）
+            "    margin-right: 0.781em;",       // 尾宽 0.847em × 1em（与手描图一致）
             "    box-sizing: content-box;",      // 0.55 + 0.1 + 0.3 + 0.05×2 ≈ 1em
             "    position: relative;",
             "}",
             S + ".enc-S-svg::after {",     // JSesh 模式：右尾改用 JSesh 的 O33A 字形
             "    content: \"\";",
             "    background: var(--enc-tail) 0 0 / 100% 100% no-repeat;",
-            "    width: 0.842em;",
+            "    width: 0.781em;",
             "    height: calc(100% + 0.10em);",
             "}",
             S + v + ".enc-S-svg::after {",   // 竖排：下尾同样用 O33A
             "    content: \"\";",
             "    background: var(--enc-tail) 0 0 / 100% 100% no-repeat;",
-            "    width: 0.842em;",
+            "    width: 0.781em;",
             "    height: calc(100% + 0.10em);",
             "}",
             S + "::after {",                // 右尾（横排）：字体字形 U+13282
