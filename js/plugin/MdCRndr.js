@@ -7128,7 +7128,7 @@ function renderVRG(parent, layers, fontSize) {
  */
 function renderLayerUnit(layer, u, glyphSize) {
     if (u.type === "char") {
-        renderGlyph(layer, u.code, glyphSize, encADepth > 0 ? "center" : undefined, u.mirror);
+        renderGlyph(layer, u.code, glyphSize, undefined, u.mirror);   // 层内字形保持基线（居中只作用于框的直接子级）
     } else if (u.type === "vrg") {
         if (u.layers.length === 1) {
             // 单层 VRG 视为一般字符：层内元素直接按序列渲染
