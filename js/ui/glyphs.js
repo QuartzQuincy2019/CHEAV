@@ -685,9 +685,15 @@
         /** 连字区：优先显式数据（Tier 1），否则按墨迹网格推导（Tier 2）。 */
         zoneFor(code) {
             const explicit = (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;
-            if (explicit) return explicit;
             if (!derivedZones.has(code)) derivedZones.set(code, this.deriveZones(code));
-            return derivedZones.get(code);
+            const derived = derivedZones.get(code);
+            // 三槽合并：显式数据（Tier 1）优先，缺失的槽（尤其 zoneB 底部槽）用推导补足
+            if (explicit && derived) return {
+                zone1: explicit.zone1 || derived.zone1 || null,
+                zone2: explicit.zone2 || derived.zone2 || null,
+                zoneB: explicit.zoneB || derived.zoneB || null
+            };
+            return explicit || derived || null;
         },
 
         /** 诊断快照。 */
