@@ -7933,11 +7933,13 @@ function splitLines(tree) {
             S + ".enc-S-svg:not(" + v + ")::after {",   // 横排：伪元素作废（尾部用 .enc-S-tail 元素）
             "    content: none;",
             "}",
-            S + v + ".enc-S-svg::after {",               // 竖排：下尾用同一份矢量背景
+            S + v + ".enc-S-svg::after {",               // 竖排：下尾旋转 90°，与框方向一致
             "    content: \"\";",
             "    background: var(--enc-tail) center center / 100% 100% no-repeat;",
-            "    width: 0.883em;",
-            "    height: 1em;",
+            "    width: 1em;",                          // 旋转后的横向尺寸 = 原高度
+            "    height: 0.883em;",                     // 旋转后的纵向尺寸 = 原宽度
+            "    transform: translate(-50%, 100%) rotate(90deg);",
+            "    transform-origin: center center;",
             "}",
             S + "::after {",                // 右尾（横排）：字体字形 U+13282
             "    content: \"\u{13282}\";",
