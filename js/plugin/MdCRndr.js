@@ -6670,6 +6670,8 @@ defineLigature("G39-N5", [
     { code: "G39", dx: 0.0, dy: 0.0, scale: 1.0 },
     { code: "N5", dx: 0.65, dy: 0.65, scale: 0.8 },
 ], "sA");
+      // 兼容旧写法：{G39-n} 与 {G39-N5} 同一连字（"鸟背太阳 sa-ra"）
+      defineLigature("G39-n", LIGATURES["G39-N5"].parts.slice(), LIGATURES["G39-N5"].pron);
 
 // 上眼镜蛇 下手 Dd
 defineLigature("I10-D46", [
@@ -6975,7 +6977,7 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
  * 连字右侧会留下与后续字形之间的空档。
  */
 function ligatureWidth(name) {
-    const lig = LIGATURES[name];
+    const lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;   // 名字大小写不敏感
     if (!lig) return EM_SQUARE;
     let w = 0;
     for (const p of lig.parts) {
@@ -7472,7 +7474,7 @@ function makeUnsupported(code, size, mirror) {
  * @param {number} fontSize 连字字号（px），连字整体占 1em 方块
  */
 function renderLigature(parent, name, fontSize) {
-    const lig = LIGATURES[name];
+    const lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;   // 名字大小写不敏感
     if (!lig) return null;
 
     const box = document.createElement("span");
