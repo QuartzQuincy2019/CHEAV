@@ -7175,8 +7175,7 @@ function renderVRG(parent, layers, fontSize) {
     }
     if (quadratMode === "jsesh") {
         // 王名圈/包围框内部：用自然高度（不拉伸），由外层 flex 居中；其它场合拉伸到 1em
-        // 框内 fontSize 已是"内框字号"（renderEnclosure 已按 0.7 缩放），此处不再二次缩放
-        parent.appendChild(layoutQuadratAbs(layers, fontSize, fontSize));
+        parent.appendChild(layoutQuadratAbs(layers, fontSize, encADepth > 0 ? 0 : fontSize));
         return;
     }
     const scale = fontSize / EM_SQUARE;
@@ -7364,7 +7363,6 @@ function renderVertical(parent, tree, fontSize) {
  * @returns {HTMLElement}
  */
 let encADepth = 0;          // >0 表示正在渲染王名圈内部（框内单字需上下居中）
-const ENC_BODY_RATIO = 0.7;   // 包围框内内容区高度（与 .enc-body height:0.7em 对应）
 function renderEnclosure(parent, u, fontSize, vertical) {
     const box = document.createElement("span");
     box.className = options.encClass + " " + (options.encKindClass[u.kind] || "")
@@ -8140,7 +8138,6 @@ function splitLines(tree) {
             "    position: relative;",
             "}",
             A + " .enc-body {",              // 王名圈：框内内容整体居中（JSesh 行为）
-            "    height: 0.7em;",   // 内容区满格：给 flex 居中留出可分配空间
             "    display: flex;",
             "    flex-direction: column;",
             "    min-height: 0.68em;",
