@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>CHEAV 回归测试台 — 自由连字 / 王名框</title>
+<style>
+    body { font: 13px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; margin: 16px; color: #222; }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    .hint { color: #666; margin-bottom: 12px; }
+    #summary { padding: 8px 12px; border-radius: 4px; font-weight: 600; margin-bottom: 12px; }
+    .ok { background: #d7f5d7; color: #14561a; }
+    .bad { background: #ffe0e0; color: #8a1c1c; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; vertical-align: middle; }
+    th { background: #f2f2f2; }
+    td.cell { text-align: center; width: 220px; background: #fafafa; }
+    .stage { display: inline-block; font-size: 120px; line-height: 1.25; }
+    .pass { color: #14561a; font-weight: 600; }
+    .fail { color: #a11; font-weight: 600; }
+    .num { font-family: Consolas, monospace; font-size: 12px; color: #444; }
+</style>
+</head>
+<body>
+<h1>CHEAV 回归测试台</h1>
+<div class="hint">
+    固定用例 + 数值判据。每次改动渲染逻辑后打开本页，全部 <span class="pass">PASS</span> 才算没有回归。<br>
+    判据来自与 JSesh 实测的对照（见仓库 <code>img/</code> 下的参考图）。
+</div>
+
+<div id="summary">运行中…</div>
+
+<table id="tbl">
+    <thead>
+        <tr><th style="width:230px">用例</th><th>渲染</th><th>检查项与实测值</th><th style="width:70px">结果</th></tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script src="../js/database/mainSigns.js"></script>
+<script src="../js/database/translit.js"></script>
+<script src="../js/database/glyphZones.js"></script>
+<script src="../js/database/serekhTail.js"></script>
+<script src="../js/plugin/MdCRndr.js"></script>
+<script src="../js/ui/glyphs.js"></script>
+<script>
+(async function () {
+    "use strict";
+
+    const EM = 120;                 // 用例字号（px）
+    const rows = [];
+
+    const T = (code) => Glyphs.metrics(code);
+
+    await Glyphs.useSiteDir();
+    Glyphs.setRenderer(MdCRndr);
+    Glyphs.setEnabled(true);
+    MdCRndr.setGlyphZoneProvider(c => Glyphs.zoneFor(c));
+    MdCRndr.setGlyphMetricsProvider(c => Glyphs.metrics(c));
+    MdCRndr.setGlyphBoxProvider(c => Glyphs.box(c));
+    MdCRndr.setGlyphAspectProvider(c => Glyphs.aspect(c));
+
+    await Glyphs.preload([
+        "I10", "X1", "G43", "G39", "N5", "A17", "D28", "D58", "Z4", "Z1", "A40", "N35", "A1", "B2"
+    ]);
+    await new Promise(r => setTimeout(r, 600));   // 等连字区推导完成
+    MdCRndr.setQuadratMode("flow");
+
+    /** 渲染一个用例到单元格，返回该单元格根元素 */
+    function render(text) {
+        const cell = document.createElement("span");
+        cell.className = "stage";
+        cell.textContent = "";
+        MdCRndr.renderText(cell, text, EM);
+        return cell;
+    }
+
+    const parts = (root) => {
+        // 优先只取连字容器内的部件；再过滤掉零尺寸（未布局完成的）节点
+        let list = Array.from(root.querySelectorAll(".lig > .hie, .lig .hie"));
+        if (!list.length) list = Array.from(root.querySelectorAll(".hie"));
+        return list.map(el => {
+            const r = el.getBoundingClientRect();
+            return {
+                el: el, code: el.title,
+                left: r.left || el.offsetLeft, top: r.top || el.offsetTop,
+                w: r.width || el.offsetWidth, h: r.height || el.offsetHeight,
+                right: r.right || (el.offsetLeft + el.offsetWidth),
+                bottom: r.bottom || (el.offsetTop + el.offsetHeight)
+            };
+        }).filter(x => x.w > 0 || x.h > 0);
+    };
+
+    function add(name, text, checks) {
+        rows.push({ name: name, text: text, checks: checks });
+    }
+
+    // ---------- 判据定义 ----------
+    // 每个 check: { label, test(parts, root) -> {ok, value} }
+
+    add("t&D（面包在左）", "t&D", [
+        { label: "面包宽度 / 宿主宽度 ≈ 0.52（±0.08）", test: p => {
+            const r = p[1].w / p[0].w;
+            return { ok: Math.abs(r - 0.52) <= 0.08, value: r.toFixed(3) };
+        }},
+        { label: "面包整体在宿主左半侧（面包中线 < 宿主中线）", test: p => {
+            const midB = p[1].left + p[1].w / 2, midH = p[0].left + p[0].w / 2;
+            return { ok: midB < midH, value: ((midB - midH) / p[0].w).toFixed(3) };
+        }}
+    ]);
+
+    add("D&t（面包在底部 / 半包围）", "D&t", [
+        { label: "面包底边接近宿主底边（差 ≤ 0.12 em）", test: p => {
+            const d = Math.abs(p[1].bottom - p[0].bottom) / EM;
+            return { ok: d <= 0.12, value: d.toFixed(3) };
+        }},
+        { label: "面包有水平重叠（面包中线落在宿主横向范围内）", test: p => {
+            const midB = p[1].left + p[1].w / 2;
+            return { ok: midB > p[0].left && midB < p[0].right, value: ((midB - p[0].left) / p[0].w).toFixed(3) };
+        }}
+    ]);
+
+    add("zA&ra（太阳右上、贴顶）", "zA&ra", [
+        { label: "太阳顶与宿主顶齐平（差 ≤ 0.04 em）", test: p => {
+            const d = Math.abs(p[1].top - p[0].top) / EM;
+            return { ok: d <= 0.04, value: d.toFixed(3) };
+        }},
+        { label: "太阳左缘 / 宿主宽 ≈ 0.58（±0.06）", test: p => {
+            const r = (p[1].left - p[0].left) / p[0].w;
+            return { ok: Math.abs(r - 0.58) <= 0.06, value: r.toFixed(3) };
+        }}
+    ]);
+
+    add("w&t（面包右上）", "w&t", [
+        { label: "面包顶与宿主顶齐平（差 ≤ 0.10 em）", test: p => {
+            const d = Math.abs(p[1].top - p[0].top) / EM;
+            return { ok: d <= 0.10, value: d.toFixed(3) };
+        }},
+        { label: "面包在宿主右半侧（面包中线 > 宿主中线）", test: p => {
+            const midB = p[1].left + p[1].w / 2, midH = p[0].left + p[0].w / 2;
+            return { ok: midB > midH, value: ((midB - midH) / p[0].w).toFixed(3) };
+        }}
+    ]);
+
+
+
+
+
+    // ---------- 执行 ----------
+    const tbody = document.querySelector("#tbl tbody");
+    let pass = 0, total = 0;
+
+    for (const row of rows) {
+        const tr = document.createElement("tr");
+
+        const tdName = document.createElement("td");
+        tdName.innerHTML = "<b>" + row.name + "</b><br><span class='num'>" +
+            row.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") + "</span>";
+        tr.appendChild(tdName);
+
+        const tdCell = document.createElement("td");
+        tdCell.className = "cell";
+        const root = render(row.text);
+        tdCell.appendChild(root);
+        tr.appendChild(tdCell);
+
+        const tdChk = document.createElement("td");
+        const p = parts(root);
+        const pInfo = document.createElement("div");
+        pInfo.className = "num";
+        pInfo.textContent = "部件数 = " + p.length;
+        tdChk.appendChild(pInfo);
+        let rowOk = true;
+        for (const c of row.checks) {
+            let res;
+            try { res = c.test(p, root); }
+            catch (e) { res = { ok: false, value: "测量异常: " + e.message }; }
+            total++;
+            if (res.ok) pass++; else rowOk = false;
+            const div = document.createElement("div");
+            div.innerHTML = "<span class='" + (res.ok ? "pass" : "fail") + "'>" +
+                (res.ok ? "PASS" : "FAIL") + "</span> " + c.label +
+                " <span class='num'>→ " + res.value + "</span>";
+            tdChk.appendChild(div);
+        }
+        tr.appendChild(tdChk);
+
+        const tdRes = document.createElement("td");
+        tdRes.innerHTML = "<span class='" + (rowOk ? "pass" : "fail") + "'>" + (rowOk ? "PASS" : "FAIL") + "</span>";
+        tr.appendChild(tdRes);
+
+        tbody.appendChild(tr);
+    }
+
+    const sum = document.getElementById("summary");
+    sum.className = (pass === total) ? "ok" : "bad";
+    sum.textContent = "判据通过 " + pass + " / " + total + (pass === total ? "　全部通过 ✅" : "　存在失败项 ❌");
+})().catch(err => {
+    const sum = document.getElementById("summary");
+    sum.className = "bad";
+    sum.textContent = "运行出错：" + err.message + "\n" + (err.stack || "");
+});
+</script>
+</body>
+</html>
