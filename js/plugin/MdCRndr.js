@@ -6927,9 +6927,9 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
     el.style.fontSize = fontSize + "px";
     const tf = [];
     if (align === "center") {
-        // 上下居中：把墨迹整体上移 (1em - 墨迹高)/2
-        const inkH = getMetrics(code).height * fontSize / EM_SQUARE;
-        tf.push(`translateY(-${px((fontSize - inkH) / 2)}px)`);
+        // 上下居中：盒已是墨迹盒，靠外层（.enc-body 的 flex 居中）完成，这里不再平移
+        // （原 translateY 会与 flex 居中叠加，导致字形被顶出框外）
+        void 0;
     }
     if (mirror) {
         tf.push("scaleX(-1)");       // 水平镜像：宽度不变，故不影响排版
@@ -8135,6 +8135,8 @@ function splitLines(tree) {
             "    position: relative;",
             "}",
             A + " .enc-body {",              // 王名圈：框内内容整体居中（JSesh 行为）
+            "    display: flex;",
+            "    min-height: 1em;",
             "    align-items: center;",
             "    justify-content: center;",
             "}",
