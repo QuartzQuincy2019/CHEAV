@@ -7610,7 +7610,23 @@ function render(parent, tree, fontSize) {
             renderVRG(parent, tree.layers, fontSize);
         }
     } else if (tree.type === "lig") {
-        renderLigature(parent, tree.name, fontSize);
+        // 未知连字名：不静默丢弃 —— 把名字按 "-" 拆成字符顺序渲染，并在控制台告警
+        if (!LIGATURES[tree.name] && !LIGATURES[String(tree.name).toLowerCase()]) {
+            if (typeof console !== "undefined") {
+                console.warn("[MdCRndr] 未定义的连字名 {" + tree.name + "}，已按顺序拆开渲染");
+            }
+            const fallback = document.createElement("span");
+            fallback.className = "lig-fallback";
+            String(tree.name).split("-").forEach(function (tok) {
+                if (!tok) return;
+                if (!renderGlyph(fallback, tok, fontSize, "center")) {
+                    fallback.appendChild(document.createTextNode(tok));
+                }
+            });
+            parent.appendChild(fallback);
+        } else {
+            renderLigature(parent, tree.name, fontSize);
+        }
     } else if (tree.type === "newline") {
         // 手动换行：插入占满整行的空 flex item，强制后续单位换行
         const br = document.createElement("span");
