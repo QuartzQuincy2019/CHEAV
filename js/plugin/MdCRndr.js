@@ -6644,7 +6644,9 @@ function defineLigature(name, parts, pron) {
     // 连字内 ":" 与 "*" 视为 "-"；各段别名码规范化为正式名
     const key = name.replace(/[:*]/g, "-").split("-").map(canonicalCode).join("-");
     LIGATURES[key] = { name: key, parts: parts, pron: pron };
+        if (typeof LIGATURE_DEBUG !== "undefined" && LIGATURE_DEBUG) {
     console.log("[ligature] " + key + " =", JSON.stringify(parts), pron ? "(发音 " + pron + ")" : "");
+        }
     return LIGATURES[key];
 }
 
