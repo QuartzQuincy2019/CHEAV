@@ -797,26 +797,33 @@ function setViewBox(svgText, vb) {
                 return outerT;
             };
             const out = {};
-            // ---- 槽 0：前置（左），失败则矩形减半 ----
+            // ---- 槽 0：前置（左）----
+            // 源码 computeFirstArea：w = W/2, h = H/3, y = H/2（y 向下 = 中间）
+            //   outer = (-w, y) → inner = (0, y)；t < 0.2 时把矩形减半 (W/4 × H/4) 重试，t < 0.1 则放弃
+            //   存盘：LigatureZone(p.x, p.y, w, h) —— 不含 MARGIN；重力 END + 默认 CENTER
             {
                 const h0 = 1 / 3, w0 = 1 / 2, y0 = 0.5;
                 let t = bestT(-w0, y0, 0, y0, w0, -h0); dbg.t1 = t;
                 let w = w0, h = h0;
                 if (t < 0.2) { w = 1 / 4; h = 1 / 4; t = bestT(-w, y0, 0, y0, w, -h); } dbg.t1b = t;
                 if (t >= 0.1) {
-                    const px = -w + t * w;
-                    out.zone1 = { x: px - MARGIN, y: 1 - (y0 + MARGIN), w: w + 2 * MARGIN, h: h + 2 * MARGIN, gh: "e", gv: "c" };
+                    const px = -w + t * w;                       // -w → 0
+                    out.zone1 = { x: px, y: 0.5, w: w, h: h, gh: "e", gv: "c" };
                 }
             }
-            // ---- 槽 1：后接（右），失败则高度改 h/3 ----
+            // ---- 槽 1：后接（右）----
+            // 源码 computeSecondArea：w = W/2, h = H/2.5, y = 0（y 向下 = 顶边）
+            //   outer = (W, 0) → inner = (W/2, 0)；t < 0.2 时 h 改 H/3 重试，t < 0.1 则放弃
+            //   存盘：LigatureZone(p.x, p.y, w, h) —— 不含 MARGIN；重力 START + TOP
             {
                 const w1 = 1 / 2;
                 let h = 1 / 2.5;
-                let t = bestT(1, 0, 0.5, 0, w1, -h); dbg.t2 = t; dbg.t2b = t;
-                if (t < 0.2) { h = 1 / 3; t = bestT(1, 0, 0.5, 0, w1, -h); } dbg.t2b = t;
+                let t = bestT(1, 1, 0.5, 1, w1, -h); dbg.t2 = t;      // y 向上：顶边 = 1
+                if (t < 0.2) { h = 1 / 3; t = bestT(1, 1, 0.5, 1, w1, -h); }
+                dbg.t2b = t;
                 if (t >= 0.1) {
-                    const px = 1 + t * (0.5 - 1);
-                    out.zone2 = { x: px - MARGIN, y: 1 - (MARGIN + h), w: w1 + 2 * MARGIN, h: h + 2 * MARGIN, gh: "s", gv: "t" };
+                    const px = 1 + t * (0.5 - 1);                 // W → W/2
+                    out.zone2 = { x: px, y: 0, w: w1, h: h, gh: "s", gv: "t" };
                 }
             }
             // ---- 槽 2：底部（computeThirdArea，y 向下）----
@@ -827,11 +834,15 @@ function setViewBox(svgText, vb) {
             {
                 let t = bestT(0.5, 0, 1, 1, -1, -1);
                 dbg.tB1 = t;
-                if (t <= 0.2) { t = bestT(0, 0, 1, 1, -1, -1); dbg.tB2 = t; }
+                // ⚠ 严格照抄源码（LigatureZoneBuilder.computeThirdArea）：
+                //   第一条对角线 t <= 0.2 时，即使 outer.x=0 重试成功，
+                //   源码最后仍无条件执行 zones[2] = null —— 重试结果被丢弃。
+                dbg.tB2 = (t <= 0.2) ? bestT(0, 0, 1, 1, -1, -1) : t;
+                if (t <= 0.2) t = 0;                    // 丢弃重试结果（源码行为）
                 if (t > 0.2) {
-                    const pX = 0.5 + t * 0.5;                 // 0.5 → 1
-                    const pYdown = 1 - t;                     // 顶边起算（y 向下）
-                    const hUnits = 18 - pYdown * 18 + 1;      // 源码：MAXHEIGHT - p.y + 1
+                    const pX = 0.5 + t * 0.5;           // 0.5 → 1
+                    const pYdown = 1 - t;               // 顶边起算（y 向下）
+                    const hUnits = 18 - pYdown * 18 + 1;   // 源码：MAXHEIGHT - p.y + 1
                     out.zoneB = { x: 0, y: pYdown, w: pX,
                                   h: hUnits / 18, gh: "c", gv: "b" };
                 }
