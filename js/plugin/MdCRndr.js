@@ -7197,10 +7197,8 @@ function renderVRG(parent, layers, fontSize) {
     // 组宽 = 最大层宽 × 统一缩放
     const boxW = maxW * s * scale;
     box.style.width = px(boxW) + "px";
-    // 垂直：整个 VRG 占满 1em 方块，各层上下两端对齐（首层贴顶、末层贴底）
     box.style.height = fontSize + "px";
-    box.style.justifyContent = "space-between";
-    if (options.inlineBaseline) {
+    {
         // 行内嵌排：inline-flex 的基线取**首层**基线，若直接对齐正文基线，
         // 整盒会有 (盒高 − 首层高) 沉到基线以下。此处按该差值上移，
         // 使盒底（= 末层基线）正好落在正文基线上——与普通字符一致。
@@ -7482,7 +7480,10 @@ function renderLigature(parent, name, fontSize) {
     box.className = "lig";
     // 宽取连字墨迹宽（而非固定 1em）：使连字与前后字形紧贴，不留空档
     box.style.width = px(ligatureWidth(name) * fontSize / EM_SQUARE) + "px";
-    box.style.height = fontSize + "px";
+    // 容器高 = 宿主墨迹高：连字区坐标相对宿主墨迹 bbox 归一化
+    { const hc = (lig.parts[0] || {}).code || "";
+      const hb = glyphBoxProvider ? glyphBoxProvider(hc) : null;
+      box.style.height = px((hb ? hb.h : 1) * fontSize) + "px"; }
 
     const placed = [];                     // placed[i] = 该部件最终位置（em），供链式定位
     lig.parts.forEach((part, i) => {
@@ -7522,7 +7523,9 @@ function renderLigature(parent, name, fontSize) {
                 zps = fontSize * k;
                 const w = inkW * k, h = inkH * k;
                 const zLeft = (anchor0.dx || 0) + z.x;
-                const zBottom = (anchor0.dy || 0) + (1 - (z.y + z.h));
+                // 宿主墨迹盒高（em）：z.y/z.h 是 em 值，不能用 1em 作分母
+                const hostHm = (function (c) { const b = glyphBoxProvider ? glyphBoxProvider(c) : null; return b ? b.h : 1; })(anchor0.code);
+                const zBottom = (anchor0.dy || 0) + (hostHm - (z.y + z.h));
                 zdx = (z.gh === "s") ? zLeft : (z.gh === "e") ? (zLeft + z.w - w) : (zLeft + (z.w - w) / 2);
                 zdy = (z.gv === "b") ? zBottom : (z.gv === "t") ? (zBottom + z.h - h) : (zBottom + (z.h - h) / 2);
             }
@@ -7544,6 +7547,7 @@ function renderLigature(parent, name, fontSize) {
         el.style.position = "absolute";
         el.style.left = px(zdx * fontSize) + "px";
         el.style.bottom = px(zdy * fontSize) + "px";
+        el.style.marginBottom = "0px";   // 连字区定位已含墨迹底边，避免 dy 二次叠加
         const __m = getMetrics(part.code);
         placed[i] = { code: part.code, dx: zdx, dy: zdy, w: (__m.width / EM_SQUARE) * (zps / fontSize) };
         if (ligatureDebug()) el.classList.add("lig-debug");
