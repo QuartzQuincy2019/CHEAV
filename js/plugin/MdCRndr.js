@@ -7118,7 +7118,9 @@ function layoutQuadratAbs(layers, fontSize, targetHpx) {
     const hNat = rows.map((r) => Math.max(0.15, ...r.map((x) => x.m.h)));
     const wNat = rows.map((r) => r.reduce((a, x) => a + x.m.w, 0));
     const totalNatEm = hNat.reduce((a, b) => a + b, 0) + gapEm * (n - 1);
-    const targetEm = ((typeof targetHpx === "number" && targetHpx > 0) ? targetHpx : fontSize) / fontSize;
+    // targetHpx > 0 → 拉伸到该高度；为 0/null → 用自然高度（s = 1，框内居中由外层 flex 负责）
+    const hasTarget = (typeof targetHpx === "number" && targetHpx > 0);
+    const targetEm = hasTarget ? (targetHpx / fontSize) : totalNatEm;
     const s = Math.min(1, targetEm / totalNatEm);          // 只缩不放
     const Hpx = Math.max(targetEm * fontSize, totalNatEm * s * fontSize);
     const sumRowsPx = hNat.reduce((a, b) => a + b, 0) * s * fontSize;
@@ -7172,7 +7174,8 @@ function renderVRG(parent, layers, fontSize) {
         qc[quadratMode] = (qc[quadratMode] || 0) + 1;
     }
     if (quadratMode === "jsesh") {
-        parent.appendChild(layoutQuadratAbs(layers, fontSize, fontSize));
+        // 王名圈/包围框内部：用自然高度（不拉伸），由外层 flex 居中；其它场合拉伸到 1em
+        parent.appendChild(layoutQuadratAbs(layers, fontSize, encADepth > 0 ? 0 : fontSize));
         return;
     }
     const scale = fontSize / EM_SQUARE;
@@ -8135,6 +8138,9 @@ function splitLines(tree) {
             "    position: relative;",
             "}",
             A + " .enc-body {",              // 王名圈：框内内容整体居中（JSesh 行为）
+            "    display: flex;",
+            "    flex-direction: column;",
+            "    min-height: 0.68em;",
             "    align-items: center;",
             "    justify-content: center;",
             "}",
