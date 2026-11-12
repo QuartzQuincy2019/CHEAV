@@ -30,6 +30,7 @@
     const rawSvg = new Map();      // 原始 SVG 文本（Tier 2 推导用）
     const derivedZones = new Map(); // 推导得到的连字区缓存
     const fillCache = new Map();   // code → {svg, vb, paths}（矢量命中测试用）
+    const fontGrids = new Map();   // code → { N, bits, w, h }（字体墨迹栅格，em/单位口径与 inkGrid 一致）
     const inkGrids = new Map();     // code → { N, bits: Uint32Array, w, h }
     const gridPending = new Set();  // 正在栅格化的码
     let gridLastMs = 0;             // 最近一次栅格化耗时（诊断用）
@@ -684,6 +685,51 @@ function setViewBox(svgText, vb) {
             this.requestGrid(code);
             return null;
         },
+        /** 字体墨迹栅格（New Gardiner）：仅首次计算并缓存；N 越大越准、越慢。 */
+        fontGrid(code) {
+            if (fontGrids.has(code)) return fontGrids.get(code);
+            fontGrids.set(code, null);                        // 占位，避免重入
+            const ch = (typeof decodeCode === "function") ? decodeCode(code) : code;
+            if (!ch) return null;
+            const N = 96;
+            const cv = document.createElement("canvas");
+            cv.width = N; cv.height = N;
+            const ctx = cv.getContext("2d");
+            if (!ctx) return null;
+            // 与页面 .hie 的 font-family 一致：先 MdCRndr（@font-face 家族名），再 NewGardiner
+            const fam = "MdCRndr", alt = "NewGardiner";
+            ctx.textBaseline = "alphabetic";
+            const m = ctx.measureText(ch);
+            const asc = m.actualBoundingBoxAscent || N * 0.8;
+            const desc = m.actualBoundingBoxDescent || 0;
+            const baseY = Math.min(N - 1, Math.max(asc, 1));
+            ctx.fillStyle = "#000";
+            ctx.fillText(ch, 0, baseY);
+            const img = ctx.getImageData(0, 0, N, N).data;
+            const bits = new Uint32Array(N * N);
+            let minx = N, miny = N, maxx = -1, maxy = -1;
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    const a = img[(r * N + c) * 4 + 3];
+                    if (a > 128) {
+                        bits[r * N + c] = 1;
+                        if (c < minx) minx = c; if (c > maxx) maxx = c;
+                        if (r < miny) miny = r; if (r > maxy) maxy = r;
+                    }
+                }
+            }
+            if (maxx < 0) return null;                         // 字体里没有该字形 → 视为不可用
+            const g = {
+                N: N, bits: bits,
+                w: ((maxx - minx + 1) / N),                        // 墨迹宽（em）
+                h: ((maxy - miny + 1) / N)                         // 墨迹高（em）
+            };
+            // 与 inkGrid 同口径：内部存的 w/h 乘 18（单位），deriveZones 里 sx=g.w/18 还原为 em
+            g.w *= 18; g.h *= 18;
+            fontGrids.set(code, g);
+            return g;
+        },
+
         /** 矢量命中测试的 DOM 缓存（等价 JSesh 的 Area 语义，不看描边）。 */
         fillProbe(code) {
             code = this.canon(code);
@@ -760,9 +806,9 @@ function setViewBox(svgText, vb) {
                           vb: (function (p) { return p && p.vb ? [p.vb.x, p.vb.y, p.vb.w, p.vb.h] : null; })(this.fillProbe(code)),
                           shapes: (function (p) { return p ? p.shapes.length : 0; })(this.fillProbe(code)) });
             }
-            const g = this.inkGrid(code);
-            if (!g) return null;
-            // 归一化坐标：x∈[0,1] 相对字形左缘，y∈[0,1] 自底向上（与字形 bbox 一致）
+            // SVG 模式只用 SVG 栅格（避免与字体栅格混用导致数值不一致）；
+            // 纯字体模式（enabled=false，无 SVG 来源）才退回字体栅格。
+            const g = this.inkGrid(code) || (enabled ? null : this.fontGrid(code));
             const MARGIN = 1 / 18;
             // 判定"矩形是否压到字形"：位图粗筛（快） + 矢量复核（准，等价 Area.intersect）
             const busy = (x, y, w, h) => {

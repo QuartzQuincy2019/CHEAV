@@ -1243,10 +1243,12 @@
     // 连字区（Tier 1）：启动即挂上，与字形来源无关（font 模式也要能按 zone 排版）
 if (typeof MdCRndr !== "undefined" && typeof MdCRndr.setGlyphZoneProvider === "function") {
     MdCRndr.setGlyphZoneProvider(function (code) {
-        return (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;
+        // 显式数据优先；没有则用 Glyphs.zoneFor（SVG 墨迹 / 字体墨迹均可推导）
+        if (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) return GLYPH_ZONES[code];
+        if (typeof Glyphs !== "undefined" && Glyphs.zoneFor) return Glyphs.zoneFor(code);
+        return null;
     });
 }
-
 globalThis.CHEAV = {
         refresh,
         // 调试/便捷入口：直接传一个 jar File（等价于在设置里选择）
