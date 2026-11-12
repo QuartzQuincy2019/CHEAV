@@ -6952,7 +6952,8 @@ function renderGlyph(parent, code, fontSize, align, mirror) {
             const bx = glyphBoxProvider ? glyphBoxProvider(code) : null;   // 墨迹（em）+ dy 偏移
             const wEm = bx ? bx.w : gm.width / EM_SQUARE;
             const hEm = bx ? bx.h : gm.height / EM_SQUARE;
-            const fit = Math.min(1, 1 / Math.max(wEm, 1e-6), 1 / Math.max(hEm, 1e-6));
+            // JSesh 不做"塞进 1em"的缩放：字形按墨迹原尺寸绘制（宽符号可达 22/18 em）
+            const fit = 1;
             const w = wEm * fit * fontSize;
             const h = hEm * fit * fontSize;
             const dy = ((bx && bx.dy) ? bx.dy : 0) * fit * fontSize;       // 墨迹底边距基线
