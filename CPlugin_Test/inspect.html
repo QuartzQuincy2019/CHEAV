@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>CHEAV 连字结构检查台（红框 / 槽框）</title>
+<style>
+    body { font: 13px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; margin: 14px; color: #222; }
+    h1 { font-size: 17px; margin: 0 0 6px; }
+    .hint { color: #666; margin-bottom: 10px; font-size: 12px; }
+    #log { font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap;
+           background: #ffef9f; padding: 8px; margin-bottom: 10px; }
+    #stage { font-size: 220px; line-height: 1.3; }
+    /* 调试框：字形墨迹盒（红实线）、连字容器（蓝虚线）、槽矩形（绿/橙/紫） */
+    #stage .hie { outline: 1.5px solid #e33; outline-offset: 0; }
+    #stage .lig { outline: 1.5px dashed #08a; }
+    #stage .zonebox { position: absolute; border: 1.5px solid #0a0; pointer-events: none; }
+    #stage .zonebox.z2 { border-color: #e90; }
+    #stage .zonebox.zB { border-color: #90c; }
+</style>
+</head>
+<body>
+<h1>CHEAV 连字结构检查台</h1>
+<div class="hint">
+    输入任意 MdC 串（如 <code>b&amp;D28</code>、<code>zA&amp;ra</code>、<code>t&amp;w&amp;t</code>），会显示：<br>
+    红实线 = 每个字形的墨迹盒；蓝虚线 = 连字容器；绿/橙/紫框 = 宿主的三槽（zone1/zone2/zoneB）。
+</div>
+<input id="in" value="b&amp;D28" style="font-size:16px;padding:4px 8px;width:420px">
+<button id="go" style="font-size:16px;padding:4px 12px">渲染</button>
+<div id="log">加载中…</div>
+<div id="stage"></div>
+
+<script src="../js/database/mainSigns.js"></script>
+<script src="../js/database/translit.js"></script>
+<script src="../js/database/glyphZones.js"></script>
+<script src="../js/database/serekhTail.js"></script>
+<script src="../js/plugin/MdCRndr.js"></script>
+<script src="../js/ui/glyphs.js"></script>
+<script>
+(async function () {
+    "use strict";
+    const stage = document.getElementById("stage");
+    const log = document.getElementById("log");
+    const input = document.getElementById("in");
+
+    await Glyphs.useSiteDir();
+    Glyphs.setRenderer(MdCRndr);
+    Glyphs.setEnabled(true);
+    MdCRndr.setGlyphZoneProvider(c => Glyphs.zoneFor(c));
+    MdCRndr.setGlyphMetricsProvider(c => Glyphs.metrics(c));
+    MdCRndr.setGlyphBoxProvider(c => Glyphs.box(c));
+    MdCRndr.setGlyphAspectProvider(c => Glyphs.aspect(c));
+    MdCRndr.setQuadratMode("flow");
+
+    /** 渲染并叠加调试框 */
+    async function draw() {
+        const text = input.value || "b&D28";
+        stage.textContent = "";
+        const r = MdCRndr.parseInput ? MdCRndr.parseInput(text) : null;
+        MdCRndr.renderText(stage, text, 220);
+
+        const codes = [];
+        (function collect(node) {
+            if (!node) return;
+            if (node.type === "char" && node.code) codes.push(node.code);
+            else if (node.type === "lig" && node.name) String(node.name).split("-").forEach(c => c && codes.push(c));
+            (node.layers || []).forEach(layer => layer.forEach(collect));
+            (node.units || []).forEach(collect);
+            if (node.inner) collect(node.inner);
+        })(r && r.tree);
+
+        await Glyphs.preload(codes);
+        await new Promise(res => setTimeout(res, 300));
+        stage.textContent = "";
+        MdCRndr.renderText(stage, text, 220);
+
+        const lines = [];
+        const lig = stage.querySelector(".lig");
+        if (lig) {
+            const rb = lig.getBoundingClientRect();
+            lines.push("连字容器 " + Math.round(rb.width) + " × " + Math.round(rb.height) + " px");
+        }
+        Array.from(stage.querySelectorAll(".hie")).forEach((el, i) => {
+            const b = el.getBoundingClientRect();
+            lines.push("字形 " + (el.title || "?") + "  " +
+                Math.round(b.width) + " × " + Math.round(b.height) + "px" +
+                "  左=" + Math.round(b.left) + " 底=" + Math.round(b.bottom));
+        });
+        // 宿主槽：以第一个字形为宿主画三槽
+        const host = stage.querySelector(".hie");
+        if (host && codes.length) {
+            const z = Glyphs.zoneFor(codes[0]);
+            const hb = host.getBoundingClientRect();
+            if (z) {
+                [["zone1", "z1"], ["zone2", "z2"], ["zoneB", "zB"]].forEach(([k, cls]) => {
+                    const zz = z[k];
+                    if (!zz) { lines.push("槽 " + k + " = 无"); return; }
+                    const box = document.createElement("div");
+                    box.className = "zonebox " + cls;
+                    box.style.left = (hb.left - stage.getBoundingClientRect().left + zz.x * hb.width) + "px";
+                    box.style.top = (hb.top - stage.getBoundingClientRect().top + zz.y * hb.height) + "px";
+                    box.style.width = (zz.w * hb.width) + "px";
+                    box.style.height = (zz.h * hb.height) + "px";
+                    stage.appendChild(box);
+                    lines.push("槽 " + k + " x=" + zz.x.toFixed(3) + " y=" + zz.y.toFixed(3) +
+                        " w=" + zz.w.toFixed(3) + " h=" + zz.h.toFixed(3) + "  " + (zz.gh || "") + (zz.gv || ""));
+                });
+            } else {
+                lines.push("宿主 " + codes[0] + " 无连字区");
+            }
+        }
+        log.textContent = lines.join("\n") || "（无数据）";
+    }
+
+    document.getElementById("go").addEventListener("click", draw);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") draw(); });
+    await draw();
+})().catch(e => {
+    document.getElementById("log").textContent = "出错：" + e.message + "\n" + (e.stack || "");
+});
+</script>
+</body>
+</html>
