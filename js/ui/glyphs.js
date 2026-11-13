@@ -699,7 +699,7 @@ function setViewBox(svgText, vb) {
             const N = 96;
             const cv = document.createElement("canvas");
             cv.width = N; cv.height = N;
-            const ctx = cv.getContext("2d");
+            const ctx = cv.getContext("2d", { willReadFrequently: true });   // 多次 getImageData：按提示优化
             if (!ctx) return null;
             ctx.font = N + "px \"MdCRndr\", \"NewGardiner\", sans-serif";
             ctx.textBaseline = "alphabetic";
