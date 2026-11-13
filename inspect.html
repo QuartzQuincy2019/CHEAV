@@ -35,6 +35,9 @@
 // 与我的探针页完全同构：await 目录 → 设 provider → preload → 渲染 → 量框
 (async function () {
     "use strict";
+    var IS_FILE = (location.protocol === "file:");
+    function timeout(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    function race(p, ms) { return Promise.race([p, timeout(ms)]); }
     var stage = document.getElementById("stage");
     var log = document.getElementById("log");
     var input = document.getElementById("in");
@@ -43,8 +46,10 @@
     function say(s) { Lines.push(s); log.textContent = Lines.join("\n"); }
 
     try {
+        if (IS_FILE) { say("⚠ 当前是 file:// 打开的：浏览器禁止读取本地 SVG 字形，" +
+        "连字区无法推导。请改用 http://127.0.0.1:8000/inspect.html 打开（或在仓库目录跑 python -m http.server）。"); }
         say("开始加载字形目录…");
-        await Glyphs.useSiteDir();
+        await race(Glyphs.useSiteDir(), 2500);
         Glyphs.setRenderer(MdCRndr);
         Glyphs.setEnabled(true);
         MdCRndr.setGlyphZoneProvider(function (c) { return Glyphs.zoneFor(c); });
@@ -59,7 +64,7 @@
             var text = input.value || "b&D28";
             var codes = String(text).match(/[A-Za-z][A-Za-z0-9]*/g) || [];
             say("用例：" + text + "   预载：" + codes.join(", "));
-            await Glyphs.preload(codes);
+            await race(Glyphs.preload(codes), 2000);
             await new Promise(function (r) { setTimeout(r, 300); });
 
             stage.textContent = "";
