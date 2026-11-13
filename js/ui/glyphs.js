@@ -870,14 +870,17 @@ function setViewBox(svgText, vb) {
             };
             // 沿 outer→inner 二分，返回"仍不重叠"的最大 t（照 findBestZonePosition）
             const bestT = (ox, oy, ix, iy, w, h) => {
+                if (!dbg.calls) dbg.calls = [];
+                const __rec = (t, px, py, hit) => { if (dbg.calls.length < 60) dbg.calls.push({ t: +t.toFixed(4), px: +px.toFixed(3), py: +py.toFixed(3), hit: hit }); };
                 let innerT = 1, outerT = 0;
                 while (Math.abs(innerT - outerT) > 0.01) {
                     const t = (innerT + outerT) / 2;
                     const px = ox + t * (ix - ox), py = oy + t * (iy - oy);
                     const x0 = (w < 0) ? px + w - MARGIN : px - MARGIN;
                     const y0 = (h < 0) ? py + h - MARGIN : py - MARGIN;
-                    if (busyRec(x0, y0, Math.abs(w) + 2 * MARGIN, Math.abs(h) + 2 * MARGIN)) innerT = t;
-                    else outerT = t;
+                    const hit = busyRec(x0, y0, Math.abs(w) + 2 * MARGIN, Math.abs(h) + 2 * MARGIN);
+                    __rec(t, px, py, hit);
+                    if (hit) innerT = t; else outerT = t;
                 }
                 return outerT;
             };
