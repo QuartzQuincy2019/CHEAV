@@ -7560,7 +7560,8 @@ function renderLigature(parent, name, fontSize) {
         }
         // 兜底并排仅适用于"按连字区摆放"的部件；预定义连字（无 zone 字段）沿用自己的 dx/dy
         // 与源码一致：没有可用槽时"不放置"——各部件留在原位（视觉上重叠），不并排
-        if (i > 0 && part.zone && !zUsed) { zdx = (part.dx || 0); zdy = (part.dy || 0); }
+        // 与源码一致：无槽时"不放置" —— 部件停在组的**左上角原点**（JSesh 的 y 向下原点）
+        const noZoneOrigin = (i > 0 && part.zone && !zUsed);
         // 说明：JSesh 的 placeView 直接按连字区定位，不做"防重叠外推"。
         // 连字区本身就保证不与字形相交（二分搜索的判定），故此处保持与源码一致，不加额外位移。
         if (typeof globalThis !== "undefined") {
@@ -7576,6 +7577,7 @@ function renderLigature(parent, name, fontSize) {
         el.style.position = "absolute";
         el.style.left = px(zdx * fontSize) + "px";
         el.style.bottom = px(zdy * fontSize) + "px";
+        if (noZoneOrigin) { el.style.top = "0px"; el.style.bottom = "auto"; }   // 原点 = 左上
         el.style.marginBottom = "0px";   // 连字区定位已含墨迹底边，避免 dy 二次叠加
         const __m = getMetrics(part.code);
         placed[i] = { code: part.code, dx: zdx, dy: zdy, w: (__m.width / EM_SQUARE) * (zps / fontSize) };
