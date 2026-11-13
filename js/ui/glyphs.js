@@ -694,43 +694,49 @@ function setViewBox(svgText, vb) {
         fontGrid(code) {
             if (fontGrids.has(code)) return fontGrids.get(code);
             fontGrids.set(code, null);                        // 占位，避免重入
-            const ch = charDecoder ? charDecoder(code) : code;   // 必须映射成字体字符，不能直接用码字面量
+            const ch = charDecoder ? charDecoder(code) : code;  // 必须映射成字体字符，不能直接用码字面量
             if (!ch) return null;
             const N = 96;
             const cv = document.createElement("canvas");
             cv.width = N; cv.height = N;
             const ctx = cv.getContext("2d");
             if (!ctx) return null;
-            // 与页面 .hie 的 font-family 一致：先 MdCRndr（@font-face 家族名），再 NewGardiner
-            const fam = "MdCRndr", alt = "NewGardiner";
+            ctx.font = N + "px \"MdCRndr\", \"NewGardiner\", sans-serif";
             ctx.textBaseline = "alphabetic";
-            const m = ctx.measureText(ch);
-            const asc = m.actualBoundingBoxAscent || N * 0.8;
-            const desc = m.actualBoundingBoxDescent || 0;
+            // ① 先量墨迹 bbox（画一次，读像素，取边界）
+            const asc = (ctx.measureText(ch).actualBoundingBoxAscent) || N * 0.8;
             const baseY = Math.min(N - 1, Math.max(asc, 1));
             ctx.fillStyle = "#000";
             ctx.fillText(ch, 0, baseY);
-            const img = ctx.getImageData(0, 0, N, N).data;
-            const bits = new Uint32Array(N * N);
+            let img = ctx.getImageData(0, 0, N, N).data;
             let minx = N, miny = N, maxx = -1, maxy = -1;
             for (let r = 0; r < N; r++) {
                 for (let c = 0; c < N; c++) {
-                    const a = img[(r * N + c) * 4 + 3];
-                    if (a > 128) {
-                        bits[r * N + c] = 1;
+                    if (img[(r * N + c) * 4 + 3] > 128) {
                         if (c < minx) minx = c; if (c > maxx) maxx = c;
                         if (r < miny) miny = r; if (r > maxy) maxy = r;
                     }
                 }
             }
-            if (maxx < 0) return null;                         // 字体里没有该字形 → 视为不可用
-            const g = {
-                N: N, bits: bits,
-                w: ((maxx - minx + 1) / N),                        // 墨迹宽（em）
-                h: ((maxy - miny + 1) / N)                         // 墨迹高（em）
-            };
-            // 与 inkGrid 同口径：内部存的 w/h 乘 18（单位），deriveZones 里 sx=g.w/18 还原为 em
-            g.w *= 18; g.h *= 18;
+            if (maxx < 0) return null;                        // 字体里没有该字形
+            // ② 把墨迹 bbox 精确铺满画布（与 SVG 栅格"归一化到墨迹盒"同一口径），再取位图
+            const bw = maxx - minx + 1, bh = maxy - miny + 1;
+            ctx.save();
+            ctx.clearRect(0, 0, N, N);
+            ctx.setTransform(N / bw, 0, 0, N / bh, -minx * (N / bw), -miny * (N / bh));
+            ctx.font = N + "px \"MdCRndr\", \"NewGardiner\", sans-serif";
+            ctx.textBaseline = "alphabetic";
+            ctx.fillText(ch, 0, baseY);
+            ctx.restore();
+            img = ctx.getImageData(0, 0, N, N).data;
+            const bits = new Uint32Array(N * N);
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    if (img[(r * N + c) * 4 + 3] > 128) bits[r * N + c] = 1;
+                }
+            }
+            // 与 inkGrid 同口径：内部存"单位"（em × 18），deriveZones 用 sx=g.w/18 还原 em
+            const g = { N: N, bits: bits, w: (bw / N) * 18, h: (bh / N) * 18 };
             fontGrids.set(code, g);
             return g;
         },
