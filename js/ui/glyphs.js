@@ -819,6 +819,7 @@ function setViewBox(svgText, vb) {
 
         /** 网格区域是否被占据（坐标 0..1，y 自下而上）。 */
         _busy(g, x0, y0, x1, y1) {
+            if (!g || !g.bits) return false;   // 栅格尚未就绪：视为空
             // 与 JSesh 的 Area.intersect 等价：完全落在字形包围盒之外 → 必然为空
             if (x1 <= 0 || x0 >= 1 || y1 <= 0 || y0 >= 1) return false;
             const N = g.N;
@@ -964,7 +965,11 @@ out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
             const svgZ = svgZones.get(code);
             if (svgZ) return { zone1: svgZ[0] || null, zone2: svgZ[1] || null, zoneB: null };
             // ② 没有声明才按墨迹推导（三槽）
-            if (!derivedZones.has(code)) derivedZones.set(code, this.deriveZones(code));
+            if (!derivedZones.has(code)) {
+                let zc = null;
+                try { zc = this.deriveZones(code); } catch (e) { zc = null; }   // 推导失败绝不打断渲染
+                derivedZones.set(code, zc);
+            }
             const d = derivedZones.get(code);
             if (!d) return null;
             return { zone1: d.zone1 || null, zone2: d.zone2 || null, zoneB: d.zoneB || null };
