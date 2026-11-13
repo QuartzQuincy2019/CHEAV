@@ -1239,8 +1239,15 @@
     refresh();
     updateKeyCast();   // 按键展示（设置开启且为电脑端时显示）
 
+    // 字体模式连字区（实验开关，默认关闭；开启后需观察是否卡顿）
+    let fontLigatureZones = false;
     // 调试接口
     // 连字区（Tier 1）：启动即挂上，与字形来源无关（font 模式也要能按 zone 排版）
+    // 字体栅格需要把 Gardiner 码映射成字体字符（否则画出来是码字面量）
+    if (typeof Glyphs !== "undefined" && Glyphs.setCharDecoder && typeof MdCRndr !== "undefined" && MdCRndr.decodeCode) {
+        Glyphs.setCharDecoder(function (code) { return MdCRndr.decodeCode(code); });
+    }
+
 if (typeof MdCRndr !== "undefined" && typeof MdCRndr.setGlyphZoneProvider === "function") {
     MdCRndr.setGlyphZoneProvider(function (code) {
         // 显式数据优先；没有则用 Glyphs.zoneFor（SVG 墨迹 / 字体墨迹均可推导）
@@ -1249,12 +1256,14 @@ if (typeof MdCRndr !== "undefined" && typeof MdCRndr.setGlyphZoneProvider === "f
         // 疑似引发输入时的界面卡死，先回退；待定位后再启用）
         if (typeof Glyphs !== "undefined") {
             if (SETTINGS.glyphSource === "svg" && Glyphs.zoneFor) return Glyphs.zoneFor(code);
-            // 字体模式的推导连字区暂不启用：实测会让页面卡死（待用性能面板定位）
+            if (fontLigatureZones && Glyphs.zoneForFont) return Glyphs.zoneForFont(code);   // 实验开关
         }
         return null;
     });
 }
 globalThis.CHEAV = {
+        /** 实验开关：字体模式是否启用推导连字区（默认关；控制台可切换） */
+        fontLigatures: (on) => { fontLigatureZones = !!on; return fontLigatureZones; },
         refresh,
         // 调试/便捷入口：直接传一个 jar File（等价于在设置里选择）
         loadGlyphs: (file) => dropGlyphFile(file),

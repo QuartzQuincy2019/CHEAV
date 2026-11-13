@@ -30,6 +30,8 @@
     const rawSvg = new Map();      // 原始 SVG 文本（Tier 2 推导用）
     const derivedZones = new Map(); // 推导得到的连字区缓存
     const fillCache = new Map();   // code → {svg, vb, paths}（矢量命中测试用）
+    let fontZoneBudget = 8;        // 单次渲染最多推导多少个字形（超限降级，防卡顿）
+    let charDecoder = null;        // code → 字体字符（由 MdCRndr.decodeCode 注入）
     const fontGrids = new Map();   // code → { N, bits, w, h }（字体墨迹栅格，em/单位口径与 inkGrid 一致）
     const inkGrids = new Map();     // code → { N, bits: Uint32Array, w, h }
     const gridPending = new Set();  // 正在栅格化的码
@@ -622,6 +624,9 @@ function setViewBox(svgText, vb) {
         /** 连字区（来自 js/database/glyphZones.js，Tier 1）。 */
         /** Tier 2：按墨迹占据网格推导连字区（JSesh LigatureZoneBuilder 的网格版）。 */
         /** 转写 → 规范 Gardiner 码（多数用户输入转写，度量/区/加载前必须规范化）。 */
+        /** 注入 code → 字体字符 的映射（字体栅格必须用它，否则画出来是码字面量 "G43"）。 */
+        setCharDecoder(fn) { charDecoder = (typeof fn === "function") ? fn : null; },
+
         canon(code) {
             const c = String(code == null ? "" : code);
             if (typeof MAIN_SIGNS !== "undefined" && MAIN_SIGNS[c]) return MAIN_SIGNS[c];
@@ -689,7 +694,7 @@ function setViewBox(svgText, vb) {
         fontGrid(code) {
             if (fontGrids.has(code)) return fontGrids.get(code);
             fontGrids.set(code, null);                        // 占位，避免重入
-            const ch = (typeof decodeCode === "function") ? decodeCode(code) : code;
+            const ch = charDecoder ? charDecoder(code) : code;   // 必须映射成字体字符，不能直接用码字面量
             if (!ch) return null;
             const N = 96;
             const cv = document.createElement("canvas");
@@ -933,6 +938,21 @@ out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
             };
             return explicit || derived || null;
         },
+        /** 重开一次渲染的推导预算（每次 renderText 前调用）。 */
+        beginZoneBudget(n) { fontZoneBudget = (typeof n === "number" && n > 0) ? n : 8; },
+
+        /** 字体模式的连字区：只在真正需要排版连字时调用，带缓存与预算上限。 */
+        zoneForFont(code) {
+            const key = this.canon ? this.canon(code) : code;
+            if (derivedZones.has(key)) return derivedZones.get(key);
+            if (fontZoneBudget <= 0) return null;         // 预算用尽 → 降级为并排
+            fontZoneBudget--;
+            let z = null;
+            try { z = this.deriveZones(key); } catch (e) { z = null; }
+            derivedZones.set(key, z);
+            return z;
+        },
+
 
         /** 诊断快照。 */
         debug() {

@@ -8469,6 +8469,7 @@ function splitLines(tree) {
         },
         /** 解析纯 MdC 渲染串并渲染到元素（横排；输入框、预览、候选用它）。 */
         renderText: function (el, text, fontSize) {
+            if (typeof Glyphs !== "undefined" && Glyphs.beginZoneBudget) Glyphs.beginZoneBudget(8);
             ensureStyle();
             const r = parseInput(text);
             for (const line of splitLines(r.tree)) {
@@ -8590,6 +8591,7 @@ function splitLines(tree) {
             renderLigature: renderLigature,
             renderHRG: renderHRG,
             renderLayerUnitV: renderLayerUnitV,
+        decodeCode: decodeCode,          // 供字体栅格等外部模块把码映射成字体字符
             renderVertical: renderVertical,
             buildCss: buildCss,
             injectStyle: injectStyle,
