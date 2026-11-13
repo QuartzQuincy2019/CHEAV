@@ -806,7 +806,7 @@ function setViewBox(svgText, vb) {
                     pt.y = vb.y + (1 - y) * vb.h;
                     for (let k = 0; k < rec.shapes.length; k++) {
                         const el = rec.shapes[k];
-                        try { if (el.isPointInFill && el.isPointInFill(pt)) return true; } catch (e) { }
+                        try { if (el.isPointInFill && el.isPointInFill(pt)) { if (++hits >= 2) return true; } } catch (e) { }
                     }
                 }
             }
@@ -862,6 +862,7 @@ function setViewBox(svgText, vb) {
             // 诊断：记录被判为"被占据"的最小格子（用于定位 t 上不去的具体原因）
             const blockCells = [];
             const busyRec = (x, y, w, h) => {
+                // 只用栅格判定：矢量 isPointInFill 在隐藏容器中对部分字形恒为 false（实测全部 t→0.99），不可用
                 const hit = this._busy(g, x, y, x + Math.abs(w), y + Math.abs(h));
                 if (hit && blockCells.length < 8) {
                     const N2 = g.N;
