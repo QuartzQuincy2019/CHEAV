@@ -1247,7 +1247,10 @@ if (typeof MdCRndr !== "undefined" && typeof MdCRndr.setGlyphZoneProvider === "f
         if (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) return GLYPH_ZONES[code];
         // 仅 JSesh SVG 模式下用推导连字区（字体模式的 canvas 栅格会为每个候选字形取像素，
         // 疑似引发输入时的界面卡死，先回退；待定位后再启用）
-        if (SETTINGS.glyphSource === "svg" && typeof Glyphs !== "undefined" && Glyphs.zoneFor) return Glyphs.zoneFor(code);
+        if (typeof Glyphs !== "undefined") {
+            if (SETTINGS.glyphSource === "svg" && Glyphs.zoneFor) return Glyphs.zoneFor(code);
+            // 字体模式的推导连字区暂不启用：实测会让页面卡死（待用性能面板定位）
+        }
         return null;
     });
 }
