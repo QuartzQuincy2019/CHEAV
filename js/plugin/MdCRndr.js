@@ -7487,6 +7487,32 @@ function renderLigature(parent, name, fontSize) {
       const hb = glyphBoxProvider ? glyphBoxProvider(hc) : null;
       box.style.height = px((hb ? hb.h : 1) * fontSize) + "px"; }
 
+    // —— Tksesh 预定义连字：坐标来自官方表（1/1000 A1 高），y 向下 ——
+    if (lig.tksesh) {
+        const parts = lig.parts || [];
+        let maxW = 0, maxH = 0;
+        parts.forEach(function (p) {
+            const m = getMetrics(p.code);
+            const k = (p.scale || 1);
+            const w = (m.width / EM_SQUARE) * k * fontSize;
+            const h = (m.height / EM_SQUARE) * k * fontSize;
+            maxW = Math.max(maxW, (p.dx || 0) * fontSize + w);
+            maxH = Math.max(maxH, (p.dy || 0) * fontSize + h);
+        });
+        box.style.width = px(Math.max(maxW, 1)) + "px";
+        box.style.height = px(Math.max(maxH, 1)) + "px";
+        box.style.position = "relative";
+        parts.forEach(function (p) {
+            const el = renderGlyph(box, p.code, fontSize * (p.scale || 1), "bottom");
+            if (!el) return;
+            el.style.position = "absolute";
+            el.style.marginBottom = "0px";
+            el.style.left = px((p.dx || 0) * fontSize) + "px";
+            el.style.top = px((p.dy || 0) * fontSize) + "px";
+        });
+        parent.appendChild(box);
+        return box;
+    }
     const placed = [];                     // placed[i] = 该部件最终位置（em），供链式定位
     lig.parts.forEach((part, i) => {
         const ps = fontSize * (part.scale || 1);
@@ -7734,7 +7760,8 @@ function parseInput(text) {
         if (tks) {
             const nm2 = codes.join("&");
             if (!LIGATURES[nm2]) {
-                LIGATURES[nm2] = { name: nm2, parts: tks.map(function (p) {
+                // tksesh: true → 使用"绝对坐标（y 向下）"排版，而不是连字区
+                LIGATURES[nm2] = { name: nm2, tksesh: true, parts: tks.map(function (p) {
                     return { code: p.code, dx: p.dx, dy: p.dy, scale: p.scale };
                 }) };
             }
