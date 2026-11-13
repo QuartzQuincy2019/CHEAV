@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>CHEAV 连字结构检查台</title>
+<style>
+    body { font: 13px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; margin: 14px; color: #222; }
+    h1 { font-size: 17px; margin: 0 0 6px; }
+    .hint { color: #666; margin-bottom: 10px; font-size: 12px; }
+    #log { font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap;
+           background: #ffef9f; padding: 8px; margin-bottom: 10px; min-height: 1.5em; }
+    #stage { position: relative; font-size: 200px; line-height: 1.3; }
+    #stage .hie { outline: 1.5px solid #e33; outline-offset: 0; }
+    #stage .lig { outline: 1.5px dashed #08a; }
+</style>
+</head>
+<body>
+<h1>CHEAV 连字结构检查台</h1>
+<div class="hint">
+    输入 MdC 串（如 <code>b&amp;D28</code>、<code>zA&amp;ra</code>、<code>t&amp;w&amp;t</code>）：<br>
+    <b>红实线</b> = 字形墨迹盒；<b>蓝虚线</b> = 连字容器。数值见下方。
+</div>
+<input id="in" value="b&amp;D28" style="font-size:16px;padding:4px 8px;width:360px">
+<button id="go" style="font-size:16px;padding:4px 12px">渲染</button>
+<div id="log">等待渲染…</div>
+<div id="stage"></div>
+
+<script src="js/database/mainSigns.js?v=20261113a"></script>
+<script src="js/database/translit.js?v=20261113a"></script>
+<script src="js/database/glyphZones.js?v=20261113a"></script>
+<script src="js/database/serekhTail.js?v=20261113a"></script>
+<script src="js/plugin/MdCRndr.js?v=20261113a"></script>
+<script src="js/ui/glyphs.js?v=20261113a"></script>
+<script>
+// 与我的探针页完全同构：await 目录 → 设 provider → preload → 渲染 → 量框
+(async function () {
+    "use strict";
+    var stage = document.getElementById("stage");
+    var log = document.getElementById("log");
+    var input = document.getElementById("in");
+    var Lines = [];
+
+    function say(s) { Lines.push(s); log.textContent = Lines.join("\n"); }
+
+    try {
+        say("开始加载字形目录…");
+        await Glyphs.useSiteDir();
+        Glyphs.setRenderer(MdCRndr);
+        Glyphs.setEnabled(true);
+        MdCRndr.setGlyphZoneProvider(function (c) { return Glyphs.zoneFor(c); });
+        MdCRndr.setGlyphMetricsProvider(function (c) { return Glyphs.metrics(c); });
+        MdCRndr.setGlyphBoxProvider(function (c) { return Glyphs.box(c); });
+        MdCRndr.setGlyphAspectProvider(function (c) { return Glyphs.aspect(c); });
+        MdCRndr.setQuadratMode("flow");
+        say("字形目录就绪");
+
+        window.__draw = async function () {
+            Lines.length = 0;
+            var text = input.value || "b&D28";
+            var codes = String(text).match(/[A-Za-z][A-Za-z0-9]*/g) || [];
+            say("用例：" + text + "   预载：" + codes.join(", "));
+            await Glyphs.preload(codes);
+            await new Promise(function (r) { setTimeout(r, 300); });
+
+            stage.textContent = "";
+            MdCRndr.renderText(stage, text, 200);
+            await new Promise(function (r) { setTimeout(r, 120); });
+
+            var lig = stage.querySelector(".lig");
+            if (lig) {
+                var rl = lig.getBoundingClientRect();
+                say("连字容器  " + Math.round(rl.width) + " × " + Math.round(rl.height) + "px");
+            }
+            var gs = Array.prototype.slice.call(stage.querySelectorAll(".hie"));
+            gs.forEach(function (el) {
+                var b = el.getBoundingClientRect();
+                say("字形 " + (el.title || "?") + "  " + Math.round(b.width) + " × " + Math.round(b.height) + "px");
+            });
+            if (gs.length) {
+                var code = (gs[0].title || "").split("（")[0];
+                var z = Glyphs.zoneFor(code);
+                if (z) {
+                    ["zone1", "zone2", "zoneB"].forEach(function (k) {
+                        var zz = z[k];
+                        say("槽 " + k + " = " + (zz
+                            ? ("x" + zz.x.toFixed(3) + " y" + zz.y.toFixed(3) + " w" + zz.w.toFixed(3) + " h" + zz.h.toFixed(3) + " " + (zz.gh || "") + (zz.gv || ""))
+                            : "无"));
+                    });
+                } else {
+                    say("宿主 " + code + " 无连字区");
+                }
+            }
+        };
+
+        document.getElementById("go").addEventListener("click", function () { window.__draw(); });
+        input.addEventListener("keydown", function (e) { if (e.key === "Enter") window.__draw(); });
+        await window.__draw();
+        say("完成");
+    } catch (e) {
+        say("出错：" + e.message + "\n" + (e.stack || ""));
+    }
+})();
+</script>
+</body>
+</html>
