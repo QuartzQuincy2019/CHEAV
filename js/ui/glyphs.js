@@ -932,17 +932,27 @@ out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
         setZoneBVariant(v) { ZONE_B_VARIANT = (v === "A") ? "A" : "B"; derivedZones.clear(); return this; },
 
         zoneFor(code) {
+            // 显式数据可能来自早期手工测量（不可靠）：数值不合理时丢弃，回退到推导
+            const validZone = (z) => !!(z && typeof z === "object" &&
+                isFinite(z.x) && isFinite(z.y) && isFinite(z.w) && isFinite(z.h) &&
+                z.w > 0 && z.h > 0 && z.y >= -0.05 && z.y <= 1.05 &&
+                z.y + z.h <= 1.6 && z.x > -1.6 && z.x + z.w <= 1.6);
             code = this.canon(code);
             const explicit = (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;
             if (!derivedZones.has(code)) derivedZones.set(code, this.deriveZones(code));
             const derived = derivedZones.get(code);
             // 三槽合并：显式数据（Tier 1）优先，缺失的槽（尤其 zoneB 底部槽）用推导补足
             if (explicit && derived) return {
-                zone1: explicit.zone1 || derived.zone1 || null,
-                zone2: explicit.zone2 || derived.zone2 || null,
-                zoneB: explicit.zoneB || derived.zoneB || null
+                zone1: (validZone(explicit.zone1) ? explicit.zone1 : derived.zone1) || null,
+                zone2: (validZone(explicit.zone2) ? explicit.zone2 : derived.zone2) || null,
+                zoneB: (validZone(explicit.zoneB) ? explicit.zoneB : derived.zoneB) || null
             };
-            return explicit || derived || null;
+            if (!explicit && !derived) return null;
+            return {
+                zone1: (validZone(explicit && explicit.zone1) ? explicit.zone1 : derived && derived.zone1) || null,
+                zone2: (validZone(explicit && explicit.zone2) ? explicit.zone2 : derived && derived.zone2) || null,
+                zoneB: (validZone(explicit && explicit.zoneB) ? explicit.zoneB : derived && derived.zoneB) || null
+            };
         },
         /** 重开一次渲染的推导预算（每次 renderText 前调用）。 */
         beginZoneBudget(n) { fontZoneBudget = (typeof n === "number" && n > 0) ? n : 8; },
