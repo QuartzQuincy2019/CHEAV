@@ -349,6 +349,8 @@ function setViewBox(svgText, vb) {
             }
             if (!bytes) { urls.set(code, null); return null; }
             const raw = new TextDecoder("utf-8").decode(bytes);
+            // 先解析连字区（stripGuides 会把红框 rect 删掉，必须在它之前）
+            try { const sz = api.parseSvgZones(raw); if (sz) svgZones.set(code, sz); } catch (e) { }
             let svgText = stripGuides(fixSvgNs(raw));
             rawSvg.set(code, svgText);      // 供 Tier 2 连字区推导
             // 用数值方法算墨迹范围（不依赖 DOM，getBBox 只作为交叉校验）：
@@ -373,7 +375,7 @@ function setViewBox(svgText, vb) {
                 const iw = ink ? ink.w + pad * 2 : fr.w;
                 const ih = ink ? ink.h + pad * 2 : fr.h;
                 svgText = setViewBox(svgText, ix + " " + iy + " " + iw + " " + ih);
-                try { const sz = this.parseSvgZones(svgText); if (sz) svgZones.set(code, sz); } catch (e) { }
+                /* zone 已在剥离前解析 */
                 aspects.set(code, iw / ih);
                 // 布局尺寸 = 墨迹（em）：字距贴合、堆叠组层高紧凑
                 metricsEm.set(code, { w: iw / em, h: ih / em });
@@ -783,7 +785,7 @@ function setViewBox(svgText, vb) {
                 const nums = (svg.getAttribute("viewBox") || "").split(/[\s,]+/).map(Number);
                 if (nums.length === 4) rec.vb = { x: nums[0], y: nums[1], w: nums[2], h: nums[3] };
                 rec.shapes = Array.prototype.slice.call(
-                    svg.querySelectorAll("path,rect,circle,ellipse,polygon,polyline"));
+                    svg.querySelectorAll("path,polygon")   /* JSesh：墨迹只来自 path 与 polygon */);
             }
             fillCache.set(code, rec);
             return rec;
