@@ -171,3 +171,102 @@ subView.getPosition().setLocation(xpos, ypos);
 
 1. 手写表给 `D58` 造了一个 SVG 里并不存在的 `zone2`；
 2. 槽位取不到时退化成"并排"，而 JSesh 是"不放置"。
+
+---
+
+## 8. 补充审计（第二轮）
+
+### 8.1 LigatureZone 的默认值与缩放
+
+`LigatureZone.java:31-36, 142-149`
+
+```java
+public LigatureZone(Rectangle2D box) {
+    this.box = box;
+    this.verticalGravity = VerticalGravity.CENTER;     // 默认居中
+    this.horizontalGravity = HorizontalGravity.CENTER;
+}
+
+public LigatureZone scale(float scale) {
+    LigatureZone scaledCopy = (LigatureZone) clone();
+    scaledCopy.box = new Rectangle2D.Double(
+        getMinX() * scale, getMinY() * scale,        // ← 注意：原点坐标也乘
+        getWidth() * scale, getHeight() * scale);
+    return scaledCopy;
+}
+```
+
+要点：`scale()` 不只是缩放尺寸，**连 minX/minY 也一起乘** —— 把整个矩形当作绝对坐标缩放。
+
+### 8.2 推导器的常量与判据源
+
+`LigatureZoneBuilder.java:22-41`
+
+```java
+private ShapeChar signShape;
+private Area signArea;
+private LigatureZone zones[];
+
+static final double MARGIN = 1;
+static final double MAXHEIGHT = 18;
+
+public LigatureZoneBuilder(ShapeChar signShape) {
+    zones = new LigatureZone[3];
+    signArea = signShape.getSignArea(0, 0, 1, 1, 0);   // 只含墨迹
+}
+```
+
+- `MARGIN = 1`（1 个 SVG 用户单位 = 1/18 em）；
+- `MAXHEIGHT = 18`（一个 cadrat），底部槽高度 `MAXHEIGHT - p.y + 1`；
+- 判据用的 `signArea` **只包含 path/polygon 的填充或描边形状**。
+
+### 8.3 scaleToFitDimensions 的精确条件
+
+`MDCView.java:796-808`
+
+```java
+public void scaleToFitDimensions(double wantedWidth, double wantedHeight) {
+    if (getWidth() < wantedWidth && getHeight() < wantedHeight)
+        return;                                  // 两个方向都更小 → 完全不动
+    double zoneScaleW = 1, zoneScaleH = 1;
+    if (getWidth() != 0)  zoneScaleW = wantedWidth  / getWidth();
+    if (getHeight() != 0) zoneScaleH = wantedHeight / getHeight();
+    xScale = yScale = (float) Math.min(zoneScaleH, zoneScaleW);
+    width  = width  * xScale;
+    height = height * yScale;
+}
+```
+
+等价于"等比缩放到刚好装进槽，且**绝不放大**"。
+
+### 8.4 computeScale 与槽的相互作用
+
+`Layout.java:945-948`
+
+```java
+private float computeScale() {
+    JSeshStyle jseshStyle = renderContext.jseshStyle();
+    return hieroglyphsDrawer.scaleFromFontToStyle(jseshStyle);
+}
+```
+
+- 这是全局的"字体单位 → 排版单位"比例（约 18 / heightOfA1 ≈ 1.012）；
+- `visitLigature` 里 `z = z.scale(computeScale())` 之后才 `placeView`；
+- 由于子视图也处于同一单位，实际影响约 1.2%，但要完全一致必须乘。
+
+### 8.5 其它相关方法
+
+| 方法 | 位置 | 语义 |
+|---|---|---|
+| reScale(scale) | MDCView:695 | 宽高与 xScale/yScale 同乘 scale |
+| resetPos() | MDCView | 位置归零，不改尺寸/缩放 |
+| fitToSubViews(doTranslate) | MDCView:347 | 依据子视图重算自身宽高；true 时整体平移使包围盒回到原点 |
+
+### 8.6 对 CHEAV 的追加结论
+
+1. 槽内边距常量应为 `MARGIN = 1 单位 = 1/18 em`（当前实现一致）；
+2. 底部槽高度公式 `MAXHEIGHT - p.y + 1`，`MAXHEIGHT = 18 单位`（一致）；
+3. 推导所用墨迹必须只含 path/polygon（已收紧取样）；
+4. `placeView` 的"只缩不放"与 `scaleToFitDimensions` 等价（一致）；
+5. **缺少**：`z.scale(computeScale())`（≈1.012），应补；
+6. **缺少**：`fitToSubViews(true)` 的"整体平移回原点"语义（当前"无槽→重叠"情形平移量为 0，暂不影响；多段连字需要）。
