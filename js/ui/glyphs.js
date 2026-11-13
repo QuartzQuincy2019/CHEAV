@@ -665,7 +665,7 @@ function setViewBox(svgText, vb) {
             img.decoding = "async";
             img.onload = () => {
                 try {
-                    const N = 128;  // 栅格分辨率（实现细节；算法同 JSesh）
+        const N = 256;  // 栅格分辨率（提高精度以贴近 JSesh 的精确 Area 判定）
                     const cv = document.createElement("canvas");
                     cv.width = N; cv.height = N;
                     const ctx2 = cv.getContext("2d", { willReadFrequently: true });
@@ -826,11 +826,14 @@ function setViewBox(svgText, vb) {
             const c0 = Math.max(0, Math.floor(x0 * N)), c1 = Math.min(N - 1, Math.ceil(x1 * N) - 1);
             const r0 = Math.max(0, Math.floor(y0 * N)), r1 = Math.min(N - 1, Math.ceil(y1 * N) - 1);
             if (c1 < c0 || r1 < r0) return false;
+            // JSesh 用 Area.intersect：只有"正面积"的相交才算被占据；
+            // 栅格近似：命中至少 2 个格子（单格 ≈ 相切，面积按 0 处理）。
+            let hits = 0;
             for (let r = r0; r <= r1; r++) {
                 const row = (N - 1 - r) * N;
                 for (let c = c0; c <= c1; c++) {
                     const idx = row + c;
-                    if (g.bits[idx >> 5] & (1 << (idx & 31))) return true;
+                    if (g.bits[idx >> 5] & (1 << (idx & 31))) { if (++hits >= 2) return true; }
                 }
             }
             return false;
