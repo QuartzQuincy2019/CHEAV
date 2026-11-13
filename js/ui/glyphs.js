@@ -32,6 +32,7 @@
     const fillCache = new Map();   // code → {svg, vb, paths}（矢量命中测试用）
     let fontZoneBudget = 8;        // 单次渲染最多推导多少个字形（超限降级，防卡顿）
     let charDecoder = null;        // code → 字体字符（由 MdCRndr.decodeCode 注入）
+    const svgZones = new Map();   // code → { 0: zone, 1: zone }（SVG 内 <rect id="zone1|zone2"> 的原始声明）
     const fontGrids = new Map();   // code → { N, bits, w, h }（字体墨迹栅格，em/单位口径与 inkGrid 一致）
     const inkGrids = new Map();     // code → { N, bits: Uint32Array, w, h }
     const gridPending = new Set();  // 正在栅格化的码
@@ -372,6 +373,7 @@ function setViewBox(svgText, vb) {
                 const iw = ink ? ink.w + pad * 2 : fr.w;
                 const ih = ink ? ink.h + pad * 2 : fr.h;
                 svgText = setViewBox(svgText, ix + " " + iy + " " + iw + " " + ih);
+                try { const sz = this.parseSvgZones(svgText); if (sz) svgZones.set(code, sz); } catch (e) { }
                 aspects.set(code, iw / ih);
                 // 布局尺寸 = 墨迹（em）：字距贴合、堆叠组层高紧凑
                 metricsEm.set(code, { w: iw / em, h: ih / em });
@@ -690,6 +692,29 @@ function setViewBox(svgText, vb) {
             this.requestGrid(code);
             return null;
         },
+        /** 从 SVG 源提取 <rect id="zone1|zone2"> 的连字区声明（JSesh 的 Tier 1 权威数据）。 */
+        parseSvgZones(svgText) {
+            const out = {};
+            const re = /<rect\b[^>]*id="(zone[12])"[^>]*>/g;
+            let m;
+            while ((m = re.exec(svgText))) {
+                const tag = m[0];
+                const num = (k) => { const mm = new RegExp(k + "=\"([-0-9.eE]+)\"").exec(tag); return mm ? parseFloat(mm[1]) : null; };
+                const x = num("x"), y = num("y"), w = num("width"), h = num("height");
+                if (x === null || y === null || w === null || h === null) continue;
+                const lab = /gravity:([a-zA-Z]+)/.exec(tag);
+                const g = lab ? lab[1] : "";
+                const z = {
+                    x: x / 18, y: y / 18, w: w / 18, h: h / 18,      // SVG 用户单位 18 = 1em
+                    gh: g.indexOf("s") >= 0 ? "s" : (g.indexOf("e") >= 0 ? "e" : "c"),
+                    gv: g.indexOf("t") >= 0 ? "t" : (g.indexOf("b") >= 0 ? "b" : "c"),
+                    gravity: g
+                };
+                out[m[1] === "zone1" ? 0 : 1] = z;
+            }
+            return Object.keys(out).length ? out : null;
+        },
+
         /** 字体墨迹栅格（New Gardiner）：仅首次计算并缓存；N 越大越准、越慢。 */
         fontGrid(code) {
             if (fontGrids.has(code)) return fontGrids.get(code);
@@ -932,27 +957,15 @@ out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
         setZoneBVariant(v) { ZONE_B_VARIANT = (v === "A") ? "A" : "B"; derivedZones.clear(); return this; },
 
         zoneFor(code) {
-            // 显式数据可能来自早期手工测量（不可靠）：数值不合理时丢弃，回退到推导
-            const validZone = (z) => !!(z && typeof z === "object" &&
-                isFinite(z.x) && isFinite(z.y) && isFinite(z.w) && isFinite(z.h) &&
-                z.w > 0 && z.h > 0 && z.y >= -0.05 && z.y <= 1.05 &&
-                z.y + z.h <= 1.6 && z.x > -1.6 && z.x + z.w <= 1.6);
             code = this.canon(code);
-            const explicit = (typeof GLYPH_ZONES !== "undefined" && GLYPH_ZONES[code]) || null;
+            // ① SVG 内 <rect id="zone1|zone2"> 是 JSesh 的权威声明（Tier 1）
+            const svgZ = svgZones.get(code);
+            if (svgZ) return { zone1: svgZ[0] || null, zone2: svgZ[1] || null, zoneB: null };
+            // ② 没有声明才按墨迹推导（三槽）
             if (!derivedZones.has(code)) derivedZones.set(code, this.deriveZones(code));
-            const derived = derivedZones.get(code);
-            // 三槽合并：显式数据（Tier 1）优先，缺失的槽（尤其 zoneB 底部槽）用推导补足
-            if (explicit && derived) return {
-                zone1: (validZone(explicit.zone1) ? explicit.zone1 : derived.zone1) || null,
-                zone2: (validZone(explicit.zone2) ? explicit.zone2 : derived.zone2) || null,
-                zoneB: (validZone(explicit.zoneB) ? explicit.zoneB : derived.zoneB) || null
-            };
-            if (!explicit && !derived) return null;
-            return {
-                zone1: (validZone(explicit && explicit.zone1) ? explicit.zone1 : derived && derived.zone1) || null,
-                zone2: (validZone(explicit && explicit.zone2) ? explicit.zone2 : derived && derived.zone2) || null,
-                zoneB: (validZone(explicit && explicit.zoneB) ? explicit.zoneB : derived && derived.zoneB) || null
-            };
+            const d = derivedZones.get(code);
+            if (!d) return null;
+            return { zone1: d.zone1 || null, zone2: d.zone2 || null, zoneB: d.zoneB || null };
         },
         /** 重开一次渲染的推导预算（每次 renderText 前调用）。 */
         beginZoneBudget(n) { fontZoneBudget = (typeof n === "number" && n > 0) ? n : 8; },
