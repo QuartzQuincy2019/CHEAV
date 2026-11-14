@@ -585,7 +585,39 @@ function renderEnclosure(parent, u, fontSize, vertical) {
  *      内容落在 (dLong, dSmall)；
  *   3) 用内联 SVG 画直线 + 三次贝塞尔环（线宽 1/18em）。
  */
+/** 四开组元素解析：空的 seq 退回连字/单码，避免框内整块空白 */
+function parseCadratElement(str) {
+    const r = parseInput(str);
+    const t = r && r.tree;
+    if (t && t.type === "seq" && (!t.units || t.units.length === 0)) {
+        const codes = String(str).split("&").filter(function (c) { return c.trim().length; });
+        if (codes.length > 1) {
+            const nm = codes.join("&");
+            if (!LIGATURES[nm] || !LIGATURES[nm].parts) {
+                LIGATURES[nm] = {
+                    name: nm,
+                    parts: [{ code: codes[0], dx: 0, dy: 0, scale: 1 }].concat(
+                        codes.slice(1).map(function (c) { return { code: c, zone: "zoneB" }; }))
+                };
+            }
+            return { type: "lig", name: nm };
+        }
+        if (codes.length === 1) return { type: "char", code: codes[0] };
+    }
+    return t || { type: "char", code: str };
+}
+
 /** 王名圈内容：整段按四开组渲染，再用 visitCartouche 的几何套外框 */
+function renderCadratUnit(el, unit, fs) {
+        // parseInput 对 "t&w" 这类串返回 seq 包一层，四开组把 seq 当成一个单元，
+        // 这里把子单元依次画进同一个盒，避免整块空白。
+        if (unit && unit.type === "seq" && unit.units) {
+            unit.units.forEach(function (sub) { render(el, sub, fs); });
+            return;
+        }
+        render(el, unit, fs);
+    }
+
 function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     const E = MDC.Enclosure;
     const box = document.createElement("span");
@@ -599,16 +631,13 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     let cw = 0, ch = 0;
     if (u.kind === "A") encADepth++;
     try {
-        const parseElement = function (str) {
-            const r = parseInput(str);
-            return r && r.tree ? r.tree : { type: "char", code: str };
-        };
+        const parseElement = parseCadratElement;
         // u.source 是框内的 MDC 源码字符串，先按四开组语法切成 cadrat 列表
         const src = String(u.source).replace(/^-+/, "").replace(/-+$/, "");   // 剪掉包围框界符残留
         const vrg = MDC.Cadrat.renderLine(body, src, fontSize, {
             centerSigns: true,
             parseElement: parseElement,
-            renderUnit: function (unit, el, fs) { render(el, unit, fs); }
+            renderUnit: function (unit, el, fs) { renderCadratUnit(el, unit, fs); }
         });
         if (vrg && vrg.style) {
             // 内容按绝对坐标钉在 body 左上角：body 是 0 高行盒，
@@ -716,7 +745,7 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
                         const r = parseInput(str);
                         return r && r.tree ? r.tree : { type: "char", code: str };
                     },
-                    renderUnit: function (unit, el, fs) { render(el, unit, fs); }
+                    renderUnit: function (unit, el, fs) { renderCadratUnit(el, unit, fs); }
                 });
             } else {
                 render(cell, x, fontSize * ESC);
@@ -826,7 +855,11 @@ function renderLigature(parent, name, fontSize) {
     const box = document.createElement("span");
     box.className = "lig";
     // 宽取连字墨迹宽（而非固定 1em）：使连字与前后字形紧贴，不留空档
-    box.style.width = px(ligatureWidth(name) * fontSize / EM_SQUARE) + "px";
+    // 宽度兜底：表里没有该连字（如现场合成的 A&B）时 ligatureWidth 会返回 0，
+    // 直接按它设宽会把盒子压成 0.08px，看起来"什么都没画"。
+    const lwRaw = ligatureWidth(name);
+    const lwEm = (lwRaw > 1 ? lwRaw / EM_SQUARE : lwRaw) || 0;
+    box.style.width = px(Math.max(lwEm, 0.4) * fontSize) + "px";
     // 容器高 = 宿主墨迹高：连字区坐标相对宿主墨迹 bbox 归一化
     { const hc = (lig.parts[0] || {}).code || "";
       const hb = glyphBoxProvider ? glyphBoxProvider(hc) : null;
@@ -1906,7 +1939,7 @@ function splitLines(tree) {
                     if (!src.trim()) continue;
                     MDC.Cadrat.renderLine(lineEl, src.trim(), fs, {
                         parseElement: function (str) { return parseInput(str).tree; },
-                        renderUnit: function (unit, box, size) { render(box, unit, size); },
+                        renderUnit: function (unit, box, size) { renderCadratUnit(box, unit, size); },
                     });
                 }
                 return { tree: null };
