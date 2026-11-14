@@ -40,3 +40,8 @@ _backup/
 # 本地调试产物（截图与临时探针页，不入库）
 _shots/
 _*.html
+
+# 字形数据生成的中间产物
+tools/_zones/
+_gen-zones.html
+_reg-nopaper.html

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>gen-zones</title>
+<!--
+  tools/gen-zones.html —— 离线预生成连字区（zone）表
+
+  用法（需要本地 http 服务，指向仓库根目录）：
+    http://127.0.0.1:8011/tools/gen-zones.html?from=0&to=600
+
+  页面会把结果写进 <pre id="out"> 与 window.__ZONES_JSON，
+  由 tools/gen-zones.ps1 用 --dump-dom 抓取后合并。
+
+  坐标口径与 glyphZones.js 一致：x/y 相对墨迹左上角、y 向下，w/h 为正，单位 em。
+-->
+<style>body{font:12px monospace;margin:6px}#out{white-space:pre-wrap;word-break:break-all}#st{font-weight:bold}</style>
+<div id="st">loading…</div>
+<pre id="out"></pre>
+
+<script src="../js/lib/paper-core.min.js"></script>
+<script src="../js/database/mainSigns.js"></script>
+<script src="../js/database/translit.js"></script>
+<script src="../js/database/glyphZones.js"></script>
+<script src="../js/database/serekhTail.js"></script>
+<script src="../js/database/mdcGlyphTables.js"></script>
+<script src="../js/database/ngMetrics.js"></script>
+<script src="../js/database/glyphFiles.js"></script>
+<script src="../js/plugin/mdcEncoding.js"></script>
+<script src="../js/plugin/mdcMetrics.js"></script>
+<script src="../js/plugin/mdcView.js"></script>
+<script src="../js/plugin/mdcEnclosure.js"></script>
+<script src="../js/plugin/mdcVrg.js"></script>
+<script src="../js/plugin/mdcCadrat.js"></script>
+<script src="../js/plugin/mdcGlyphCore.js"></script>
+<script src="../js/plugin/MdCRndr.js"></script>
+<script src="../js/ui/glyphs.js"></script>
+<script>
+(async function () {
+  const st = document.getElementById("st");
+  const out = document.getElementById("out");
+  const qs = new URLSearchParams(location.search);
+  const from = parseInt(qs.get("from") || "0", 10);
+  const to = parseInt(qs.get("to") || "200", 10);
+  const CHUNK = 200;
+
+  function norm(z) {
+    if (!z || z.w === undefined || z.h === undefined) return null;
+    const x0 = Math.min(z.x, z.x + z.w), x1 = Math.max(z.x, z.x + z.w);
+    const y0 = Math.min(z.y, z.y + z.h), y1 = Math.max(z.y, z.y + z.h);
+    return { x: +x0.toFixed(4), y: +y0.toFixed(4), w: +(x1 - x0).toFixed(4), h: +(y1 - y0).toFixed(4),
+             gh: z.gh || null, gv: z.gv || null };
+  }
+
+  try {
+    await Glyphs.useSiteDir();
+    Glyphs.setRenderer(MdCRndr);
+    Glyphs.setEnabled(true);
+
+    // 字形清单：优先用 glyphFiles.js 的清单，退化为已加载 url 的键
+    let codes = [];
+    if (typeof GLYPH_FILES !== "undefined" && Array.isArray(GLYPH_FILES)) codes = GLYPH_FILES.slice();
+    if (!codes.length && Glyphs.debug) {
+      // 退化：用 url 表里已索引的键
+      const d = Glyphs.debug();
+      codes = Object.keys(Glyphs.urls ? {} : {});
+    }
+    if (!codes.length) {
+      // 最后兜底：扫已知的表
+      codes = Object.keys(window.GLYPH_ZONES || {});
+    }
+    codes = codes.map(function (c) { return String(c).replace(/\.svg$/i, ""); });
+    codes.sort();
+    const slice = codes.slice(from, Math.min(to, codes.length));
+
+    try { await fetch("/log", { method: "POST", body: "debug " + JSON.stringify(Glyphs.debug()) }); } catch (e) { }
+    try { await fetch("/log", { method: "POST", body: "codes=" + codes.length + " slice=" + slice.length + " first=" + slice.slice(0,5).join(",") }); } catch (e) { }
+    // 预热 3 个，把推导结果也打回去
+    try {
+      await Glyphs.preload(slice.slice(0, 3));
+      const probe = slice.slice(0, 3).map(function (c) { try { return c + ":" + JSON.stringify(Glyphs.deriveZones(c)); } catch (e) { return c + ":ERR " + e.message; } });
+      await fetch("/log", { method: "POST", body: "probe " + probe.join(" | ").slice(0, 300) });
+    } catch (e) { await fetch("/log", { method: "POST", body: "probe-ERR " + e.message }); }
+    const res = {};
+    let done = 0;
+    for (let i = 0; i < slice.length; i += CHUNK) {
+      const batch = slice.slice(i, i + CHUNK);
+      try { await Glyphs.preload(batch); } catch (e) { }
+      for (const c of batch) {
+        let z = null;
+        try { z = Glyphs.deriveZones(c); } catch (e) { z = null; }
+        if (!z) continue;
+        const o = {};
+        ["zone1", "zone2", "zoneB"].forEach(function (k) {
+          const nz = norm(z[k]);
+          if (nz) o[k] = nz;
+        });
+        if (Object.keys(o).length) res[c] = o;
+        done++;
+      }
+      st.textContent = "已处理 " + (i + batch.length) + "/" + slice.length +
+        "，产出 " + Object.keys(res).length + " 项";
+      // 每批存一个文件，避免中途失败丢数据
+      try {
+        const part = {};
+        batch.forEach(function (c) { if (res[c]) part[c] = res[c]; });
+        await fetch("/save?name=p-" + from + "-" + (i + batch.length), { method: "POST", body: JSON.stringify(part) });
+      } catch (e) { }
+    }
+
+    const json = JSON.stringify(res);
+    window.__ZONES_JSON = json;
+    out.textContent = json;
+    // 回收：POST 给 tools/zone-server.js（可选）
+    try {
+      await fetch("/save?name=part-" + from + "-" + to, { method: "POST", body: json });
+      await fetch("/log", { method: "POST", body: "done " + from + "-" + to + " items=" + Object.keys(res).length });
+    } catch (e) { }
+    st.textContent = "完成：区间 " + from + "-" + to + "，总字形 " + codes.length +
+      "，本批产出 " + Object.keys(res).length + " 项，字符数 " + json.length;
+  } catch (e) {
+    st.textContent = "ERR " + (e && e.message);
+    out.textContent = "ERR " + (e && e.stack || e);
+  }
+})();
+</script>

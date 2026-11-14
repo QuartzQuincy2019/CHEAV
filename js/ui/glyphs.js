@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611142540";
+    const BUILD = "glyphs-202611142555";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
@@ -1212,7 +1212,10 @@ out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
             // ① SVG 内 <rect id="zone1|zone2"> 是 JSesh 的权威声明（Tier 1）
             const svgZ = svgZones.get(code);
             if (svgZ) return { zone1: __nz(svgZ[0]), zone2: __nz(svgZ[1]), zoneB: null };
-            // ② 没有声明才按墨迹推导（三槽）
+            // ② 预生成表（ngZones.js，离线算好）优于运行时推导
+            const pre = (typeof NG_ZONES !== "undefined") ? (NG_ZONES[code] || NG_ZONES[String(code).toLowerCase()]) : null;
+            if (pre) return { zone1: __nz(pre.zone1), zone2: __nz(pre.zone2), zoneB: __nz(pre.zoneB) };
+            // ③ 没有声明也没预生成表时才按墨迹推导（三槽）
             if (!derivedZones.has(code)) {
                 let zc = null;
                 try { zc = this.deriveZones(code); } catch (e) { zc = null; }   // 推导失败绝不打断渲染
