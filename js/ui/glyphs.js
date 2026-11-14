@@ -909,7 +909,7 @@ function setViewBox(svgText, vb) {
                         try {
                             const p = new paper.Path({ pathData: sub, insert: false });
                             if (!p || !p.segments || p.segments.length < 3) continue;
-                            p.flatten(0.02 * emUnits / 18);
+                            p.flatten(Math.max(0.05, 0.01 * emUnits));   // 0.01em 容差，避免点数爆炸（性能）
                             polys.push(p.segments.map(function (sg) {
                                 return [sg.point.x / emUnits, sg.point.y / emUnits];
                             }));
@@ -938,6 +938,21 @@ function setViewBox(svgText, vb) {
 
         /** Area.intersect(signArea).isEmpty() 的等价判定：交集面积 > 0 才算被占据。 */
         _clash(geo, x0, y0, x1, y1) {
+            // 性能保护：点数过多的字形退化为包围盒判定（宁可略粗，也不能卡死主线程）
+            let __pts = 0;
+            for (let i = 0; i < geo.polys.length; i++) __pts += geo.polys[i].length;
+            if (__pts > 4000) {
+                for (let i = 0; i < geo.polys.length; i++) {
+                    const p = geo.polys[i];
+                    let px0 = Infinity, py0 = Infinity, px1 = -Infinity, py1 = -Infinity;
+                    for (let k = 0; k < p.length; k++) {
+                        if (p[k][0] < px0) px0 = p[k][0]; if (p[k][0] > px1) px1 = p[k][0];
+                        if (p[k][1] < py0) py0 = p[k][1]; if (p[k][1] > py1) py1 = p[k][1];
+                    }
+                    if (!(x1 < px0 || x0 > px1 || y1 < py0 || y0 > py1)) return true;
+                }
+                return false;
+            }
             let total = 0;
             for (let k = 0; k < geo.polys.length; k++) {
                 const R = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
