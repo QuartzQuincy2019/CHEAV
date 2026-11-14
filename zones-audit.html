@@ -1,0 +1,97 @@
+<!DOCTYPE html><meta charset="utf-8">
+<title>槽推导审计</title>
+<style>
+body{font:13px/1.5 system-ui,sans-serif;margin:12px;color:#111}
+h1{font-size:17px;margin:0 0 8px}
+#bar{background:#eee;height:6px;border-radius:3px;overflow:hidden;margin:8px 0}
+#bar i{display:block;height:100%;background:#3a7;width:0}
+#out{font:11px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;background:#fbfbf2;border:1px solid #ddd;padding:8px}
+.bad{color:#b00}
+</style>
+<h1>槽推导审计 —— 批量、可复现（不依赖单点猜测）</h1>
+<div>样本数：<b id="n">—</b>　进度：<span id="p">0</span></div>
+<div id="bar"><i></i></div>
+<div id="out">加载中…</div>
+<script src="js/lib/paper-core.min.js?v=115230"></script>
+<script src="js/database/glyphFiles.js?v=115230"></script>
+<script src="js/database/mainSigns.js?v=115230"></script>
+<script src="js/database/translit.js?v=115230"></script>
+<script src="js/database/glyphZones.js?v=115230"></script>
+<script src="js/database/serekhTail.js?v=115230"></script>
+<script src="js/plugin/MdCRndr.js?v=115230"></script>
+<script src="js/ui/glyphs.js?v=115230"></script>
+<script>
+(async function(){
+  const out = document.getElementById("out");
+  const LIMIT = Number(new URLSearchParams(location.search).get("n") || 200);
+  const L = [];
+  const push = (s) => { L.push(s); out.textContent = L.join("\n"); };
+
+  try {
+    await Glyphs.useSiteDir(); Glyphs.setRenderer(MdCRndr); Glyphs.setEnabled(true);
+    // 等长：优先取有声明槽的 + 均匀抽样，覆盖不同形态
+    const all = (typeof GLYPH_FILES !== "undefined") ? GLYPH_FILES.slice() : [];
+    const step = Math.max(1, Math.floor(all.length / LIMIT));
+    const sample = [];
+    for (let i = 0; i < all.length && sample.length < LIMIT; i += step) sample.push(all[i]);
+    document.getElementById("n").textContent = sample.length + " / " + all.length;
+
+    const stats = { three: 0, two: 0, one: 0, none: 0 };
+    const outliers = [];
+    const tvals = { t1: [], t2: [], tB: [] };
+    let done = 0;
+
+    for (let i = 0; i < sample.length; i++) {
+      const code = sample[i];
+      try {
+        await Glyphs.preload([code]);
+        for (let w = 0; w < 20 && !Glyphs.inkGrid(code); w++) await new Promise(r => setTimeout(r, 30));
+        const d = Glyphs.deriveZones(code);
+        const z1 = d && d.zone1, z2 = d && d.zone2, zB = d && d.zoneB;
+        const cnt = (z1?1:0) + (z2?1:0) + (zB?1:0);
+        if (cnt === 3) stats.three++; else if (cnt === 2) stats.two++; else if (cnt === 1) stats.one++; else stats.none++;
+        const g = Glyphs.inkGrid(code);
+        const em = Glyphs.metrics(code);
+        if (d && d.__debug) {
+          if (isFinite(d.__debug.t1)) tvals.t1.push(d.__debug.t1);
+          if (isFinite(d.__debug.t2)) tvals.t2.push(d.__debug.t2);
+          if (isFinite(d.__debug.tB1)) tvals.tB.push(d.__debug.tB1);
+        }
+        // 异常：尺寸非正 / 远离 bbox / 过大
+        [["z1", z1], ["z2", z2], ["zB", zB]].forEach(function (p) {
+          const z = p[1];
+          if (!z) return;
+          if (!(z.w > 0.01) || !(z.h > 0.01)) outliers.push(code + " " + p[0] + " 尺寸过小 w" + (z.w||0).toFixed(3) + " h" + (z.h||0).toFixed(3));
+          else if (z.w > 3 || z.h > 3) outliers.push(code + " " + p[0] + " 尺寸过大 w" + z.w.toFixed(2) + " h" + z.h.toFixed(2));
+          else if (z.x > (em ? em.w : 1) + 1 || z.y > (em ? em.h : 1) + 1 || z.x + z.w < -1 || z.y + z.h < -1)
+            outliers.push(code + " " + p[0] + " 远离字形 @" + z.x.toFixed(2) + "," + z.y.toFixed(2));
+        });
+      } catch (e) {
+        outliers.push(code + " 推导异常: " + e.message);
+      }
+      done++;
+      if (done % 5 === 0) {
+        document.getElementById("p").textContent = done + " / " + sample.length;
+        document.querySelector("#bar i").style.width = (100 * done / sample.length).toFixed(1) + "%";
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
+    const pct = (v) => (100 * v / sample.length).toFixed(1) + "%";
+    const avg = (a) => a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(3) : "—";
+    L.length = 0;
+    push("样本 " + sample.length + " 个字形（共 " + all.length + "）");
+    push("");
+    push("三槽数分布：3 槽 " + stats.three + " (" + pct(stats.three) + ")   2 槽 " + stats.two + " (" + pct(stats.two) + ")   1 槽 " + stats.one + " (" + pct(stats.one) + ")   0 槽 " + stats.none + " (" + pct(stats.none) + ")");
+    push("平均 t：t1=" + avg(tvals.t1) + "  t2=" + avg(tvals.t2) + "  tB=" + avg(tvals.tB));
+    push("");
+    push("异常 " + outliers.length + " 条（尺寸非正 / 过大 / 远离字形）：");
+    outliers.slice(0, 40).forEach(s => push("  " + s));
+    if (outliers.length > 40) push("  … 其余 " + (outliers.length - 40) + " 条");
+    push("");
+    push("注：这只是抽样；完整审计请用 ?n=1000 或按需分批。");
+  } catch (e) {
+    push("ERR " + e.message);
+  }
+})();
+</script>
