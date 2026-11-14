@@ -1,95 +1,202 @@
 <!DOCTYPE html><meta charset="utf-8">
-<title>槽推导审计</title>
+<title>槽推导审计（双判定对照）</title>
 <style>
 body{font:13px/1.5 system-ui,sans-serif;margin:12px;color:#111}
-h1{font-size:17px;margin:0 0 8px}
+h1{font-size:17px;margin:0 0 6px}
 #bar{background:#eee;height:6px;border-radius:3px;overflow:hidden;margin:8px 0}
 #bar i{display:block;height:100%;background:#3a7;width:0}
-#out{font:11px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;background:#fbfbf2;border:1px solid #ddd;padding:8px}
-.bad{color:#b00}
+#out{font:11px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;background:#fbfbf2;border:1px solid #ddd;padding:8px;max-height:640px;overflow:auto}
 </style>
-<h1>槽推导审计 —— 批量、可复现（不依赖单点猜测）</h1>
-<div>样本数：<b id="n">—</b>　进度：<span id="p">0</span></div>
+<h1>槽推导审计 —— 栅格判定 vs 精确面积（JSesh 等价）</h1>
+<div>样本 <b id="n">—</b>　进度 <span id="p">0</span></div>
 <div id="bar"><i></i></div>
 <div id="out">加载中…</div>
-<script src="js/lib/paper-core.min.js?v=115230"></script>
-<script src="js/database/glyphFiles.js?v=115230"></script>
-<script src="js/database/mainSigns.js?v=115230"></script>
-<script src="js/database/translit.js?v=115230"></script>
-<script src="js/database/glyphZones.js?v=115230"></script>
-<script src="js/database/serekhTail.js?v=115230"></script>
-<script src="js/plugin/MdCRndr.js?v=115230"></script>
-<script src="js/ui/glyphs.js?v=115230"></script>
+<script src="js/lib/paper-core.min.js?v=115349"></script>
+<script src="js/database/glyphFiles.js?v=115349"></script>
+<script src="js/database/mainSigns.js?v=115349"></script>
+<script src="js/database/translit.js?v=115349"></script>
+<script src="js/database/glyphZones.js?v=115349"></script>
+<script src="js/database/serekhTail.js?v=115349"></script>
+<script src="js/plugin/MdCRndr.js?v=115349"></script>
+<script src="js/ui/glyphs.js?v=115349"></script>
 <script>
 (async function(){
   const out = document.getElementById("out");
-  const LIMIT = Number(new URLSearchParams(location.search).get("n") || 200);
+  const LIMIT = Number(new URLSearchParams(location.search).get("n") || 120);
   const L = [];
   const push = (s) => { L.push(s); out.textContent = L.join("\n"); };
 
+  // ---------- 精确面积版推导（独立实现，不改生产代码） ----------
+  const MARGIN_UNITS = 1;          // 1 字形单位
+  let paperReady = false;
+  try { const cv = document.createElement("canvas"); cv.width = 1; cv.height = 1; paper.setup(cv); paperReady = true; } catch (e) { }
+
+  const polyCache = new Map();
+  function polysOf(code) {
+    if (polyCache.has(code)) return polyCache.get(code);
+    polyCache.set(code, null);
+    if (!paperReady) return null;
+    try {
+      const url = Glyphs.urlFor(code);
+      if (!url) return null;
+      const txt = decodeURIComponent(url.slice(url.indexOf(",") + 1));
+      const vm = /viewBox=("|')([\s\S]*?)\1/.exec(txt);
+      const vb = vm ? vm[2].split(/[\s,]+/).map(Number) : null;
+      const out2 = [];
+      const dRe = /<path\b[^>]*\bd=("|')([\s\S]*?)\1/g;
+      let m;
+      while ((m = dRe.exec(txt))) {
+        const dstr = m[2];
+        const subs = dstr.split(/(?=[Mm])/).map(s => s.trim()).filter(Boolean);
+        for (const sub of subs) {
+          try {
+            const p = new paper.Path({ pathData: sub, insert: false });
+            if (!p || !p.segments || p.segments.length < 3) continue;
+            p.flatten(0.02);
+            const pts = p.segments.map(s => [s.point.x, s.point.y]);
+            if (pts.length >= 3) out2.push(pts);
+          } catch (e) { }
+        }
+      }
+      if (!out2.length) return null;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      out2.forEach(pts => pts.forEach(p => { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }));
+      const W = x1 - x0, H = y1 - y0;
+      if (!(W > 0 && H > 0)) return null;
+      // 归一化到墨迹盒，y 向下（与 JSesh 一致）
+      const norm = out2.map(pts => pts.map(p => [(p[0] - x0) / W, (p[1] - y0) / H]));
+      const res = { polys: norm, W: W, H: H };
+      polyCache.set(code, res);
+      return res;
+    } catch (e) { return null; }
+  }
+
+  function clipArea(poly, x0, y0, x1, y1) {
+    const R = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    let outp = poly;
+    for (let e = 0; e < 4 && outp.length; e++) {
+      const a = R[e], b = R[(e + 1) % 4];
+      const side = (p) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+      const next = [];
+      for (let i = 0; i < outp.length; i++) {
+        const cur = outp[i], prev = outp[(i + outp.length - 1) % outp.length];
+        const ci = side(cur) >= 0, pi = side(prev) >= 0;
+        if (ci) { if (!pi) next.push(inter(prev, cur)); next.push(cur); }
+        else if (pi) next.push(inter(prev, cur));
+      }
+      outp = next;
+      function inter(p, q) {
+        const dx = q[0] - p[0], dy = q[1] - p[1], ex = b[0] - a[0], ey = b[1] - a[1];
+        const den = dx * ey - dy * ex;
+        if (Math.abs(den) < 1e-12) return q;
+        const t = ((a[0] - p[0]) * ey - (a[1] - p[1]) * ex) / den;
+        return [p[0] + dx * t, p[1] + dy * t];
+      }
+    }
+    return outp;
+  }
+  function areaOf(poly) {
+    let s = 0;
+    for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; s += p[0] * q[1] - q[0] * p[1]; }
+    return s / 2;
+  }
+  function busyExact(geo, x0, y0, x1, y1) {
+    let total = 0;
+    for (const poly of geo.polys) {
+      const c = clipArea(poly, x0, y0, x1, y1);
+      if (c && c.length >= 3) total += areaOf(c);
+    }
+    return Math.abs(total) > 1e-9;
+  }
+  function search(geo, outer, inner, w, h) {
+    const MX = MARGIN_UNITS / geo.W, MY = MARGIN_UNITS / geo.H;   // 归一化后的 MARGIN
+    let innerT = 1, outerT = 0;
+    while (Math.abs(innerT - outerT) > 0.01) {
+      const t = (innerT + outerT) / 2;
+      const px = outer[0] + t * (inner[0] - outer[0]);
+      const py = outer[1] + t * (inner[1] - outer[1]);
+      let minx = px - MX, miny = py - MY;
+      if (w < 0) minx += w;
+      if (h < 0) miny += h;
+      const busy = busyExact(geo, minx, miny, minx + Math.abs(w) + 2 * MX, miny + Math.abs(h) + 2 * MY);
+      if (busy) innerT = t; else outerT = t;
+    }
+    return outerT;
+  }
+  // 返回 {z1,z2,zB} 的 t 与是否存在（y 向下归一化）
+  function deriveExact(code) {
+    const geo = polysOf(code);
+    if (!geo) return null;
+    const W = 1, H = 1;   // 归一化后 bbox 恒为 1×1
+    const res = { t1: 0, t2: 0, tB: 0, z1: null, z2: null, zB: null };
+    // 1) 左
+    let w = W / 2, h = H / 3, y = 0.5 * H;
+    let t = search(geo, { 0: -w, 1: y } && [-w, y], [0, y], w, h);
+    if (t < 0.2) { w = W / 4; h = H / 4; t = search(geo, [-W / 2, y], [0, y], w, h); }
+    res.t1 = t;
+    if (t >= 0.1) {
+      const px = -W / 2 + t * (W / 2), py = y;
+      res.z1 = { x: px, y: py, w: W / 2, h: H / 3 };
+    }
+    // 2) 右
+    w = W / 2; h = H / 2.5;
+    t = search(geo, [W, 0], [W / 2, 0], w, h);
+    if (t < 0.2) { h = H / 3; t = search(geo, [W, 0], [W / 2, 0], w, h); }
+    res.t2 = t;
+    if (t >= 0.1) {
+      const px = W + t * (W / 2 - W), py = 0;
+      res.z2 = { x: px, y: py, w: W / 2, h: H / 2.5 };
+    }
+    // 3) 底
+    t = search(geo, [W / 2, H], [W, 0], -W, H);
+    res.tB = t;
+    if (t > 0.2) res.zB = true;
+    return res;
+  }
+
   try {
     await Glyphs.useSiteDir(); Glyphs.setRenderer(MdCRndr); Glyphs.setEnabled(true);
-    // 等长：优先取有声明槽的 + 均匀抽样，覆盖不同形态
     const all = (typeof GLYPH_FILES !== "undefined") ? GLYPH_FILES.slice() : [];
     const step = Math.max(1, Math.floor(all.length / LIMIT));
     const sample = [];
     for (let i = 0; i < all.length && sample.length < LIMIT; i += step) sample.push(all[i]);
     document.getElementById("n").textContent = sample.length + " / " + all.length;
 
-    const stats = { three: 0, two: 0, one: 0, none: 0 };
-    const outliers = [];
-    const tvals = { t1: [], t2: [], tB: [] };
+    let agree = 0, disagree = 0, noGeo = 0;
+    const diffs = [];
     let done = 0;
 
     for (let i = 0; i < sample.length; i++) {
       const code = sample[i];
+      let a = null, b = null;
       try {
         await Glyphs.preload([code]);
-        for (let w = 0; w < 20 && !Glyphs.inkGrid(code); w++) await new Promise(r => setTimeout(r, 30));
-        const d = Glyphs.deriveZones(code);
-        const z1 = d && d.zone1, z2 = d && d.zone2, zB = d && d.zoneB;
-        const cnt = (z1?1:0) + (z2?1:0) + (zB?1:0);
-        if (cnt === 3) stats.three++; else if (cnt === 2) stats.two++; else if (cnt === 1) stats.one++; else stats.none++;
-        const g = Glyphs.inkGrid(code);
-        const em = Glyphs.metrics(code);
-        if (d && d.__debug) {
-          if (isFinite(d.__debug.t1)) tvals.t1.push(d.__debug.t1);
-          if (isFinite(d.__debug.t2)) tvals.t2.push(d.__debug.t2);
-          if (isFinite(d.__debug.tB1)) tvals.tB.push(d.__debug.tB1);
-        }
-        // 异常：尺寸非正 / 远离 bbox / 过大
-        [["z1", z1], ["z2", z2], ["zB", zB]].forEach(function (p) {
-          const z = p[1];
-          if (!z) return;
-          if (!(z.w > 0.01) || !(z.h > 0.01)) outliers.push(code + " " + p[0] + " 尺寸过小 w" + (z.w||0).toFixed(3) + " h" + (z.h||0).toFixed(3));
-          else if (z.w > 3 || z.h > 3) outliers.push(code + " " + p[0] + " 尺寸过大 w" + z.w.toFixed(2) + " h" + z.h.toFixed(2));
-          else if (z.x > (em ? em.w : 1) + 1 || z.y > (em ? em.h : 1) + 1 || z.x + z.w < -1 || z.y + z.h < -1)
-            outliers.push(code + " " + p[0] + " 远离字形 @" + z.x.toFixed(2) + "," + z.y.toFixed(2));
-        });
-      } catch (e) {
-        outliers.push(code + " 推导异常: " + e.message);
+        for (let w = 0; w < 12 && !Glyphs.inkGrid(code); w++) await new Promise(r => setTimeout(r, 25));
+        a = Glyphs.deriveZones(code);
+      } catch (e) { }
+      b = deriveExact(code);
+      if (!b) { noGeo++; }
+      else {
+        const aHas = a ? { z1: !!a.zone1, z2: !!a.zone2, zB: !!a.zoneB } : { z1: false, z2: false, zB: false };
+        // 以 t 为准（与源码判定一致），再与对象存在性交叉校验
+        const bHas = { z1: b.t1 >= 0.1, z2: b.t2 >= 0.1, zB: b.tB > 0.2 };
+        const same = aHas.z1 === bHas.z1 && aHas.z2 === bHas.z2;
+        if (same) agree++; else { disagree++; if (diffs.length < 30) diffs.push(code + "  栅格[z1=" + (aHas.z1?"有":"无") + " z2=" + (aHas.z2?"有":"无") + "]  精确[z1=" + (bHas.z1?"有":"无") + " z2=" + (bHas.z2?"有":"无") + "]  t1=" + b.t1.toFixed(3) + " t2=" + b.t2.toFixed(3) + " tB=" + b.tB.toFixed(3) + (!!b.z1 !== bHas.z1 || !!b.z2 !== bHas.z2 ? "  ⚠对象/t不一致" : "")); }
       }
       done++;
-      if (done % 5 === 0) {
+      if (done % 3 === 0) {
         document.getElementById("p").textContent = done + " / " + sample.length;
         document.querySelector("#bar i").style.width = (100 * done / sample.length).toFixed(1) + "%";
         await new Promise(r => setTimeout(r, 0));
       }
     }
 
-    const pct = (v) => (100 * v / sample.length).toFixed(1) + "%";
-    const avg = (a) => a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(3) : "—";
     L.length = 0;
-    push("样本 " + sample.length + " 个字形（共 " + all.length + "）");
+    push("样本 " + sample.length + " / " + all.length + "，其中可解析几何 " + (sample.length - noGeo) + " 个");
+    push("位置判定一致：" + agree + "　不一致：" + disagree + "　无法解析：" + noGeo);
     push("");
-    push("三槽数分布：3 槽 " + stats.three + " (" + pct(stats.three) + ")   2 槽 " + stats.two + " (" + pct(stats.two) + ")   1 槽 " + stats.one + " (" + pct(stats.one) + ")   0 槽 " + stats.none + " (" + pct(stats.none) + ")");
-    push("平均 t：t1=" + avg(tvals.t1) + "  t2=" + avg(tvals.t2) + "  tB=" + avg(tvals.tB));
-    push("");
-    push("异常 " + outliers.length + " 条（尺寸非正 / 过大 / 远离字形）：");
-    outliers.slice(0, 40).forEach(s => push("  " + s));
-    if (outliers.length > 40) push("  … 其余 " + (outliers.length - 40) + " 条");
-    push("");
-    push("注：这只是抽样；完整审计请用 ?n=1000 或按需分批。");
+    push("不一致清单（前 30）：");
+    diffs.forEach(s => push("  " + s));
   } catch (e) {
     push("ERR " + e.message);
   }
