@@ -484,3 +484,77 @@ if (options().justified()) {
 1. `Zone.java`：`addRun` / `moveCurrentPoint` / `justifyWidthTo` / 行高（`minY`、行距）
 2. `LineLayoutAux`（`:279-397`）：`visitLineBreak` / `visitPageBreak` / `visitTabStop` / `visitDefault`
 3. 与 `Zone` 相关的 `TextDirection`（右到左时 zone 内镜像、绘制再镜回）
+
+## 十三、Zone 与换行/制表（2026-11-15 调查）
+
+### 13.1 Zone 的数据结构
+
+```
+Zone(minWidth, minHeight)              Zone.java:87
+   currentPoint : Point2D              // 下一个元素落在哪
+   zoneArea     : Rectangle2D          // 累积包围盒（可能 minY 为负）
+   views        : List<MDCView>        // 所有视图（供 translateBy）
+   units        : List<List<MDCView>>  // 对齐单位：单个 view 或一个文本 run
+```
+
+- `add(view)`：`position = currentPoint + view.getDeltaBaseX/Y`，再 `zoneArea.add(bbox)`
+  （`Zone:103-112`）。**每个 view 都带 deltaBaseX/Y（基线偏移）**——我们完全没建模。
+- `addRun(views, xOffsets)`：一个文本 run 作为**一个对齐单位**加进来（`:120-130`）。
+- `moveCurrentPoint(dx, dy)`、`computeNewSizeWith(view)`、`translateBy(zoneStart)`。
+
+### 13.2 两端对齐的真实规则（比"0.75 阈值"多两条）
+
+```java
+// Zone.justifyWidthTo(startMargin, width)   :221-250
+minimalWidth = Σ unitWidth(unit);
+if (minimalWidth < width) {
+    space = width - minimalWidth;
+    if (nonEmptyUnits.size() == 1)        moveUnitTo(unit, startMargin + space/2);  // 单个单位 → 居中
+    else if (space > 0.5 * minimalWidth) centerInWidth(startMargin, width);         // 空隙过半 → 整行居中
+    else                                 各单位间隔 = space/(n-1) 均匀铺开
+}
+```
+
+调用方 `LineLayout.endLayout:138-172` 只对满足「非最后 zone」或「宽度 ≥ 0.75×最宽 zone」的
+zone 调用它，最后 `documentArea` 再加 `leftMargin` / `topMargin`。
+
+### 13.3 换行与制表
+
+```java
+// LineLayoutAux.visitLineBreak:292-315
+verticalSkip = zone.getHeight() + zone.getMinY() + lineSkip;   // = 基线到行底 + 行距
+if (b.getSpacing() != 100) verticalSkip *= b.getSpacing()/100; // -!=…% 记法
+zone.add(subView); flushZone();
+zone = new Zone(0, maxCadratHeight);                            // 新行高度下限 1em
+zoneOriginPosition.y += verticalSkip;
+
+// LineLayoutAux.visitTabStop:364-369
+pos = tab.getStopPos() * tabUnitWidth;      // tabUnitWidth = 18/200 = 0.09em
+zone.getCurrentPoint().x = pos;
+
+// LineLayoutAux.visitDefault:383-394
+dx = (subView.getWidth() != 0) ? subView.getWidth() + smallSkip : 0;
+zone.add(subView); zone.moveCurrentPoint(dx, 0);
+```
+
+要点：**行距是 `lineSkip`(6/18em) 加上"基线到行底"的距离**；`zone.getMinY()` 可能为负
+（有符号超出基线以上时），会直接影响下一行的起点。制表位以 `tabUnitWidth` 为单位。
+
+### 13.4 与我们的差距
+
+| JSesh | 我们 | 状态 |
+|---|---|---|
+| `deltaBaseX/Y`（每个视图的基线偏移） | 无 | **缺**（影响边界情况下的垂直定位） |
+| `Zone` 与 `zoneArea`（minY 可负） | 无，按行高 + smallSkip 串接 | **缺** |
+| `justifyWidthTo` 三条分支 | 无 | **缺** |
+| 末行 0.75 阈值 | 无 | **缺** |
+| `LineBreak` 的 `-!…%` 行距倍率 | 无 | **缺** |
+| `TabStop`（0.09em 单位） | 无 | **缺** |
+| 文本 run 作为单个对齐单位 | `+…+s` 按 run 渲染，但不参与对齐 | 部分 |
+
+### 13.5 下一步
+
+1. `MDCView.getDeltaBase`（基线偏移）的来源与计算；
+2. `Zone.translateBy` + `flushZone`（zone 落位、`addTopMargin`）；
+3. `TextDirection`（右到左的镜像与 tab 从东侧计算）；
+4. 之后才谈 `justifyWidthTo` 的实现（它依赖 1、2 的坐标语义）。
