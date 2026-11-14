@@ -2,7 +2,7 @@
  * ============================================================================
  *  MdCRndr — MdC（Manuel de Codage）圣书体渲染引擎（单文件、零依赖、可嵌入插件）
  * ----------------------------------------------------------------------------
- *  · 输入：**纯 MdC 渲染串**（Gardiner 码 / 十六进制码 / * : 组语法 / {连字} / <文本> / $ 换行）
+ *  · 输入：**纯 MdC 渲染串**（Gardiner 码 / 十六进制码 / * : 组语法 / {连字} / +文本+s / <王名圈> / $ 换行）
  *    （词库等数据一律直接存 MdC）
  *    （组语法为 JSesh 风格："*" 同层并列、":" 下移一层、"-" 分隔四开组）
  *  · 输出：DOM（字形 span + 组 / 连字容器），自带 @font-face 与所需样式
@@ -39,7 +39,7 @@
         fontSize: 40,                       // render / renderText 的默认字号（px）
         vrgLayerGap: 0.05,                  // VRG 层间距（em 比例）
         vrgItemGap: 0.125,                  // VRG 层内元素间距（em 比例）
-        textScale: 0.4,                     // <文本> 插入文本相对基准字号的倍率
+        textScale: 0.4,                     // +文本+s 插入文本相对基准字号的倍率
         inlineBaseline: true,               // 行内嵌排：令堆叠组整盒底边落在正文基线上
         ligatureDebug: false,               // 连字各部件显示红色边框（调试）
         vertical: false,                    // 竖排：自上而下成列，VRG 改为水平渲染组（HRG）
@@ -52,7 +52,7 @@
         vrgLayerClass: "vrg-layer",
         ligClass: "lig",
         ligDebugClass: "lig-debug",
-        textClass: "txt",       // <文本> 插入的文本片段
+        textClass: "txt",       // +文本+s 插入的文本片段
         unsupportedClass: "unsup",  // 字体不支持的码：方块占位 + 码名
         brClass: "br",          // "$" 手动换行标记
         encClass: "enc",        // 包围框（王名圈 / 塞拉赫框 / 方框）
@@ -1051,53 +1051,57 @@ function parseInput(text) {
         ["h1", "<h3", "h3>", 3, 3], ["h1", "<h2", "h2>", 2, 2], ["h1", "<h1", "h1>", 1, 1], ["h1", "<h", "h>", 1, 2],
         ["F", "<f3", "f3>", 3, 3], ["F", "<f2", "f2>", 2, 2], ["F", "<f1", "f1>", 1, 1], ["F", "<f", "f>", 1, 2],
         ["A", "<g3", "g3>", 3, 3], ["A", "<g", "g>", 1, 2],
-        ["A", "<3", "3>", 3, 3], ["A", "<2", "2>", 2, 2], ["A", "<1", "1>", 1, 1]
+        ["A", "<3", "3>", 3, 3], ["A", "<2", "2>", 2, 2], ["A", "<1", "1>", 1, 1],
+        // JSesh OLD_CARTOUCHE_PLAIN：裸 "<" … ">"（结束端默认 part 2）
+        ["A", "<", ">", 1, 2]
     ];
 
-    // 预处理：外部空白宽容剔除；"<>" 文本区内部保留空白（含空格）。
-    // "<" 进入文本区、"<" 前带 "\" 转义不进入；">" 退出文本区（"\>" 转义不退出）。
+    // 预处理：外部空白宽容剔除；两类块按原样复制——
+    //   ① 包围框 "<…>"（含 <s…s> 等），用栈配对，内部内容不参与空白剔除
+    //   ② 文本块 "+x…+s"（JSesh alphabeticText；x 为除 s 外的字母），整段保留空白
+    // 孤立 ">" 忽略；"\\<"、"\\>"、"\\+" 为转义字面量。
     let s = "";
-    let inText = false;
     for (let i = 0; i < text.length; i++) {
         const ch = text[i];
         const escaped = i > 0 && text[i - 1] === "\\";
-        if (!inText) {
-            if (ch === "<" && !escaped) {
-                // 包围框：整段按原样复制（内容不进入 <文本> 模式），用栈配对到对应闭框，
-                // 以便框内可含 <文本>、连字、嵌套框等。
-                let spec = null;
+        if (ch === "<" && !escaped) {
+            let spec = null;
+            for (const sp of ENC_OPENERS) {
+                if (text.slice(i, i + sp[1].length) === sp[1]) { spec = sp; break; }
+            }
+            const stack = [spec[2]];
+            s += spec[1];
+            let j = i + spec[1].length;
+            while (j < text.length) {
+                let op = null;
                 for (const sp of ENC_OPENERS) {
-                    if (text.slice(i, i + sp[1].length) === sp[1]) { spec = sp; break; }
+                    if (text.slice(j, j + sp[1].length) === sp[1]) { op = sp; break; }
                 }
-                if (spec) {
-                    const stack = [spec[2]];
-                    s += spec[1];
-                    let j = i + spec[1].length;
-                    while (j < text.length) {
-                        let op = null;
-                        for (const sp of ENC_OPENERS) {
-                            if (text.slice(j, j + sp[1].length) === sp[1]) { op = sp; break; }
-                        }
-                        if (op) { stack.push(op[2]); s += op[1]; j += op[1].length; continue; }
-                        const topc = stack[stack.length - 1];
-                        if (text.slice(j, j + topc.length) === topc) {
-                            stack.pop(); s += topc; j += topc.length;
-                            if (!stack.length) break;
-                            continue;
-                        }
-                        s += text[j]; j++;
-                    }
-                    i = j - 1;
+                if (op) { stack.push(op[2]); s += op[1]; j += op[1].length; continue; }
+                const topc = stack[stack.length - 1];
+                if (text.slice(j, j + topc.length) === topc) {
+                    stack.pop(); s += topc; j += topc.length;
+                    if (!stack.length) break;
                     continue;
                 }
-                inText = true; s += ch;
+                s += text[j]; j++;
             }
-            else if (ch === ">" && !escaped) { /* 孤立 > 忽略 */ }
-            else if (!/\s/.test(ch)) s += ch;
-        } else {
-            s += ch;
-            if (ch === ">" && !escaped) inText = false;
+            i = j - 1;
+            continue;
         }
+        if (ch === "+" && !escaped && /[A-Za-z]/.test(text[i + 1] || "") && !/[sS]/.test(text[i + 1])) {
+            // 文本块："+" + 字母（s 保留给 +s 结束符） … "+s"
+            let j = i;
+            while (j < text.length) {
+                if (text[j] === "\\" && text[j + 1] === "+") { s += text[j] + text[j + 1]; j += 2; continue; }
+                if (text[j] === "+" && text[j + 1] === "s") { s += "+s"; j += 2; break; }
+                s += text[j]; j++;
+            }
+            i = j - 1;
+            continue;
+        }
+        if (ch === ">") continue;                 // 孤立 ">"（不在包围框内）忽略
+        if (!/\s/.test(ch)) s += ch;
     }
     let pos = 0;
 
@@ -1114,7 +1118,7 @@ function parseInput(text) {
         const start = pos;
         // "#" 是阴影分隔符（<组>#<1-4>），必须在此终止码 token
         // "\\" 是镜像后缀（<码>\\ → 该字符水平镜像），必须在此终止码 token
-        while (pos < s.length && !"-*:]})($<>#\\".includes(s[pos])) pos++;
+        while (pos < s.length && !"-*:]})($<>#\\+".includes(s[pos])) pos++;
         return s.slice(start, pos);
     }
 
@@ -1188,22 +1192,19 @@ function parseInput(text) {
         const units = sub.tree && sub.tree.type === "seq" ? sub.tree.units : (sub.tree ? [sub.tree] : []);
         return { type: "enc", kind: kind, units: units, startPart: startPart, endPart: endPart };
     }
-    // 插入文本 <text>：< > 内为普通文本；"\<" 与 "\>" 转义为字面 "<" 与 ">"。
+    // 插入文本 "+x…+s"（JSesh alphabeticText）：x 为除 s 外的字母，"+s" 回到圣书体；
+    // 文本内 "+" 转义为 "\\+"。
     function parseText() {
         const start = pos;
-        pos++; // <
+        pos++; // +
         let t = "";
-        while (pos < s.length && s[pos] !== ">") {
-            if (s[pos] === "\\" && pos + 1 < s.length && (s[pos + 1] === "<" || s[pos + 1] === ">")) {
-                t += s[pos + 1];
-                pos += 2;
-            } else {
-                t += s[pos];
-                pos++;
-            }
+        while (pos < s.length) {
+            if (s[pos] === "\\" && s[pos + 1] === "+") { t += "+"; pos += 2; continue; }
+            if (s[pos] === "+" && s[pos + 1] === "s") { pos += 2; return { type: "text", text: t }; }
+            t += s[pos];
+            pos++;
         }
-        if (pos < s.length) pos++; // >
-        else invalid.push(closerError(start, ">"));
+        invalid.push(closerError(start, "+s"));
         return { type: "text", text: t };
     }
 
@@ -1212,8 +1213,8 @@ function parseInput(text) {
         const ch = s[pos];
         if (ch === "{") return parseLigature();
         if (ch === "(") return parseWord();
-        if (ch === "<") return parseEnclosure();   // <A- … -> / <S- … -> / <h1- … -h1>
-        if (ch === "<") return parseText();
+        if (ch === "<") return parseEnclosure();   // 王名圈 <…>、<s…s>、<h…h>、<f…f>、<g…g>
+        if (ch === "+") return parseText();        // 文本块 +x…+s
         // "$"：手动换行（渲染区强制换行；文本框中保留显示）
         if (ch === "$") { pos++; return { type: "newline" }; }
         return parseCode();
