@@ -1759,9 +1759,25 @@ function splitLines(tree) {
         renderText: function (el, text, fontSize) {
             if (typeof Glyphs !== "undefined" && Glyphs.beginZoneBudget) Glyphs.beginZoneBudget(8);
             ensureStyle();
+            const fs = (fontSize === undefined) ? options.fontSize : fontSize;
+            // 照型路径（可选）：按 JSesh 的 Cadrat/HBox/Line 结构排版
+            if (options.cadratMode === "jsesh" && window.MDC && MDC.Cadrat) {
+                const raw = String(text === undefined || text === null ? "" : text);
+                for (const src of raw.split(/\r?\n/)) {
+                    const lineEl = document.createElement("div");
+                    lineEl.className = "RenderLine";
+                    lineEl.style.fontSize = fs + "px";
+                    el.appendChild(lineEl);
+                    MDC.Cadrat.renderLine(lineEl, src, fs, {
+                        parseElement: function (str) { return parseInput(str).tree; },
+                        renderUnit: function (unit, box, size) { render(box, unit, size); },
+                    });
+                }
+                return { tree: null };
+            }
             const r = parseInput(text);
             for (const line of splitLines(r.tree)) {
-                render(el, line, fontSize === undefined ? options.fontSize : fontSize);
+                render(el, line, fs);
             }
             return r;
         },
@@ -1827,6 +1843,9 @@ function splitLines(tree) {
             quadratMode = (mode === "jsesh") ? "jsesh" : "flow";
             return MdCRndr;
         },
+    /** 切换正文排版引擎：true = 照型（Cadrat/HBox/Line），false = 旧的 layers/parts */
+    setCadratMode: function (on) { options.cadratMode = on ? "jsesh" : "flow"; return MdCRndr; },
+    getCadratMode: function () { return options.cadratMode === "jsesh" ? "jsesh" : "flow"; },
 
         setGlyphBoxProvider: function (fn) {
             glyphBoxProvider = (typeof fn === "function") ? fn : null;
