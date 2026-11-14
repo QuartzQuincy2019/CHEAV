@@ -19,6 +19,7 @@
     const TABLES = global.MDC_GLYPH_TABLES || { visuHeight: {}, visuWidth: {} };
     const visuHeight = TABLES.visuHeight || {};
     const visuWidth = TABLES.visuWidth || {};
+    const NGMETRICS = global.NG_METRICS || {};
 
     /** 与宿主共享的可变 provider 表（宿主 setter 写入，这里读） */
     const P = MDC.providers || (MDC.providers = {
@@ -59,9 +60,16 @@
         }
         const ch = decodeCode(code);
         if (!ch) return { height: 0, width: 0 };
+        // 字体模式：用 NewGardiner.ttf 的**轮廓墨迹框**（tools/ttf-metrics.js 预生成）
         const key = "x" + ch.codePointAt(0).toString(16).toLowerCase();
+        const ng = NGMETRICS[key];
+        if (ng && ng.w > 0 && ng.h > 0) {
+            return { width: ng.w * emSquare(), height: ng.h * emSquare() };
+        }
+        // 兜底：visu 表（比真实墨迹窄，仅用于字体里查不到的码）
         return { height: visuHeight[key] || 0, width: visuWidth[key] || 0 };
     }
+
 
     /**
      * 阴影：把 1-4 分区渲染为 45° 斜线底纹（背景层，不占布局、不影响度量）。

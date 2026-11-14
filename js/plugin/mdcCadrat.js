@@ -273,11 +273,17 @@
                         // NewGardiner 字体字形：尺寸由 font-size 决定，只把它摆到部件盒底边
                         hie.style.position = "absolute";
                         hie.style.left = "0px";
-                        hie.style.bottom = "0px";
                         hie.style.display = "block";
                         hie.style.lineHeight = "1";
                         hie.style.margin = "0px";
                         hie.style.verticalAlign = "baseline";
+                        // 墨迹下沉量（descent）要补掉，否则字形会压到下一行
+                        let desc = 0;
+                        if (MDC.fontInk) {
+                            const ink = MDC.fontInk(hie.textContent || "");
+                            if (ink && ink.descent) desc = ink.descent / 1000;
+                        }
+                        hie.style.bottom = (-desc * fontSize) + "px";
                         fitFontGlyph(hie, p.w * fontSize, p.h * fontSize, p.unit);
                     }
                 } else {

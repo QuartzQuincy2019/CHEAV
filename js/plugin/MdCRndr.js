@@ -313,6 +313,7 @@ if (!(typeof window !== "undefined" && window.CHEAV_KEEP_LEGACY_LIGATURES)) {
     // 模块化第 4 步：同时注入度量模块需要的连字表与选项表（mdcMetrics.js 用）
     // 模块化第 5 步：再注入 VRG 模块需要的渲染入口与模式读取（mdcVrg.js 用）
     if (typeof window !== "undefined" && window.MDC) {
+        if (window.MDC.providers) window.MDC.providers.fontFamily = options.fontFamily;
         window.MDC.host = {
             decodeCode: decodeCode,
             px: px,
