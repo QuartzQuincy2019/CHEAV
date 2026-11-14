@@ -59,7 +59,19 @@
             const mh = (typeof m.h === "number") ? m.h : ((typeof m.height === "number") ? m.height : 1);
             return { w: Math.max(mw, 1) / EM_SQUARE, h: Math.max(mh, 1) / EM_SQUARE };
         }
-        if (u.type === "lig") return { w: Math.max(ligatureWidth(u.name), 1) / EM_SQUARE, h: 1 };
+        // 括号组 / 词组：交给四开组引擎量（与渲染同源，避免容器塌缩）
+        if (u.type === "group" && u.cadrats && MDC.Cadrat && MDC.Cadrat.layoutLine) {
+            const laid = MDC.Cadrat.layoutLine(u.cadrats, { centerSigns: false, embedded: true });
+            return { w: Math.max(laid.w, 0.05), h: Math.max(laid.h, 0.05) };
+        }
+        if (u.type === "word" && u.inner) {
+            const mw2 = measureUnitEm(u.inner);
+            return { w: Math.max(mw2.w, 0.05), h: Math.max(mw2.h, 0.05) };
+        }
+        if (u.type === "lig") {
+            const lw = ligatureWidth(u.name);
+            return { w: Math.max(typeof lw === "number" ? lw : 1, 1) / EM_SQUARE, h: 1 };
+        }
         if (u.type === "text") return { w: 0.24 * (u.text || "").length, h: 0.4 };
         if (u.type === "enc") return { w: 1.34, h: 1.34 };
         return { w: 0.6, h: 1 };
