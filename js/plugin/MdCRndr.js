@@ -7773,6 +7773,9 @@ function parseInput(text) {
     const invalid = [];
     // 复合转写（带 "-"）先保护起来，避免被当作 quadrat 分隔符
     text = protectCompounds(text);
+    // 容错：孤立/悬空的 &（后面不是字母，如 "t&"、"t&&&"）直接丢弃，
+    // 否则解析器会卡在"等待下一个码"的状态，表现为界面假死。
+    text = text.replace(/&(?![A-Za-z])/g, "");
     // 即时连字：A&B / t&G43&t …（& = JSesh 连字连接符）
     // 规则：整串里必须且只能有一个"有插槽"的符号（宿主，zone1=前插槽 / zone2=后插槽）；
     //       其余必须是"插头"（无插槽）。宿主排在第一，插头按在原串中的前后进入 zone1/zone2。
