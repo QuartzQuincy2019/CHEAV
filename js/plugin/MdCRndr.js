@@ -392,6 +392,41 @@ function attachSvgOverlay(el, payload, inkW, inkH, dy, position) { return MDC.at
 function renderGlyph(parent, code, fontSize, align, mirror) { return MDC.renderGlyph(parent, code, fontSize, align, mirror); }
 
 function ligatureWidth(name) { return MDC.ligatureWidth(name); }
+/**
+ * 连字占位盒（em）：按 JSesh Layout.visitComplexLigature 的 fitToSubViews(true) 口径，
+ * 取「宿主 + 各连字区部件」的并集包围盒，而不是查表的固定宽度。
+ * 布局与绘制都用它，框内外才不会各量一套（间距/重叠问题的根因）。
+ */
+function ligatureBoxEm(name) {
+    const lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;
+    let hostW = 0, hostH = 0;
+    const hostCode = lig && lig.parts && lig.parts[0] ? lig.parts[0].code : "";
+    if (hostCode) {
+        const b = glyphBoxProvider ? glyphBoxProvider(hostCode) : null;
+        if (b) { hostW = b.w || 0; hostH = b.h || 0; }
+        if (!(hostW > 0)) {
+            const m = getMetrics(hostCode);
+            hostW = (m && (m.width !== undefined ? m.width : m.w) || 0) / EM_SQUARE;
+            hostH = Math.max(hostH, (m && (m.height !== undefined ? m.height : m.h) || 0) / EM_SQUARE);
+        }
+    }
+    let w = hostW, h = hostH || 1;
+    if (lig && lig.parts && lig.parts.length > 1 && glyphZoneProvider && hostCode) {
+        const zones = glyphZoneProvider(hostCode) || null;
+        for (let i = 1; i < lig.parts.length; i++) {
+            const p = lig.parts[i];
+            if (!p.zone) continue;
+            const z = zones ? (p.zone === "auto" ? (zones.zone2 || zones.zone1)
+                : (p.zone === "zoneB" ? (zones.zoneB || zones.zone2) : zones[p.zone])) : null;
+            if (!z || !(z.w > 0)) continue;
+            if (z.x + z.w > w) w = z.x + z.w;
+            if (z.y + z.h > h) h = z.y + z.h;
+        }
+    }
+    if (!(w > 0.05)) w = 0.5;
+    if (!(h > 0.05)) h = 1;
+    return { w: w, h: h };
+}
 function unitMetrics(u) { return MDC.unitMetrics(u); }
 function layerMetrics(line) { return MDC.layerMetrics(line); }
 function vrgBoxWidth(layers) { return MDC.vrgBoxWidth(layers); }
@@ -874,9 +909,9 @@ function renderLigature(parent, name, fontSize) {
     // 宽取连字墨迹宽（而非固定 1em）：使连字与前后字形紧贴，不留空档
     // 宽度兜底：表里没有该连字（如现场合成的 A&B）时 ligatureWidth 会返回 0，
     // 直接按它设宽会把盒子压成 0.08px，看起来"什么都没画"。
-    const lwRaw = ligatureWidth(name);
-    const lwEm = (lwRaw > 1 ? lwRaw / EM_SQUARE : lwRaw) || 0;
-    box.style.width = px(Math.max(lwEm, 0.4) * fontSize) + "px";
+    const __lbox = ligatureBoxEm(name);
+    box.style.width = px(__lbox.w * fontSize) + "px";
+    box.style.height = px(__lbox.h * fontSize) + "px";
     // 容器高 = 宿主墨迹高：连字区坐标相对宿主墨迹 bbox 归一化
     { const hc = (lig.parts[0] || {}).code || "";
       const hb = glyphBoxProvider ? glyphBoxProvider(hc) : null;
@@ -2015,6 +2050,7 @@ function splitLines(tree) {
         try { return parseInput(String(text)); }
         catch (e) { return { tree: { type: "seq", units: [] }, invalid: [String(e && e.message)] }; }
     },
+    ligatureBoxEm: ligatureBoxEm,
     debugCadrat: function (text) {
         if (!MDC.Cadrat) return "no MDC.Cadrat";
         const laid = MDC.Cadrat.layoutLine(MDC.Cadrat.parse(String(text), function (str) {

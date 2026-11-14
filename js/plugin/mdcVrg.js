@@ -71,6 +71,11 @@
         if (u.type === "lig") {
             // 连字宽：表里有就用表里的；没有就用宿主字形的墨迹宽，
             // 不能回退成 1em（那会把相邻字形顶开，看起来像重叠错乱）
+            // 与绘制同源：用连字并集包围盒（宿主 + 连字区部件）
+            if (typeof MDC.ligatureBoxEm === "function") {
+                const lb = MDC.ligatureBoxEm(u.name);
+                if (lb && lb.w > 0) return { w: lb.w, h: lb.h };
+            }
             const lw = ligatureWidth(u.name);
             let wEm = (typeof lw === "number" && lw > 0) ? (lw > 1 ? lw / EM_SQUARE : lw) : 0;
             if (!(wEm > 0.05)) {
