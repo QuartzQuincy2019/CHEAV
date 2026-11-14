@@ -304,3 +304,60 @@ private float computeScale() {
 
 - 以参考图为**规范**：`X1`、`D21` 应输出"无槽"；`A1`、`N5` 应输出"回退尺寸的左槽"；
 - 现有墨迹判定无法同时满足这四条（A1 偏松、N5 偏严、X1 偏松）→ 需要精确面积判定（对 path 做扫描线填充），而不是继续调阈值/分辨率。
+
+---
+
+## 10. 第三轮源码调查：`fixShape()` —— zone 必须随墨迹一起平移
+
+`ShapeChar.java:219-241`
+
+```java
+private void fixShape() {
+    PathIterator it = new GeneralPath(shape).getPathIterator(null, 0.01);
+    GeneralPath p = new GeneralPath();
+    p.append(it, false);
+    Rectangle2D r = p.getBounds2D();
+    AffineTransform transform = AffineTransform.getTranslateInstance(-r.getMinX(), -r.getMinY());
+    shape = transform.createTransformedShape(shape);
+    if (zones != null) {
+        for (int i = 0; i < zones.length; i++) {
+            if (zones[i] != null) {
+                Rectangle2D rect = new Rectangle2D.Double(
+                    zones[i].getMinX() - r.getMinX(),
+                    zones[i].getMinY() - r.getMinY(),
+                    zones[i].getWidth(), zones[i].getHeight());
+                zones[i].setBox(rect);          // ← zone 与墨迹一起平移
+            }
+        }
+    }
+    setBBox(0, r.getMaxY() - r.getMinY(), r.getMaxX() - r.getMinX(), 0);
+}
+```
+
+要点：
+
+1. `setShape()` 会调用 `fixShape()`；
+2. `fixShape` 把**形状与所有 zone** 同时平移 `(−minX, −minY)`；
+3. 平移量取自**墨迹包围盒**（不是画布），所以 zone 的坐标原点是"墨迹左上角"。
+
+`scaleGlyph(scale)` 同样会把 zone 按比例缩放（`ShapeChar.java:258-270`），`scaleToHeight` 用它。
+
+### 对 CHEAV 的影响
+
+我们目前读取 SVG 里的 `rect` 后**直接除以 18**，没有减去墨迹包围盒原点 ⇒ 当字形的墨迹不是从 (0,0) 开始时，所有声明槽都会整体偏移。
+
+**正确做法**：
+
+```
+zone_em.x = (rect.x - ink.x) / emPerEm      // emPerEm = 18 或 1800（按文件画布尺寸判定）
+zone_em.y = (rect.y - ink.y) / emPerEm
+zone_em.w =  rect.w / emPerEm
+zone_em.h =  rect.h / emPerEm
+```
+
+（`ink.x/ink.y` 与 `rect` 同在 SVG 用户坐标系；`emPerEm` 必须用该文件自己的比例，不能用固定 18。）
+
+### 待做
+
+- 把上述换算接进 `loadOne`（需要 `ink` 与 `em` 都算好之后再转换 zone）；
+- 转换后重新核对 `G43 / D58 / D28` 的声明槽，确认与 SVG 里的 rect 数值关系正确（例如 G43 zone1 应为负 x、覆盖字形左侧）。
