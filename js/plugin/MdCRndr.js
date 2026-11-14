@@ -633,42 +633,14 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     // 与 QuadratLayout.java:194-195 一致：框高超过 1em 时整体等比缩到 1em
     // （框内符号因此比框外小；缩放只做这一次）
     const s = vertical ? Math.min(1, 1 / Math.max(g.w, 1)) : Math.min(1, 1 / Math.max(g.h, 1));
-    if (s < 1 - 1e-6) {
-        // 不用 transform（会与 inline 尺寸叠加成 s²），而是按 s 重排一次：
-        // 内容以 fontSize*s 渲染、几何按缩放后内容重算，等价于 MDCView.reScale。
-        body.innerHTML = "";
-        let cw2 = 0, ch2 = 0;
-        const parseElement2 = function (str) {
-            const r = parseInput(str);
-            return r && r.tree ? r.tree : { type: "char", code: str };
-        };
-        const src2 = String(u.source).replace(/^-+/, "").replace(/-+$/, "");
-        const vrg2 = MDC.Cadrat.renderLine(body, src2, fontSize * s, {
-            centerSigns: true,
-            parseElement: parseElement2,
-            renderUnit: function (unit, el, fs2) { render(el, unit, fs2); }
-        });
-        if (vrg2 && vrg2.style) {
-            vrg2.style.position = "absolute";
-            vrg2.style.left = "0px";
-            vrg2.style.top = "0px";
-            cw2 = parseFloat(vrg2.style.width) / fontSize || cw;
-            ch2 = parseFloat(vrg2.style.height) / fontSize || ch;
-        }
-        const g2 = E.geometry(type, parts.start, parts.end, Math.max(cw2, 1e-6), Math.max(ch2, 1e-6), !!vertical);
-        // 框按「自然几何 × s」输出；内容已按 fontSize*s 重排，两者同时缩，只缩一次
-        box.style.width = (g.w * s * fontSize) + "px";
-        box.style.height = (g.h * s * fontSize) + "px";
-        body.style.left = (g.x * s * fontSize) + "px";
-        body.style.top = (g.y * s * fontSize) + "px";
-        box.appendChild(E.svg(type, parts.start, parts.end, g.w, g.h, !!vertical));
-        parent.appendChild(box);
-        return box;
-    }
     box.style.width = (g.w * s * fontSize) + "px";
     box.style.height = (g.h * s * fontSize) + "px";
     body.style.left = (g.x * s * fontSize) + "px";
     body.style.top = (g.y * s * fontSize) + "px";
+    if (s !== 1) {
+        body.style.transformOrigin = "0 0";
+        body.style.transform = "scale(" + s + ")";
+    }
     box.appendChild(E.svg(type, parts.start, parts.end, g.w, g.h, !!vertical));
     parent.appendChild(box);
     return box;
