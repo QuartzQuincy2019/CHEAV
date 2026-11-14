@@ -255,16 +255,31 @@
                 renderUnit(p.unit, el, fontSize);
                 const hies = el.querySelectorAll(".hie");
                 if (hies.length === 1 && el.children.length === 1) {
-                    // 单字形：直接把字形盒拉满部件盒（墨迹=部件盒）
                     const hie = hies[0];
-                    hie.style.position = "absolute";
-                    hie.style.left = "0px";
-                    hie.style.top = "0px";
-                    hie.style.margin = "0px";
-                    hie.style.width = "100%";
-                    hie.style.height = "100%";
-                    hie.style.backgroundSize = "100% 100%";
-                    hie.style.backgroundPosition = "left top";
+                    const overlay = hie.querySelector("svg,img");
+                    const bg = hie.style.backgroundImage;
+                    const isSvg = !!overlay || (bg && bg !== "none");
+                    if (isSvg) {
+                        // SVG 字形：字形盒拉满部件盒（墨迹=部件盒）
+                        hie.style.position = "absolute";
+                        hie.style.left = "0px";
+                        hie.style.top = "0px";
+                        hie.style.margin = "0px";
+                        hie.style.width = "100%";
+                        hie.style.height = "100%";
+                        hie.style.backgroundSize = "100% 100%";
+                        hie.style.backgroundPosition = "left top";
+                    } else {
+                        // NewGardiner 字体字形：尺寸由 font-size 决定，只把它摆到部件盒底边
+                        hie.style.position = "absolute";
+                        hie.style.left = "0px";
+                        hie.style.bottom = "0px";
+                        hie.style.display = "block";
+                        hie.style.lineHeight = "1";
+                        hie.style.margin = "0px";
+                        hie.style.verticalAlign = "baseline";
+                        fitFontGlyph(hie, p.w * fontSize, p.h * fontSize, p.unit);
+                    }
                 } else {
                     fitContent(el, p.w * fontSize, p.h * fontSize);
                 }
@@ -272,6 +287,22 @@
         });
         parent.appendChild(box);
         return box;
+    }
+
+    /**
+     * 字体字形（NewGardiner）：尺寸由 font-size 决定，无法像 SVG 那样拉伸，
+     * 因此只在"行盒明显超出部件盒"时做一次性等比缩小，避免溢出。
+     */
+    function fitFontGlyph(hie, targetW, targetH, unit) {
+        const r = hie.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        const s = Math.min(
+            targetW > 0 ? targetW / r.width : 1,
+            targetH > 0 ? targetH / r.height : 1
+        );
+        if (!isFinite(s) || s <= 0 || s >= 0.999) return;
+        hie.style.transformOrigin = "left bottom";
+        hie.style.transform = "scale(" + s + ")";
     }
 
     /**
