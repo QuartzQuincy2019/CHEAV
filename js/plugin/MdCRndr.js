@@ -421,8 +421,16 @@ function ligatureBoxEm(name) {
             const z = zones ? (p.zone === "auto" ? (zones.zone2 || zones.zone1)
                 : (p.zone === "zoneB" ? (zones.zoneB || zones.zone2) : zones[p.zone])) : null;
             if (!z || !(z.w > 0)) continue;
-            if (z.x + z.w > w) w = z.x + z.w;
-            if (z.y + z.h > h) h = z.y + z.h;
+            // 与 renderLigature 一致：部件会被缩放进区里，再按重力对齐；
+            // 量宽要用「缩小后的字形宽 + 实际偏移」，用 z.w 会把框撑大。
+            const m = getMetrics(p.code);
+            const inkW = Math.max(0.01, (m.width !== undefined ? m.width : m.w || 0) / EM_SQUARE);
+            const inkH = Math.max(0.01, (m.height !== undefined ? m.height : m.h || 0) / EM_SQUARE);
+            const fitK = (inkW <= z.w && inkH <= z.h) ? 1 : Math.min(z.w / inkW, z.h / inkH);
+            const pw = inkW * fitK, ph = inkH * fitK;
+            const px = (z.gh === "s") ? z.x : (z.gh === "e") ? (z.x + z.w - pw) : (z.x + (z.w - pw) / 2);
+            if (px + pw > w) w = px + pw;
+            if (z.y + ph > h) h = z.y + ph;
         }
     }
     if (!(w > 0.05)) w = 0.5;
