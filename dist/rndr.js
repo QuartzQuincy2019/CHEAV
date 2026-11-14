@@ -9135,12 +9135,26 @@
             w += ms[i].w + (i > 0 ? GEOM.smallSkip : 0);
             if (ms[i].h > h) h = ms[i].h;
         }
+        // Layout.visitHBox:549-597
+        //   ① 单符号组且高 > largeSignSizeRatio×A1 高 → reScale(h/高) 拉到行高
+        //   ② 其余可拉伸视图（yStretchable）由 ViewVerticalEnlarger 把**格子**高度设成 h，
+        //      但绘制尺寸不变（MDCView.setHeight 不动 xScale/yScale），所以字形仍在格子底部。
         const places = [];
         let x = 0;
         for (let i = 0; i < ms.length; i++) {
             if (i > 0) x += GEOM.smallSkip;
-            places.push({ x: x, y: h - ms[i].h, w: ms[i].w, h: ms[i].h, elem: elems[i] });
-            x += ms[i].w;
+            let w = ms[i].w, inkH = ms[i].h;
+            if (elems[i] && elems[i].type === "unit" && ms.length >= 1
+                && inkH > GEOM.largeSignSizeRatio * GEOM.heightOfA1 && h > inkH) {
+                const k = h / inkH;                 // ① 单符号拉满行高
+                w *= k; inkH *= k;
+            }
+            places.push({
+                x: x, y: h - inkH, w: w, h: inkH,
+                cellH: h,                            // ② 格子高 = 行高（绘制仍用 h）
+                elem: elems[i]
+            });
+            x += w;
         }
         return { w: w, h: h, y: 0, places: places, wide: elems.length === 1 && !!(elems[0] && elems[0].wide) };
     }
@@ -9260,6 +9274,7 @@
                     y: (row.y + p.y) * scale,
                     w: p.w * scale,
                     h: p.h * scale,
+                    cellH: (p.cellH || p.h) * scale,
                     elem: p.elem
                 });
             }
