@@ -69,8 +69,18 @@
             return { w: Math.max(mw2.w, 0.05), h: Math.max(mw2.h, 0.05) };
         }
         if (u.type === "lig") {
+            // 连字宽：表里有就用表里的；没有就用宿主字形的墨迹宽，
+            // 不能回退成 1em（那会把相邻字形顶开，看起来像重叠错乱）
             const lw = ligatureWidth(u.name);
-            return { w: Math.max(typeof lw === "number" ? lw : 1, 1) / EM_SQUARE, h: 1 };
+            let wEm = (typeof lw === "number" && lw > 0) ? (lw > 1 ? lw / EM_SQUARE : lw) : 0;
+            if (!(wEm > 0.05)) {
+                const L = (typeof LIGATURES !== "undefined") ? (LIGATURES[u.name] || LIGATURES[u.rawName]) : null;
+                const host = L && L.parts && L.parts[0] ? L.parts[0].code : "";
+                let hm = 0;
+                try { const m = getMetrics(host); hm = (m && (m.width !== undefined ? m.width : m.w) || 0) / EM_SQUARE; } catch (e) { hm = 0; }
+                wEm = hm > 0.05 ? hm : 0.5;
+            }
+            return { w: wEm, h: 1 };
         }
         if (u.type === "text") return { w: 0.24 * (u.text || "").length, h: 0.4 };
         if (u.type === "enc") {

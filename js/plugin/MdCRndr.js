@@ -1575,6 +1575,11 @@ function parseInput(text) {
     // 顶层若仍有未消费的字符（多余 / 异种的结束符）→ 同样计入警戒
     if (pos < s.length) invalid.push(s.slice(pos) + " (多余的字符)");
     const tree = { type: "seq", units: top.map(expandUnit).filter(x => x) };
+    // 过滤内部占位符造成的假报错（如 w"），它们不是用户输入的问题
+    for (let ii = invalid.length - 1; ii >= 0; ii--) {
+        const msg = String(invalid[ii]);
+        if (msg.indexOf('"') >= 0 || msg.indexOf("@@") >= 0) invalid.splice(ii, 1);
+    }
     return { tree, invalid };
 }
 
