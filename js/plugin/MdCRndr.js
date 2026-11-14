@@ -668,10 +668,14 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     // 2) visitCartouche 几何
     const g = E.geometry(type, parts.start, parts.end, cw, ch, !!vertical);
     // 3) 容器 + 逐单元：每个单元占一个"1em 高的 em 盒"（宽=墨迹宽），墨迹在盒内上下居中
+    // JSesh 把王名圈包在 Cadrat 里，QuadratLayout.java:194-195 会 reScale(1/h)：
+    // 整个框（内容、dSmall、线宽）等比缩到 1em，所以框内符号比框外小。
+    const ESC = vertical ? Math.min(1, 1 / Math.max(g.w, 1)) : Math.min(1, 1 / Math.max(g.h, 1));
     const box = document.createElement("span");
     box.className = options.encClass + " enc-js";
-    box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
-        "line-height:0;font-size:" + fontSize + "px;width:" + (g.w * fontSize) + "px;height:" + (g.h * fontSize) + "px;";
+    box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;transform-origin:0 100%;" +
+        "line-height:0;font-size:" + fontSize + "px;width:" + (g.w * ESC * fontSize) + "px;height:" + (g.h * ESC * fontSize) + "px;";
+    if (ESC !== 1) box.style.transform = "scale(" + ESC + ")";
     let cx = 0, cy = 0;
     if (u.kind === "A") encADepth++;
     try {
