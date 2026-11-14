@@ -617,7 +617,7 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
             const m = ms[i];
             let left, top;
             if (vertical) { left = g.x + (cw - m.w) / 2; top = g.y + cy + (m.h - m.h) / 2; cy += m.h; }
-            else { left = g.x + cx; top = g.y + (ch - m.h) / 2; cx += m.w; }
+            else { left = g.x + cx; top = g.y + ((units.length > 1) ? (ch - m.h) : (ch - m.h) / 2); cx += m.w; }
             const cell = document.createElement("span");
             cell.className = "enc-cell";
             cell.style.cssText = "position:absolute;line-height:0;left:" + (left * fontSize) + "px;top:" +
