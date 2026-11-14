@@ -622,10 +622,20 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     if (!(cw > 0)) cw = 1;
     if (!(ch > 0)) ch = 1;
     const g = E.geometry(type, parts.start, parts.end, cw, ch, !!vertical);
-    box.style.width = (g.w * fontSize) + "px";
-    box.style.height = (g.h * fontSize) + "px";
-    body.style.left = (g.x * fontSize) + "px";
-    body.style.top = (g.y * fontSize) + "px";
+    // JSesh：王名圈被包在一个 Cadrat 里，QuadratLayout.java:194-195
+    //   if (honourMaxHeight && h > maxCadratHeight) currentView.reScale(maxCadratHeight / h);
+    // 于是整个框（含边距与线宽）被等比缩到 1em —— 框内符号因此比框外小。
+    const s = vertical
+        ? Math.min(1, 1 / Math.max(g.w, 1))
+        : Math.min(1, 1 / Math.max(g.h, 1));
+    box.style.width = (g.w * s * fontSize) + "px";
+    box.style.height = (g.h * s * fontSize) + "px";
+    body.style.left = (g.x * s * fontSize) + "px";
+    body.style.top = (g.y * s * fontSize) + "px";
+    if (s !== 1) {
+        body.style.transformOrigin = "0 0";
+        body.style.transform = "scale(" + s + ")";
+    }
     box.appendChild(E.svg(type, parts.start, parts.end, g.w, g.h, !!vertical));
     parent.appendChild(box);
     return box;
