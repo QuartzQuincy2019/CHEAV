@@ -85,7 +85,10 @@
                         if (u.startPart) parts.start = u.startPart;
                         if (u.endPart) parts.end = u.endPart;
                         const g = E.geometry(type, parts.start, parts.end, inner.w, inner.h, false);
-                        return { w: g.w, h: g.h };
+                        // 与 renderEnclosureJseth 一致：整框缩到 1em，
+                        // 量宽度也必须用缩放后的值，否则行内会留出多余间距。
+                        const esc = Math.min(1, 1 / Math.max(g.h, 1));
+                        return { w: g.w * esc, h: g.h * esc };
                     }
                 } catch (e) { /* 落到兜底 */ }
             }
