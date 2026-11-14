@@ -673,7 +673,7 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     const ESC = vertical ? Math.min(1, 1 / Math.max(g.w, 1)) : Math.min(1, 1 / Math.max(g.h, 1));
     const box = document.createElement("span");
     box.className = options.encClass + " enc-js";
-    box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;transform-origin:0 100%;" +
+    box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
         "line-height:0;font-size:" + fontSize + "px;width:" + (g.w * ESC * fontSize) + "px;height:" + (g.h * ESC * fontSize) + "px;";
     if (ESC !== 1) box.style.transform = "scale(" + ESC + ")";
     let cx = 0, cy = 0;
@@ -687,10 +687,10 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
             else { left = g.x + cx; top = g.y; cx += m.w; }
             const cell = document.createElement("span");
             cell.className = "enc-cell";
-            cell.style.cssText = "position:absolute;line-height:0;overflow:visible;left:" + (left * fontSize) + "px;top:" +
-                (top * fontSize) + "px;width:" + ((vertical ? m.w : m.w) * fontSize) + "px;height:" + (band * fontSize) + "px;";
+            cell.style.cssText = "position:absolute;line-height:0;overflow:visible;left:" + (left * ESC * fontSize) + "px;top:" +
+                (top * ESC * fontSize) + "px;width:" + (m.w * ESC * fontSize) + "px;height:" + (band * ESC * fontSize) + "px;";
             box.appendChild(cell);
-            render(cell, x, fontSize);
+            render(cell, x, fontSize * ESC);
             const hie = cell.querySelector(".hie");
             if (hie) {
                 const inkTop = vertical ? (band - m.h) / 2 : (band - m.h) / 2;
