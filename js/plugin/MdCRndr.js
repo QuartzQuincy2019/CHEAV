@@ -392,6 +392,8 @@ function attachSvgOverlay(el, payload, inkW, inkH, dy, position) { return MDC.at
 function renderGlyph(parent, code, fontSize, align, mirror) { return MDC.renderGlyph(parent, code, fontSize, align, mirror); }
 
 function ligatureWidth(name) { return MDC.ligatureWidth(name); }
+// mdcVrg 通过 MDC.ligatureBoxEm 访问，保证框内外同一口径
+function __exposeLigBox() { }
 /**
  * 连字占位盒（em）：按 JSesh Layout.visitComplexLigature 的 fitToSubViews(true) 口径，
  * 取「宿主 + 各连字区部件」的并集包围盒，而不是查表的固定宽度。
@@ -427,6 +429,8 @@ function ligatureBoxEm(name) {
     if (!(h > 0.05)) h = 1;
     return { w: w, h: h };
 }
+// 让 mdcVrg 的 lig 度量也能用同一口径（框内外一致）
+try { if (window.MDC) MDC.ligatureBoxEm = ligatureBoxEm; } catch (e) { }
 function unitMetrics(u) { return MDC.unitMetrics(u); }
 function layerMetrics(line) { return MDC.layerMetrics(line); }
 function vrgBoxWidth(layers) { return MDC.vrgBoxWidth(layers); }
@@ -2192,3 +2196,4 @@ if (window.MDC && window.MDC.providers) window.MDC.providers.glyph = glyphProvid
 
     global.MdCRndr = MdCRndr;
 })(typeof window !== "undefined" ? window : globalThis);
+
