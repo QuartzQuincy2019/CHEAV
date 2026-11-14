@@ -558,3 +558,70 @@ zone.add(subView); zone.moveCurrentPoint(dx, 0);
 2. `Zone.translateBy` + `flushZone`（zone 落位、`addTopMargin`）；
 3. `TextDirection`（右到左的镜像与 tab 从东侧计算）；
 4. 之后才谈 `justifyWidthTo` 的实现（它依赖 1、2 的坐标语义）。
+
+## 十四、deltaBase：视图的基线偏移（2026-11-15 调查）
+
+### 14.1 语义
+
+`MDCView:50-60` 的注释说得很清楚：
+
+> deltaBaseX / deltaBaseY 描述的是「本视图自己的基线/基准列」与「父级标准基线/基准列」之差。
+> 水平文本里通常对齐的是各视图的**顶边**；这两个值参与计算视图位置，算完后位置就完全确定。
+
+`Zone.add` 正是这样用的（`Zone:103-112`）：
+
+```java
+view.getPosition().setLocation(currentPoint.x + view.getDeltaBaseX(),
+                               currentPoint.y + view.getDeltaBaseY());
+```
+
+所以 deltaBase 不是"微调"，而是**每个视图进入行时的落点修正**。
+
+### 14.2 谁在设它
+
+| 位置 | 设置 | 含义 |
+|---|---|---|
+| `Layout:265-266` | `setDeltaBaseY(maxCadratHeight - alphabeticTextBaseline - ascent)` | 字母文本 run：把文字**基线**放到四开组底线之上 `alphabeticTextBaseline` 处；高度用字体的 `ascent+descent`（:258-261），**不用字形包围盒** |
+| `Layout:456-457` | 横排王名圈 `setDeltaBaseY(-dSmall); setDeltaBaseX(0)` | 框整体上移 `dSmall`(3/18em)，使**框内**内容与正文对齐，框体在下方多出 dSmall |
+| `Layout:459-460` | 竖排王名圈 `setDeltaBaseY(0); setDeltaBaseX(-dSmall)` | 同理，改为水平方向偏移 |
+| `ColumnLayout:98` | `setDeltaBaseY(0)` | 列排版不需要 y 对齐 |
+
+### 14.3 与我们的差距
+
+- 我们**完全没有 deltaBase 这个概念**。王名圈的 `-dSmall` 被吸收进了 `E.geometry()` 的
+  框内定位里（视觉上对，但语义不同：JSesh 是"框整体上移"，我们是"内容在框内下移"，
+  在多行/基线场景下会分叉）。
+- 文本 run（`+…+s`）我们按字形渲染，**没有基线对齐**，也没有用字体 ascent/descent 定高。
+  这正是 `+Hello+s` 与圣书体混排时对不齐的根源。
+
+### 14.4 下一步（顺序）
+
+1. 在 place 里引入 `deltaBaseY`（水平文本只需 Y），由"单元类型"决定：
+   圣书体 = 0；王名圈 = `-dSmall`；文本 run = `maxCadratHeight - alphabeticTextBaseline - ascent`。
+2. `addTopMargin` / `flushZone` 的落位（`LineLayout:219-250`）与 `zoneArea.minY` 的负值处理。
+3. 文本 run 的高度改成正文字体的 `ascent+descent`（`Layout:258-261`）。
+
+### 14.5 取值（已核对 GeometrySpecification.DEFAULT）
+
+```
+maxCadratHeight      18f   → 1em
+maxCadratWidth       22f   → 22/18em
+smallSkip             2f   → 2/18em
+lineSkip              6f   → 6/18em
+tabUnitWidth      18/200f  → 0.09em
+largeSignSizeRatio  0.8f
+smallSignSizeRatio  0.4f
+smallBodyScaleLimit  12f
+standardSignHeight   18f
+alphabeticTextBaseline 4f  → 4/18em（文字基线在四开组底线之上 4 单位）
+```
+
+于是字母文本的落点修正为
+
+```
+deltaBaseY = maxCadratHeight - alphabeticTextBaseline - ascent
+           = 18 - 4 - ascent = 14 - ascent   （单位同上）
+```
+
+SVG 模式下 ascent 取决于正文字体（CSS 字体栈），这也是 `+…+s` 与圣书体混排时
+必须先定死正文字体/字号，才能谈对齐的原因。
