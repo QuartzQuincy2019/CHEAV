@@ -1,0 +1,48 @@
+<!DOCTYPE html><meta charset="utf-8">
+<style>body{font:12px system-ui;margin:8px}#o{font:11px monospace;white-space:pre-wrap;background:#ffef9f;padding:6px}
+.d{display:inline-block;font-size:110px;line-height:1.25;margin:0 6px;border-right:1px solid #99a;padding-right:10px;vertical-align:bottom}
+.hie{outline:1px solid rgba(220,0,0,.45)}</style>
+<div id="o">loading…</div>
+<div><span class=d id=top_w></span><span class=d id=bot_w></span><span class=d id=mid_w></span><span class=d id=top_A1></span><span class=d id=bot_A1></span><span class=d id=mid_A1></span><span class=d id=top_N5></span><span class=d id=bot_N5></span><span class=d id=mid_N5></span></div>
+<script src="js/lib/paper-core.min.js?v=120616"></script>
+<script src="js/database/mainSigns.js?v=120616"></script>
+<script src="js/database/translit.js?v=120616"></script>
+<script src="js/database/glyphZones.js?v=120616"></script>
+<script src="js/database/serekhTail.js?v=120616"></script>
+<script src="js/plugin/MdCRndr.js?v=120616"></script>
+<script src="js/ui/glyphs.js?v=120616"></script>
+<script>
+(async function(){
+  const em = 110, L = [];
+  const codes = ["w","A1","N5"];
+  try {
+    await Glyphs.useSiteDir(); Glyphs.setRenderer(MdCRndr); Glyphs.setEnabled(true);
+    MdCRndr.setGlyphZoneProvider(c => Glyphs.zoneFor(c));
+    MdCRndr.setGlyphMetricsProvider(c => Glyphs.metrics(c));
+    MdCRndr.setGlyphBoxProvider(c => Glyphs.box(c));
+    MdCRndr.setGlyphAspectProvider(c => Glyphs.aspect(c));
+    await Glyphs.preload(["w","A1","N5","X1"].concat(codes));
+    await new Promise(r => setTimeout(r, 900));
+    MdCRndr.setQuadratMode("flow");
+    codes.forEach(function (c) {
+      const z = Glyphs.deriveZones(c) || {};
+      const f = v => (v === undefined ? "-" : v.toFixed(3));
+      const fmt = q => q ? ("w" + f(q.w) + " h" + f(q.h) + " @" + f(q.x) + "," + f(q.y)) : "无";
+      L.push(c + "  z1=" + fmt(z.zone1) + "  z2=" + fmt(z.zone2) + "  zB=" + fmt(z.zoneB));
+      ["top","bot","mid"].forEach(function (kind) {
+        const txt = kind === "top" ? (c + "&t") : kind === "bot" ? ("t&" + c) : ("t&" + c + "&t");
+        const host = document.getElementById(kind + "_" + c);
+        try {
+          MdCRndr.renderText(host, txt, em);
+        } catch (e) { L.push("   " + txt + " → 渲染异常: " + e.message); return; }
+        const els = [].slice.call(host.querySelectorAll(".hie"));
+        L.push("   " + txt + ": 部件 " + els.length + " → " + els.map(function (el) {
+          const r = el.getBoundingClientRect();
+          return (el.title || "?") + " " + (r.width/em).toFixed(2) + "×" + (r.height/em).toFixed(2);
+        }).join("  "));
+      });
+    });
+  } catch(e) { L.push("ERR " + e.message); }
+  document.getElementById("o").textContent = L.join("\n");
+})();
+</script>
