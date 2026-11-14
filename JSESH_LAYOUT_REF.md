@@ -439,3 +439,48 @@ Layout.visitBasicItemList:354-368
 `distributeHorizontally`、`distributeFromTopToBottom`、`stickSubViewsTo(BOTTOM)`、
 `centerSubViewHorizontally`、`fitLoneSignsToColumnWidth`、`visitHBox` 的单符号拉满行高、
 `maxCadratWidth` 前置收缩、`isWide = l 修饰符`、`embedded → honour*=false`。
+
+## 十二、行层：LineLayout 与 Zone（2026-11-15 调查，第四层）
+
+四开组之上还有一层：一行文字由 `LineLayout`（`TopItemLayout` 的子类）把每个
+topitem（cadrat / 文本 run / 换行 / Tab）摆进 `Zone`，再由 `Zone` 负责行内定位与两端对齐。
+
+### 12.1 结构
+
+```
+LineLayout  (jsesh/render/layout/LineLayout.java:41)
+   ├─ layoutElement(view)     :113   把 topitem 交给 aux 访问器，位置先置 (0,0)
+   ├─ layoutTextRun(run,vs)   :124   文本 run 整体入 zone；镜像由 zone 负责
+   ├─ endLayout()             :138   收尾：flushZone() + 两端对齐
+   └─ allZones: List<Zone>           多 zone（分栏 / 换页 / 制表位）
+```
+
+### 12.2 两端对齐（justified）的精确条件
+
+```java
+if (options().justified()) {
+    double width = max over zones of z.getWidth();      // 最宽 zone
+    width -= geometry().leftMargin();
+    for (i, z in allZones)
+        if (i != allZones.size()-1 || z.getWidth() >= 0.75 * width)   // ← 0.75
+            z.justifyWidthTo(geometry().leftMargin(), width);
+}
+```
+
+- 最后一个 zone 只有在宽度 ≥ 0.75×最宽 zone 时才被拉伸（短末行不拉）；
+- 文档尺寸最后再加上 `leftMargin` 与 `topMargin`（`:164-172`）。
+
+### 12.3 与我们实现的对应关系
+
+| JSesh | 我们 | 状态 |
+|---|---|---|
+| `LineLayout` + `Zone` | `layoutLine()` 直接串接 cadrat | **缺**：没有 zone、没有对齐、没有页边距 |
+| `justifyWidthTo` + 0.75 阈值 | 无 | **缺** |
+| `layoutTextRun` 整体入 zone | `+…+s` 文本按 run 渲染 | 部分 |
+| `LineBreak` / `TabStop`（`LineLayoutAux:292/364`） | `\n` 换行 | 部分 |
+
+### 12.4 调查顺序（下一步）
+
+1. `Zone.java`：`addRun` / `moveCurrentPoint` / `justifyWidthTo` / 行高（`minY`、行距）
+2. `LineLayoutAux`（`:279-397`）：`visitLineBreak` / `visitPageBreak` / `visitTabStop` / `visitDefault`
+3. 与 `Zone` 相关的 `TextDirection`（右到左时 zone 内镜像、绘制再镜回）
