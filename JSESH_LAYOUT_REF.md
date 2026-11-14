@@ -220,7 +220,43 @@ setDeltaBaseX(-dSmall);
 
 ---
 
-## 八、待查
+## 八、框内 vs 框外的 Cadrat 渲染
+
+`QuadratLayout.java:72-87`：
+
+```java
+if (currentTextOrientation.isHorizontal()) { honourMaxHeight = true;  honourMaxWidth = false; }
+else                                        { honourMaxHeight = false; honourMaxWidth = true;  }
+boolean embedded = c.isEmbedded();          // 沿 parent 链找 SubCadrat
+if (embedded) { honourMaxHeight = false; honourMaxWidth = false; }
+```
+
+**`honourMaxHeight` 只看文字方向，与“是否在框内”无关**；框内 Cadrat 的 `embedded` 也是 false
+（Cartouche 不是 SubCadrat）。所以框内内容同样受 1em 下限与 `reScale(1/h)` 约束。
+
+已确认的差异只有两条：
+
+| 项 | 框外 | 框内 |
+|---|---|---|
+| `centerSigns` | `smallSignCentered()` | **true**（`preLayoutHook:179-185`，`visitCartouche` 末尾复位 `:463-464`） |
+| 外层缩放 | 无 | **×0.75**（框自然高 1.333em → 1em，整棵子树同比） |
+
+可疑 / 待查：
+
+1. **`inAbsoluteGroup` 跨视图泄漏**：`preLayoutHook` 置 true，`postLayoutHook` 是空实现
+   （`:192-194`），复位只在 `visitAbsoluteGroup` 结束时做。框内放绝对定位组后，同级视图的
+   `fixed` 判定（`:654`）可能被污染。
+2. **文本 run 路径**：框内混排 `+text+s` 时走 `layoutWithRuns`（`:283-352`），不是
+   `visitDefault`。规则：`totalMain = Σ(main) + skip × (units − 1)`，一个 text run 算**一个
+   unit**，run 内部字符坐标由 `run.layoutOffset(k, mirrored)` 决定（不参与 skip 均分），
+   `maxCross` 取各单元交叉轴最大值。
+3. `depth` 是否影响 `isAloneInQuadrat()`。
+4. `isAloneInQuadrat()` 定义在 `Hieroglyph`（`Cadrat.java` 中无此方法）。
+
+---
+
+## 九、待查
+
 
 - `fitLoneSignsToColumnWidth(c, width)` 的判定条件。
 - `Cadrat.getHBox()` / `HBox.isWide()` 在王名圈内部的行为。
