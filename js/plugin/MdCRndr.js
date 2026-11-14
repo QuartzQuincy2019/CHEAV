@@ -512,7 +512,7 @@ function renderVertical(parent, tree, fontSize) {
 let encADepth = 0;          // >0 表示正在渲染王名圈内部（框内单字需上下居中）
 function renderEnclosure(parent, u, fontSize, vertical) {
     // JSesh 严格模式：几何与绘制都按 visitCartouche / NormalCartoucheDrawer
-    if (options.jsethEnclosure !== false && MDC.Enclosure && (u.kind === "A" || u.kind === "h1")) {
+    if (options.jsethEnclosure !== false && MDC.Enclosure && (u.kind === "A" || u.kind === "h1" || u.kind === "S" || u.kind === "F")) {
         return renderEnclosureJseth(parent, u, fontSize, vertical);
     }
     const box = document.createElement("span");
@@ -647,7 +647,7 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
 }
 function renderEnclosureJseth(parent, u, fontSize, vertical) {
     const E = MDC.Enclosure;
-    const type = u.kind === "A" ? "c" : "h";
+    const type = u.kind === "A" ? "c" : (u.kind === "S" ? "s" : (u.kind === "F" ? "f" : "h"));
     const parts = E.defaultParts(type);
     if (u.startPart) parts.start = u.startPart;
     if (u.endPart) parts.end = u.endPart;
