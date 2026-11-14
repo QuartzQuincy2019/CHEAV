@@ -153,21 +153,22 @@
 
         const places = [];
         if (rows.length > 1) {
-            // distributeFromTopToBottom
+            // distributeFromTopToBottom（MDCView.java:295-312）：
+            //   interSpace = (internalHeight − Σ子高) / (n − 1)
+            // 首行贴上沿、末行贴下沿；整体高度取 max(自然高, 1em)。
+            let sumH = 0;
+            for (let i = 0; i < rows.length; i++) sumH += rows[i].h;
+            const H = Math.max(h, MAX_CADRAT_HEIGHT);
+            const inner = (H - sumH) / (rows.length - 1);   // 可为负（允许重叠）
             let y = 0;
             for (let i = 0; i < rows.length; i++) {
                 for (let k = 0; k < rows[i].places.length; k++) {
                     const p = rows[i].places[k];
                     places.push({ x: p.x, y: y + p.y, w: p.w, h: p.h, elem: p.elem });
                 }
-                y += rows[i].h + SMALL_SKIP;
+                y += rows[i].h + inner;
             }
-            if (h < MAX_CADRAT_HEIGHT) {
-                // 多行但不足 1em：把整栈下移贴底
-                const dy = MAX_CADRAT_HEIGHT - h;
-                for (let i = 0; i < places.length; i++) places[i].y += dy;
-                h = MAX_CADRAT_HEIGHT;
-            }
+            h = H;
         } else {
             h = rows.length ? rows[0].h : 0;
             if (h < MAX_CADRAT_HEIGHT) h = MAX_CADRAT_HEIGHT;
