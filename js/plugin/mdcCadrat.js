@@ -253,6 +253,19 @@
             box.appendChild(el);
             if (p.unit && renderUnit) {
                 renderUnit(p.unit, el, fontSize);
+                // 王名圈等"自带几何尺寸"的单元：按其自然尺寸与本格尺寸的比值整体缩放
+                // （JSesh 里 Cartouche 是 Cadrat 的一个 element，QuadratLayout:194-195 的
+                //   reScale 作用在整棵子树上，框与框内内容一起缩）
+                const enc = el.querySelector(".enc-js");
+                if (enc) {
+                    const nw = parseFloat(enc.style.width), nh = parseFloat(enc.style.height);
+                    const pw = p.w * fontSize, ph = p.h * fontSize;
+                    if (nw > 0 && nh > 0 && (Math.abs(pw - nw) > 0.5 || Math.abs(ph - nh) > 0.5)) {
+                        const r = Math.min(pw / nw, ph / nh);
+                        enc.style.transformOrigin = "0 0";
+                        enc.style.transform = "scale(" + r + ")";
+                    }
+                }
                 const hies = el.querySelectorAll(".hie");
                 if (hies.length === 1 && el.children.length === 1) {
                     const hie = hies[0];
