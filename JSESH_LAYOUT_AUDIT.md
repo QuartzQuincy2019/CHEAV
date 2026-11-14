@@ -7,11 +7,11 @@
 
 | # | 规则 | 源码 | 我们的状态 |
 |---|---|---|---|
-| 1 | Cadrat 高度 = `max(内容高 + smallDim, maxCadratHeight + smallDim)`，**至少 1 em** | `Layout.visitCadrat` 389-431 | ❌ 行高随内容，矮字形"上浮" |
+| 1 | Cadrat 高度 = `max(内容高 + smallDim, maxCadratHeight + smallDim)`，**至少 1 em** | `Layout.visitCadrat` 389-431 | ✅ 2026-11-14：`.RenderLine{min-height:1em}`，行盒不再塌陷 |
 | 2 | Cadrat 宽度 = `max(内容宽, maxCadratWidth)`（窄组补到 1 em） | `Layout.visitCadrat` 436-439 | ❌ 宽度随内容 |
 | 3 | Cadrat 太高时整体 `reScale(maxCadratHeight / h)` 缩回 | `QuadratLayout` 193-195 | ❌ 无整体缩放 |
 | 4 | 宽单字按宽度 `scaleToWidth` 填满行 | `QuadratLayout` 117-122, 211-228 | ❌ |
-| 5 | 行高恒为 `maxCadratHeight`（换行 view 高度） | `Layout.visitLineBreak` 793-798 | ❌ 行高随内容 |
+| 5 | 行高恒为 `maxCadratHeight`（换行 view 高度） | `Layout.visitLineBreak` 793-798 | ✅ 2026-11-14：`min-height:1em` 后实测行高恒 1.000em |
 | 6 | `FULLSPACE` 高 = `maxCadratHeight`；`HALFSPACE` 高 = 一半 | `Layout.visitHieroglyph` 617-631 | ❌ 未区分占位符 |
 | 7 | 空行/空 cadrat 也要占 1 em | 同 #5 | ❌ |
 

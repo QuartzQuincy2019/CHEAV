@@ -119,6 +119,10 @@ body {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
+    /* JSesh：一个四开组至少 maxCadratHeight（= 1em）高。
+       缺了这条，只含矮字形（如 t&ra 的太阳 0.474em）的行会塌到 0.474em，
+       下一行紧贴着上来，视觉上矮字形的"基线"就浮到了上一行的位置。 */
+    min-height: 1em;
     row-gap: 0.3em;     /* 段内自动换行的行间距 */
     column-gap: 0.125em; /* 符号间微小间隔（Faulkner 词典观感） */
 }
