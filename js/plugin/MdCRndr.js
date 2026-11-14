@@ -608,6 +608,11 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
             renderUnit: function (unit, el, fs) { render(el, unit, fs); }
         });
         if (vrg && vrg.style) {
+            // 内容按绝对坐标钉在 body 左上角：body 是 0 高行盒，
+            // 若让 .vrg 保持 inline-block，会按基线落位而整体下沉（表现为“垂直居中”）
+            vrg.style.position = "absolute";
+            vrg.style.left = "0px";
+            vrg.style.top = "0px";
             cw = parseFloat(vrg.style.width) / fontSize || 0;
             ch = parseFloat(vrg.style.height) / fontSize || 0;
         }
