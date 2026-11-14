@@ -587,6 +587,23 @@ function renderEnclosure(parent, u, fontSize, vertical) {
  */
 /** 四开组元素解析：空的 seq 退回连字/单码，避免框内整块空白 */
 function parseCadratElement(str) {
+    // 连字占位符 "{A&B}"：parseInput 只在整个横向列表里认识花括号，
+    // 单独解析 "{A&B}" 会得到空 seq —— 这正是"框内连字消失、框外正常"的原因。
+    const braced = /^\s*\{([^}]*)\}\s*$/.exec(String(str));
+    if (braced) {
+        const nm = braced[1];
+        if (!LIGATURES[nm] || !LIGATURES[nm].parts) {
+            const codes = nm.split("&").filter(function (c) { return c.trim().length; });
+            if (codes.length > 1) {
+                LIGATURES[nm] = {
+                    name: nm,
+                    parts: [{ code: codes[0], dx: 0, dy: 0, scale: 1 }].concat(
+                        codes.slice(1).map(function (c) { return { code: c, zone: "zoneB" }; }))
+                };
+            }
+        }
+        return { type: "lig", name: nm };
+    }
     const r = parseInput(str);
     const t = r && r.tree;
     if (t && t.type === "seq" && (!t.units || t.units.length === 0)) {
@@ -900,6 +917,7 @@ function renderLigature(parent, name, fontSize) {
         const ok = function (z) { return !!(z && z.w > 0 && z.h > 0); };
         threeSidesOk = ok(z3.zone1) && ok(z3.zone2);
     }
+    let seqX = null, seqTotal = 0;
     const placed = [];                     // placed[i] = 该部件最终位置（em），供链式定位
     lig.parts.forEach((part, i) => {
         const ps = fontSize * (part.scale || 1);
@@ -926,6 +944,21 @@ function renderLigature(parent, name, fontSize) {
             }
             }
             zUsed = !!(z && z.w > 0 && z.h > 0);
+            if (!zUsed) {
+                // JSesh Layout.visitComplexLigature: no zone -> the operator degenerates to
+                // plain juxtaposition (same as "*"). Place after previous parts instead of
+                // stacking everything at the host origin.
+                const am2 = getMetrics(part.code);
+                const iw = Math.max(0.05, (((am2.width !== undefined ? am2.width : am2.w) || 0) / EM_SQUARE)) * (part.scale || 1);
+                if (typeof seqX !== "number") {
+                    const hb2 = glyphBoxProvider ? glyphBoxProvider((lig.parts[0] || {}).code) : null;
+                    seqX = hb2 ? hb2.w : 1;
+                }
+                zdx = seqX;
+                zdy = 0;
+                seqX += iw;
+                seqTotal = seqX;
+            }
             if (zUsed) {
                 const am = getMetrics(part.code);
                 const inkW = Math.max(0.01, (am.width !== undefined ? am.width : am.w) / EM_SQUARE);
