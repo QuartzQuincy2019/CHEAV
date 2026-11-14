@@ -600,7 +600,7 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     if (u.kind === "A") encADepth++;
     try {
         const vrg = MDC.Cadrat.renderLine(body, u.source, fontSize, {
-            centerSigns: true, embedded: true,
+            centerSigns: true,
             parseElement: function (str) {
                 const r = parseInput(str);
                 return r && r.tree ? r.tree : { type: "char", code: str };
@@ -1904,7 +1904,7 @@ function splitLines(tree) {
         const laid = MDC.Cadrat.layoutLine(MDC.Cadrat.parse(String(text), function (str) {
             const r = parseInput(str);
             return r && r.tree ? r.tree : { type: "char", code: str };
-        }), { centerSigns: true, embedded: true });
+        }), { centerSigns: true });
         const out = ["w=" + laid.w.toFixed(3) + " h=" + laid.h.toFixed(3)];
         (laid.places || []).forEach(function (p, i) {
             out.push("p" + i + " x=" + p.x.toFixed(3) + " y=" + p.y.toFixed(3) +
