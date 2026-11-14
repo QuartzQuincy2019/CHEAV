@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>CHEAV 插件测试台 — Tksesh 预定义连字</title>
+<style>
+    body { margin: 0; padding: 18px 22px 60px; font: 14px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; color: #222; background: #fff; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    h2 { font-size: 15px; margin: 26px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #e3e3e3; }
+    .note { color: #666; font-size: 12.5px; margin: 0 0 10px; }
+    .note code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; }
+    #status { font: 12px/1.4 monospace; background: #fffbe6; border: 1px solid #f0e2a0; padding: 8px 10px; white-space: pre-wrap; margin: 10px 0 0; }
+    .row { display: flex; align-items: center; gap: 14px; padding: 6px 0; border-bottom: 1px dotted #eee; }
+    .row .lab { width: 132px; font: 12px/1.3 monospace; color: #444; }
+    .row .box { font-size: 64px; line-height: 1.15; min-width: 220px; }
+    .row .meta { font: 11px/1.35 monospace; color: #888; }
+    .strip { font-size: 56px; line-height: 1.4; padding: 10px 0; border: 1px dashed #ddd; overflow-x: auto; white-space: nowrap; }
+</style>
+</head>
+<body>
+<h1>Tksesh 预定义连字 · 测试台</h1>
+<p class="note">
+    数据来自 <code>js/database/tkseshLigatures.js</code>（JSesh <code>ligatures.txt</code> 官方表，共 24 条）。<br />
+    每条按官方 <code>dx / dy / scale</code> 叠放；尺寸口径为 <code>svgBoxes.js</code>（JSesh path 墨迹盒）。
+</p>
+<div id="status">加载中…</div>
+
+<h2>逐条检查</h2>
+<div id="list"></div>
+
+<h2>一整行（空格 = 四开组分隔）</h2>
+<div id="strip" class="strip"></div>
+
+<script src="./js/lib/paper-core.min.js"></script>
+<script src="./js/database/mainSigns.js"></script>
+<script src="./js/database/translit.js"></script>
+<script src="./js/database/glyphZones.js"></script>
+<script src="./js/database/ngZones.js"></script>
+<script src="./js/database/serekhTail.js"></script>
+<script src="./js/database/mdcGlyphTables.js"></script>
+<script src="./js/database/ngMetrics.js"></script>
+<script src="./js/database/svgBoxes.js"></script>
+<script src="./js/database/ngFontData.js"></script>
+<script src="./js/database/tkseshLigatures.js"></script>
+<script src="./js/plugin/mdcEncoding.js"></script>
+<script src="./js/plugin/mdcMetrics.js"></script>
+<script src="./js/plugin/mdcView.js"></script>
+<script src="./js/plugin/mdcEnclosure.js"></script>
+<script src="./js/plugin/mdcVrg.js"></script>
+<script src="./js/plugin/mdcCadrat.js"></script>
+<script src="./js/plugin/mdcGlyphCore.js"></script>
+<script src="./js/plugin/MdCRndr.js"></script>
+<script src="./js/ui/glyphs.js"></script>
+<script>
+(async function () {
+    const status = document.getElementById("status");
+    const keys = Object.keys(window.TKESH_LIGATURES || {});
+    const lines = [];
+    let mode = "font";
+
+    try {
+        // SVG 字形优先；file:// 下取不到会自动回退到内嵌字体
+        if (Glyphs.useSiteDir) {
+            try { await Glyphs.useSiteDir(); } catch (e) { /* 忽略 */ }
+        }
+        if (!Glyphs.ready && window.NG_FONT_DATA_URI && MdCRndr.init) {
+            MdCRndr.init({ fontUrl: window.NG_FONT_DATA_URI });
+        }
+        Glyphs.setRenderer(MdCRndr);
+        Glyphs.setEnabled(!!Glyphs.ready);
+        MdCRndr.setQuadratMode("jsesh");
+        if (Glyphs.ready) {
+            MdCRndr.setGlyphMetricsProvider(function (c) { return Glyphs.metrics(c); });
+            MdCRndr.setGlyphBoxProvider(function (c) { return Glyphs.box(c); });
+        }
+        mode = Glyphs.ready ? "svg" : "font";
+
+        const codes = {};
+        keys.forEach(function (k) {
+            k.split("&").forEach(function (c) { codes[Glyphs.canon ? Glyphs.canon(c) : c] = 1; });
+        });
+        await Glyphs.preload(Object.keys(codes));
+        await new Promise(function (r) { setTimeout(r, 600); });
+
+        const list = document.getElementById("list");
+        keys.forEach(function (key) {
+            const row = document.createElement("div");
+            row.className = "row";
+
+            const lab = document.createElement("div");
+            lab.className = "lab";
+            lab.textContent = key;
+
+            const box = document.createElement("div");
+            box.className = "box";
+
+            const meta = document.createElement("div");
+            meta.className = "meta";
+
+            row.appendChild(lab);
+            row.appendChild(box);
+            row.appendChild(meta);
+            list.appendChild(row);
+
+            const r = MdCRndr.renderText(box, key, 64);
+            const vrg = box.querySelector(".vrg");
+            const w = vrg ? vrg.getBoundingClientRect().width / 64 : 0;
+            const h = vrg ? vrg.getBoundingClientRect().height / 64 : 0;
+            const parts = box.querySelectorAll(".hie").length;
+            const inv = (r && r.invalid) ? r.invalid.length : 0;
+            meta.textContent = w.toFixed(2) + " × " + h.toFixed(2) + " em · " + parts + " 部件"
+                + (inv ? " · invalid " + inv : "");
+            lines.push(key + " " + w.toFixed(2) + "x" + h.toFixed(2) + " n=" + parts + (inv ? " INV" : ""));
+        });
+
+        const strip = document.getElementById("strip");
+        MdCRndr.renderText(strip, keys.join(" "), 56);
+
+        status.textContent = "字形来源：" + mode + "（" + (Glyphs.ready ? Glyphs.name : "内置字体") + "）\n"
+            + "共 " + keys.length + " 条预定义连字；下面每条的右侧是实测尺寸与部件数。\n"
+            + lines.join("\n");
+    } catch (e) {
+        status.textContent = "出错：" + e.message;
+    }
+})();
+</script>
+</body>
+</html>
