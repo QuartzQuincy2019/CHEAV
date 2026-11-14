@@ -44,6 +44,7 @@
         ligatureDebug: false,               // 连字各部件显示红色边框（调试）
         vertical: false,                    // 竖排：自上而下成列，VRG 改为水平渲染组（HRG）
         verticalColumnGap: 0.3,             // 竖排时列间距（em 比例）
+        cadratMode: "jsesh",                // 正文排版： "jsesh" = 四开组结构（Cadrat/HBox/Line）；"flow" = 旧流式
 
         // ---------- 类名（与引擎内部产出保持一致，便于外部覆写样式） ----------
         glyphClass: "hie",
@@ -1763,12 +1764,17 @@ function splitLines(tree) {
             // 四开组路径（可选）：按 JSesh 的 Cadrat/HBox/Line 结构排版
             if (options.cadratMode === "jsesh" && window.MDC && MDC.Cadrat) {
                 const raw = String(text === undefined || text === null ? "" : text);
-                for (const src of raw.split(/\r?\n/)) {
+                const mkLine = function () {
                     const lineEl = document.createElement("div");
                     lineEl.className = "RenderLine";
-                    lineEl.style.fontSize = fs + "px";
+                    lineEl.style.cssText = "font-size:" + fs + "px;line-height:1;min-height:" + fs + "px;";
                     el.appendChild(lineEl);
-                    MDC.Cadrat.renderLine(lineEl, src, fs, {
+                    return lineEl;
+                };
+                for (const src of raw.split(/\$|\r?\n/)) {
+                    const lineEl = mkLine();
+                    if (!src.trim()) continue;
+                    MDC.Cadrat.renderLine(lineEl, src.trim(), fs, {
                         parseElement: function (str) { return parseInput(str).tree; },
                         renderUnit: function (unit, box, size) { render(box, unit, size); },
                     });

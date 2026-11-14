@@ -253,8 +253,10 @@
             box.appendChild(el);
             if (p.unit && renderUnit) {
                 renderUnit(p.unit, el, fontSize);
-                const hie = el.querySelector(".hie");
-                if (hie) {
+                const hies = el.querySelectorAll(".hie");
+                if (hies.length === 1 && el.children.length === 1) {
+                    // 单字形：直接把字形盒拉满部件盒（墨迹=部件盒）
+                    const hie = hies[0];
                     hie.style.position = "absolute";
                     hie.style.left = "0px";
                     hie.style.top = "0px";
@@ -263,11 +265,38 @@
                     hie.style.height = "100%";
                     hie.style.backgroundSize = "100% 100%";
                     hie.style.backgroundPosition = "left top";
+                } else {
+                    fitContent(el, p.w * fontSize, p.h * fontSize);
                 }
             }
         });
         parent.appendChild(box);
         return box;
+    }
+
+    /**
+     * 把 el 的内容等比缩放进 targetW×targetH（连字、层叠组、王名圈等复合单元）。
+     * 单字形走上面的 100% 拉伸，复合结构走这里做整体缩放，避免溢出部件盒。
+     */
+    function fitContent(el, targetW, targetH) {
+        const kids = [].slice.call(el.children || []);
+        if (!kids.length || !targetW || !targetH) return;
+        const base = el.getBoundingClientRect();
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        kids.forEach(function (k) {
+            const r = k.getBoundingClientRect();
+            if (!r.width && !r.height) return;
+            if (r.left < minX) minX = r.left;
+            if (r.top < minY) minY = r.top;
+            if (r.right > maxX) maxX = r.right;
+            if (r.bottom > maxY) maxY = r.bottom;
+        });
+        if (!isFinite(minX) || maxX <= minX || maxY <= minY) return;
+        const s = Math.min(targetW / (maxX - minX), targetH / (maxY - minY));
+        if (!isFinite(s) || s <= 0) return;
+        const tx = -(minX - base.left), ty = -(minY - base.top);
+        el.style.transformOrigin = "left top";
+        el.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + s + ")";
     }
 
     MDC.Cadrat = {
