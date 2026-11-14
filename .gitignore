@@ -45,3 +45,7 @@ _*.html
 tools/_zones/
 _gen-zones.html
 _reg-nopaper.html
+
+
+# 开发期一次性探针页（草稿，不入库；见 tests/probes/README.md）
+tests/probes/
