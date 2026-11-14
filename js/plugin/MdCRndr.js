@@ -7556,12 +7556,11 @@ function renderLigature(parent, name, fontSize) {
             zUsed = !!(z && z.w > 0 && z.h > 0);
             if (zUsed) {
                 const am = getMetrics(part.code);
-                const inkW = Math.max(0.01, am.width / EM_SQUARE);
-                const inkH = Math.max(0.01, am.height / EM_SQUARE);
-                const fitZone = Math.min(z.w / inkW, z.h / inkH);            // 恰好装进连字区所需比例
-                const fitK = (zoneFitMode === "shrink") ? Math.min(1, fitZone)
-                           : (zoneFitMode === "fill")   ? fitZone
-                           : fitZone * 0.85;                              // fill85（默认）
+                const inkW = Math.max(0.01, (am.width !== undefined ? am.width : am.w) / EM_SQUARE);
+                const inkH = Math.max(0.01, (am.height !== undefined ? am.height : am.h) / EM_SQUARE);
+                const inkW = Math.max(0.01, __mw);
+                const inkH = Math.max(0.01, __mh);
+                const fitK = (inkW <= z.w && inkH <= z.h) ? 1 : Math.min(z.w / inkW, z.h / inkH);
                 const k = (part.scale || 1) * fitK;
                 zps = fontSize * k;
                 const w = inkW * k, h = inkH * k;
