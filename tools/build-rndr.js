@@ -31,6 +31,7 @@ function read(rel) {
 
 // ---- 引擎：按依赖顺序拼接 ----
 const ENGINE = [
+    "js/database/tkseshLigatures.js",  // Tksesh 预定义连字坐标表
     "js/database/mainSigns.js",        // 转写 → Gardiner 码（必需，否则 t/w 等无法归一化）
     "js/database/translit.js",         // 转写表
     "js/database/mdcGlyphTables.js",   // visu 度量 / Gardiner 表

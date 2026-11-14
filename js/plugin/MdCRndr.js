@@ -403,6 +403,25 @@ function ligatureBoxEm(name) {
     let lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;
     if (lig && !lig.parts) lig = null;   // 解析期占位记录（parts 未填）不能用于度量
     let hostW = 0, hostH = 0;
+    // Tksesh 预定义连字：包围盒 = 各部件 (dx+width, dy+height) 的并集，不走连字区
+    if (lig && lig.tksesh && lig.parts && lig.parts.length) {
+        let tw = 0, th = 0;
+        lig.parts.forEach(function (pp) {
+            const pc = pp.code;
+            let pw = 0, ph = 0;
+            const b = glyphBoxProvider ? glyphBoxProvider(pc) : null;
+            if (b && b.w > 0) { pw = b.w; ph = b.h; }
+            if (!(pw > 0)) {
+                const mm = getMetrics(pc);
+                pw = (mm && (mm.width !== undefined ? mm.width : mm.w) || 0) / EM_SQUARE;
+                ph = (mm && (mm.height !== undefined ? mm.height : mm.h) || 0) / EM_SQUARE;
+            }
+            const k = pp.scale || 1;
+            tw = Math.max(tw, (pp.dx || 0) + pw * k);
+            th = Math.max(th, (pp.dy || 0) + ph * k);
+        });
+        return { w: Math.max(tw, 0.05), h: Math.max(th, 0.05) };
+    }
     const hostCode = lig && lig.parts && lig.parts[0] ? lig.parts[0].code : "";
     if (hostCode) {
         const b = glyphBoxProvider ? glyphBoxProvider(hostCode) : null;
@@ -1256,21 +1275,24 @@ function parseInput(text) {
         // 已经在 {A&B} 里的不再改写：否则嵌套解析（框内再次 parseInput）会把
         // {X1&G43} 再包一层变成 {{X1&G43}}，导致 "多余的 }" 报错。
         if (whole[offset - 1] === "{" && whole[offset + all.length] === "}") return all;
-        const codes = all.split("&").map((x) => x.trim()).filter((x) => x.length)
-            .map((c) => resolveTranslitCode(c));
+        const rawCodes = all.split("&").map((x) => x.trim()).filter((x) => x.length);
+        const codes = rawCodes.map((c) => resolveTranslitCode(c));
         if (codes.length < 2) return all;
         // 照 JSesh Layout.visitLigature 的规则选择"宿主"与插槽：
         //   · 2 个符号：宿主 = 两者中**更高**的那个；
         //       小符号在宿主之前 → zone1（左）；在宿主之后 → 底部槽（zoneB），无则 zone2（右）
         //   · 3 个符号：**中间**符号为宿主，前 → zone1，后 → zone2（JSesh 只查 zone0/zone1）
         // ① 先查 Tksesh 预定义连字（JSesh 的第一优先级，见 TkseshLigatureCatalogue）
-        const tks = (typeof TKESH_LIGATURES !== "undefined") ? TKESH_LIGATURES[codes.join("&")] : null;
+        const __tksKey = rawCodes.join("&");
+        const tks = (typeof TKESH_LIGATURES !== "undefined")
+            ? (TKESH_LIGATURES[__tksKey] || TKESH_LIGATURES[codes.join("&")] || null)
+            : null;
         if (tks) {
-            const nm2 = codes.join("&");
+            const nm2 = __tksKey;
             if (!LIGATURES[nm2]) {
                 // tksesh: true → 使用"绝对坐标（y 向下）"排版，而不是连字区
                 LIGATURES[nm2] = { name: nm2, tksesh: true, parts: tks.map(function (p) {
-                    return { code: p.code, dx: p.dx, dy: p.dy, scale: p.scale };
+                    return { code: resolveTranslitCode(p.code), dx: p.dx, dy: p.dy, scale: p.scale };
                 }) };
             }
             return "{" + nm2 + "}";
