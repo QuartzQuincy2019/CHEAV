@@ -721,9 +721,9 @@ function setViewBox(svgText, vb) {
             return svgText.replace(/<(path|polygon|rect|circle|ellipse|line|polyline)\b[^>]*?\/?>/gi, function (tag, name) {
                 const nm = name.toLowerCase();
                 if (nm !== "path" && nm !== "polygon") return "";
-                const sm = /style="([^"]*)"/i.exec(tag);
-                const style = sm ? sm[1] : "";
-                const attr = function (k) { const m = new RegExp(k + "=\"([^\"]*)\"").exec(tag); return m ? m[1].trim() : null; };
+                const sm = /style=("|')([\s\S]*?)\1/i.exec(tag);
+                const style = sm ? sm[2] : "";
+                const attr = function (k) { const m = new RegExp(k + "=(\"|')([^\"']*)\\1").exec(tag); return m ? m[2].trim() : null; };
                 let fill = attr("fill"), stroke = attr("stroke");
                 const f1 = /fill:\s*([^;"]+)/i.exec(style);   if (f1) fill = f1[1].trim();
                 const s1 = /stroke:\s*([^;"]+)/i.exec(style);  if (s1) stroke = s1[1].trim();
@@ -741,11 +741,11 @@ function setViewBox(svgText, vb) {
         /** 从 SVG 源提取 <rect id="zone1|zone2"> 的连字区声明（JSesh 的 Tier 1 权威数据）。 */
         parseSvgZones(svgText) {
             const out = {};
-            const re = /<rect\b[^>]*id="(zone[12])"[^>]*>/g;
+            const re = /<rect\b[^>]*\bid=("|')zone([12])\1[^>]*>/g;
             let m;
             while ((m = re.exec(svgText))) {
                 const tag = m[0];
-                const num = (k) => { const mm = new RegExp(k + "=\"([-0-9.eE]+)\"").exec(tag); return mm ? parseFloat(mm[1]) : null; };
+                const num = (k) => { const mm = new RegExp(k + "=(\"|')([-0-9.eE]+)\\1").exec(tag); return mm ? parseFloat(mm[2]) : null; };
                 const x = num("x"), y = num("y"), w = num("width"), h = num("height");
                 if (x === null || y === null || w === null || h === null) continue;
                 const lab = /gravity:([a-zA-Z]+)/.exec(tag);
@@ -756,7 +756,7 @@ function setViewBox(svgText, vb) {
                     gv: g.indexOf("t") >= 0 ? "t" : (g.indexOf("b") >= 0 ? "b" : "c"),
                     gravity: g
                 };
-                out[m[1] === "zone1" ? 0 : 1] = z;
+                out[m[2] === "1" ? 1 : 0] = z;
             }
             return Object.keys(out).length ? out : null;
         },
@@ -887,9 +887,9 @@ function setViewBox(svgText, vb) {
                 const url = urls.get(key);
                 if (!url) return null;
                 const txt = decodeURIComponent(url.slice(url.indexOf(",") + 1));
-                const vm = /viewBox="([^"]*)"/.exec(txt);
+                const vm = /viewBox=("|')([\s\S]*?)\1/.exec(txt);
                 if (!vm) return null;
-                const vb = vm[1].split(/[\s,]+/).map(Number);
+                const vb = vm[2].split(/[\s,]+/).map(Number);
                 if (vb.length !== 4) return null;
                 const out = [];
                 const pushSub = (dstr) => {
@@ -907,12 +907,12 @@ function setViewBox(svgText, vb) {
                         } catch (e) { }
                     });
                 };
-                const dRe = /<path\b[^>]*\bd="([^"]*)"/g;
+                const dRe = /<path\b[^>]*\bd=("|')([\s\S]*?)\1/g;
                 let m;
-                while ((m = dRe.exec(txt))) pushSub(m[1]);
-                const ptsRe = /<polygon\b[^>]*\bpoints="([^"]*)"/g;
+                while ((m = dRe.exec(txt))) pushSub(m[2]);
+                const ptsRe = /<polygon\b[^>]*\bpoints=("|')([\s\S]*?)\1/g;
                 while ((m = ptsRe.exec(txt))) {
-                    const pts = m[1].trim().split(/\s+/).map(function (q) {
+                    const pts = m[2].trim().split(/\s+/).map(function (q) {
                         const a = q.split(",");
                         return [ (parseFloat(a[0]) - vb[0]) / vb[2], 1 - (parseFloat(a[1]) - vb[1]) / vb[3] ];
                     }).filter(function (q) { return isFinite(q[0]) && isFinite(q[1]); });
@@ -1007,7 +1007,8 @@ function setViewBox(svgText, vb) {
             // 纯字体模式（enabled=false，无 SVG 来源）才退回字体栅格。
             const g = this.inkGrid(code) || (enabled ? null : this.fontGrid(code));
             if (!g && !this.glyphPolys(code)) return null;   // 有精确面积时不需要栅格
-            const MARGIN = 1 / 18;
+            // MARGIN = 1 个字形单位 = 1/18 em；归一化到 bbox 后，x 与 y 的换算不同：
+            const MX = 1 / (g.w || 18), MY = 1 / (g.h || 18);
             // 判定"矩形是否压到字形"：位图粗筛（快） + 矢量复核（准，等价 Area.intersect）
             const busy = (x, y, w, h) => {
                 const x0 = x, y0 = y, x1 = x + Math.abs(w), y1 = y + Math.abs(h);
@@ -1037,9 +1038,9 @@ function setViewBox(svgText, vb) {
                 while (Math.abs(innerT - outerT) > 0.01) {
                     const t = (innerT + outerT) / 2;
                     const px = ox + t * (ix - ox), py = oy + t * (iy - oy);
-                    const x0 = (w < 0) ? px + w - MARGIN : px - MARGIN;
-                    const y0 = (h < 0) ? py + h - MARGIN : py - MARGIN;
-                    const hit = busyRec(x0, y0, Math.abs(w) + 2 * MARGIN, Math.abs(h) + 2 * MARGIN);
+                    const x0 = (w < 0) ? px + w - MX : px - MX;
+                    const y0 = (h < 0) ? py + h - MY : py - MY;
+                    const hit = busyRec(x0, y0, Math.abs(w) + 2 * MX, Math.abs(h) + 2 * MY);
                     __rec(t, px, py, hit);
                     if (hit) innerT = t; else outerT = t;
                 }
