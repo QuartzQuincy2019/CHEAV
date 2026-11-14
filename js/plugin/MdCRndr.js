@@ -587,6 +587,8 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     const E = MDC.Enclosure;
     const type = u.kind === "A" ? "c" : "h";
     const parts = E.defaultParts(type);
+    if (u.startPart) parts.start = u.startPart;
+    if (u.endPart) parts.end = u.endPart;
     const units = u.units || [];
     // 1) 用度量（墨迹）算内容尺寸，不依赖 DOM 行盒
     const ms = units.map(function (x) {
@@ -1027,7 +1029,21 @@ function parseInput(text) {
         return "{" + nm + "}";
     });
     // 包围框种类（按顺序匹配前缀）：<- … ->（王名圈）、<S- … ->（塞拉赫框）、<h1- … -h1>（方框）
-    const ENC_OPENERS = [["h1", "<h1-", "-h1>"], ["S", "<S-", "->"], ["F", "<F-", "->"], ["A", "<-", "->"]];
+    // 包围框开/闭标记表（**长前缀在前**，parseEnclosure 按顺序取第一个匹配）
+    //   1) CHEAV 旧语法（保留为别名）：<- … ->、<S- … ->、<h1- … -h1>、<F- … ->
+    //   2) JSesh 正式语法（MdcLexicon.java:136-149）：<s / <s1 / <s2 / <s3 … s> / s1> …
+    //      <h…>、<f…>、<g…>、<1/<2/<3 … 1> / 2> / 3>；结束标记里的数字 = 结束端 part
+    const ENC_OPENERS = [
+        // [kind, 开标记, 闭标记, 起始端 part, 结束端 part]
+        // CHEAV 旧语法（别名）：起始端固定 1，结束端固定 2
+        ["h1", "<h1-", "-h1>", 1, 2], ["S", "<S-", "->", 1, 2], ["F", "<F-", "->", 1, 2], ["A", "<-", "->", 1, 2],
+        // JSesh 正式语法：数字出现在开标记=起始端，出现在闭标记=结束端
+        ["S", "<s3", "s3>", 3, 3], ["S", "<s2", "s2>", 2, 2], ["S", "<s1", "s1>", 1, 1], ["S", "<s", "s>", 1, 2],
+        ["h1", "<h3", "h3>", 3, 3], ["h1", "<h2", "h2>", 2, 2], ["h1", "<h1", "h1>", 1, 1], ["h1", "<h", "h>", 1, 2],
+        ["F", "<f3", "f3>", 3, 3], ["F", "<f2", "f2>", 2, 2], ["F", "<f1", "f1>", 1, 1], ["F", "<f", "f>", 1, 2],
+        ["A", "<g3", "g3>", 3, 3], ["A", "<g", "g>", 1, 2],
+        ["A", "<3", "3>", 3, 3], ["A", "<2", "2>", 2, 2], ["A", "<1", "1>", 1, 1]
+    ];
 
     // 预处理：外部空白宽容剔除；"<>" 文本区内部保留空白（含空格）。
     // "<" 进入文本区、"<" 前带 "\" 转义不进入；">" 退出文本区（"\>" 转义不退出）。
@@ -1123,9 +1139,9 @@ function parseInput(text) {
 
     function parseEnclosure() {
         const rest = s.slice(pos);
-        let kind = null, open = "", close = "";
+        let kind = null, open = "", close = "", startPart = 1, endPart = 2;
         for (const spec of ENC_OPENERS) {
-            if (rest.slice(0, spec[1].length) === spec[1]) { kind = spec[0]; open = spec[1]; close = spec[2]; break; }
+            if (rest.slice(0, spec[1].length) === spec[1]) { kind = spec[0]; open = spec[1]; close = spec[2]; startPart = spec[3] || 1; endPart = spec[4] || 2; break; }
         }
         if (!kind) return parseText();                 // 不是包围框 → 普通插入文本
         pos += open.length;
@@ -1161,7 +1177,7 @@ function parseInput(text) {
         const sub = parseInput(inner);                 // 内容递归解析
         for (const msg of sub.invalid) invalid.push(msg);
         const units = sub.tree && sub.tree.type === "seq" ? sub.tree.units : (sub.tree ? [sub.tree] : []);
-        return { type: "enc", kind: kind, units: units };
+        return { type: "enc", kind: kind, units: units, startPart: startPart, endPart: endPart };
     }
     // 插入文本 <text>：< > 内为普通文本；"\<" 与 "\>" 转义为字面 "<" 与 ">"。
     function parseText() {
