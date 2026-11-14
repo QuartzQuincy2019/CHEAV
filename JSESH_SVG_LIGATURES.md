@@ -361,3 +361,31 @@ zone_em.h =  rect.h / emPerEm
 
 - 把上述换算接进 `loadOne`（需要 `ink` 与 `em` 都算好之后再转换 zone）；
 - 转换后重新核对 `G43 / D58 / D28` 的声明槽，确认与 SVG 里的 rect 数值关系正确（例如 G43 zone1 应为负 x、覆盖字形左侧）。
+
+---
+
+## 11. 逐函数差异清单（第三轮之后）
+
+| # | JSesh 位置 | 逻辑 | CHEAV 现状 | 影响 |
+|---|---|---|---|---|
+| 1 | `ShapeChar.fixShape()` :219 | 形状与 **zone 一起**平移 `(−minX, −minY)`，原点=墨迹左上 | ❌ 只把墨迹用于 viewBox，zone 未平移 | 声明槽整体偏移（G43/D58/D28 都受影响） |
+| 2 | `SVGSignSource` :466-511 | 只有 `path` / `polygon` 进入 `signArea`；`rect` 仅作 zone；`pattern`/`clipPath` 内部忽略 | ⚠️ 墨迹栅格仍会画 `rect/circle/ellipse` | 推导会把非墨迹元素当笔画 |
+| 3 | `SVGSignSource` :528-535 | 只有 `filled && black` 或 `outlined(stroke)` 才计入；白色填充不算墨迹 | ⚠️ 未区分白填充 | 带白色镂空的符号被当成实心 |
+| 4 | `ShapeChar.flipHorizontally()` :447 | 镜像时 zone 也跟随翻转（`w − maxX`），且重力 `end↔start` 互换 | ❌ 未实现（我们只翻转字形） | `\` 镜像字形时槽错位 |
+| 5 | `ShapeChar.scaleGlyph/scaleToHeight` :249-270 | 缩放字形时 zone 同比缩放 | ❌ 未实现 | `l` 修饰符/相对字号路径 |
+| 6 | `Layout.visitHieroglyph` :661-677 | 视图尺寸 = 墨迹 bbox **× computeScale()** | ✅ 等价（我们的 em 已是该单位） | 无 |
+| 7 | `Layout.visitHieroglyph` :686-692 | `relativeSize != 100` 时 `reScale(size/100)` | ❌ 未支持 `l` 等修饰符 | 相对字号无效 |
+| 8 | `Layout.visitLigature` :767-771 | 放置前 `subView(larger).resetPos()`，再 `placeView(zone.scale(computeScale()), smaller)` | ✅ 等价 | 无 |
+| 9 | `Layout.visitLigature` :789 | 每次连字后 `currentView.fitToSubViews(true)`（整体平移回原点） | ⚠️ 部分（仅靠容器尺寸） | 多段连字偏移 |
+| 10 | `LigatureZoneBuilder` :213-228 | `getLigatureArea(0/1/2)` → first/second/third，顺序确认 | ✅ 一致 | 无 |
+| 11 | `SVGFontHieroglyphDrawer` :204-222 | `hasZones()` 为 false 才推导，推导写入 3 槽 | ✅ 一致 | 无 |
+| 12 | `HieroglyphDrawer` :93 | `scaleFromFontToStyle = standardSignHeight / heightOfA1` | ✅ 间接等价（em 归一化） | 无 |
+| 13 | `MDCView.scaleToFitDimensions` :796 | 只缩不放，等比 | ✅ 一致 | 无 |
+| 14 | `MDCView.reScale` :695 | 宽高与 xScale/yScale 同乘 | ⚠️ 部分 | 与 #7 关联 |
+
+**优先级**：#1（坐标偏移，影响所有声明槽）→ #2/#3（栅格包含非墨迹）→ #9（整体平移）→ #7/#14（修饰符）→ #4/#5（镜像/缩放）。
+
+### 说明
+
+- #6/#12 看似"缺 computeScale"，但我们的 `metrics/box` 已经用"每 em 单位数"（18 或 1800）归一化，等价于 JSesh 的样式单位；因此**不需要**再乘一次，否则会双重缩放。
+- #1 是**确定无疑的 bug**，且可以纯数值验证（用 SVG 里 rect 的原始数值 + 墨迹 min 手算）。
