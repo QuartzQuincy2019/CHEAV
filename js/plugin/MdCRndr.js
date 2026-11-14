@@ -7592,7 +7592,7 @@ function renderLigature(parent, name, fontSize) {
         if (noZoneOrigin) { el.style.top = "0px"; el.style.bottom = "auto"; }   // 原点 = 左上
         el.style.marginBottom = "0px";   // 连字区定位已含墨迹底边，避免 dy 二次叠加
         const __m = getMetrics(part.code);
-        placed[i] = { code: part.code, dx: zdx, dy: zdy, w: (__m.width / EM_SQUARE) * (zps / fontSize), h: (__m.height / EM_SQUARE) * (zps / fontSize) };
+        placed[i] = { code: part.code, dx: zdx, dy: zdy, w: (__m.width / EM_SQUARE) * (zps / fontSize), h: (__m.height / EM_SQUARE) * (zps / fontSize) , topAnchored: !!noZoneOrigin };
         if (ligatureDebug()) el.classList.add("lig-debug");
     });
 
