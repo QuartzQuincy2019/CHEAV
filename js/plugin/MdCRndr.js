@@ -399,6 +399,17 @@ function __exposeLigBox() { }
  * 取「宿主 + 各连字区部件」的并集包围盒，而不是查表的固定宽度。
  * 布局与绘制都用它，框内外才不会各量一套（间距/重叠问题的根因）。
  */
+/**
+ * 连字区矩形归一化：存储的 w/h 可能为负（表示 min/max 方向），
+ * 直接当宽高用会被当成无效区而跳过（X1 的 zone1 就是这个情况）。
+ */
+function normZone(z) {
+    if (!z) return null;
+    const x0 = Math.min(z.x, z.x + z.w), x1 = Math.max(z.x, z.x + z.w);
+    const y0 = Math.min(z.y, z.y + z.h), y1 = Math.max(z.y, z.y + z.h);
+    const out = { x: x0, y: y0, w: x1 - x0, h: y1 - y0, gh: z.gh, gv: z.gv };
+    return out;
+}
 function ligatureBoxEm(name) {
     const lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;
     let hostW = 0, hostH = 0;
@@ -412,27 +423,36 @@ function ligatureBoxEm(name) {
             hostH = Math.max(hostH, (m && (m.height !== undefined ? m.height : m.h) || 0) / EM_SQUARE);
         }
     }
-    let w = hostW, h = hostH || 1;
+    // JSesh fitToSubViews(true)：对「宿主 + 已放置部件」求并集，
+    //   width = area.width * xScale（此处 xScale=1）
+    // 宿主在 (0,0)；部件的 y 是"从宿主顶部向下"的坐标，与 placeView 一致。
+    let minX = 0, maxX = hostW, minB = 0, maxB = hostH || 1;
     if (lig && lig.parts && lig.parts.length > 1 && glyphZoneProvider && hostCode) {
         const zones = glyphZoneProvider(hostCode) || null;
+        const hostHm = hostH || 1;
         for (let i = 1; i < lig.parts.length; i++) {
-            const p = lig.parts[i];
-            if (!p.zone) continue;
-            const z = zones ? (p.zone === "auto" ? (zones.zone2 || zones.zone1)
-                : (p.zone === "zoneB" ? (zones.zoneB || zones.zone2) : zones[p.zone])) : null;
+            const p2 = lig.parts[i];
+            if (!p2.zone) continue;
+            const z = normZone(zones ? (p2.zone === "auto" ? (zones.zone2 || zones.zone1)
+                : (p2.zone === "zoneB" ? (zones.zoneB || zones.zone2 || zones.zone1) : zones[p2.zone])) : null);
             if (!z || !(z.w > 0)) continue;
-            // 与 renderLigature 一致：部件会被缩放进区里，再按重力对齐；
-            // 量宽要用「缩小后的字形宽 + 实际偏移」，用 z.w 会把框撑大。
-            const m = getMetrics(p.code);
-            const inkW = Math.max(0.01, (m.width !== undefined ? m.width : m.w || 0) / EM_SQUARE);
-            const inkH = Math.max(0.01, (m.height !== undefined ? m.height : m.h || 0) / EM_SQUARE);
+            const mm = getMetrics(p2.code);
+            const inkW = Math.max(0.01, (mm.width !== undefined ? mm.width : mm.w || 0) / EM_SQUARE);
+            const inkH = Math.max(0.01, (mm.height !== undefined ? mm.height : mm.h || 0) / EM_SQUARE);
             const fitK = (inkW <= z.w && inkH <= z.h) ? 1 : Math.min(z.w / inkW, z.h / inkH);
             const pw = inkW * fitK, ph = inkH * fitK;
             const px = (z.gh === "s") ? z.x : (z.gh === "e") ? (z.x + z.w - pw) : (z.x + (z.w - pw) / 2);
-            if (px + pw > w) w = px + pw;
-            if (z.y + ph > h) h = z.y + ph;
+            const py = (z.gv === "t") ? z.y : (z.gv === "b") ? (z.y + z.h - ph) : (z.y + (z.h - ph) / 2);
+            if (px < minX) minX = px;
+            if (px + pw > maxX) maxX = px + pw;
+            // 转成"自底部向上"的坐标（渲染侧用 bottom 定位）
+            const zb = hostHm - (py + ph);
+            if (zb < minB) minB = zb;
+            if (zb + ph > maxB) maxB = zb + ph;
         }
     }
+    let w = maxX - minX, h = maxB - minB;
+    const mins = { x: minX, b: minB };
     if (!(w > 0.05)) w = 0.5;
     if (!(h > 0.05)) h = 1;
     return { w: w, h: h };
@@ -972,7 +992,7 @@ function renderLigature(parent, name, fontSize) {
         const align = i === 0 ? "center" : undefined;
         // part.zone：按锚字符（parts[0]）的连字区自动缩放并贴边（Tier 1）
         let zdx = (part.dx || 0), zdy = (part.dy || 0), zps = ps, zUsed = false;
-        if (part.zone && glyphZoneProvider && threeSidesOk && __placeAllowed) {
+        if (part.zone && glyphZoneProvider && __placeAllowed) {
             const explicitZone = (part.zone === "zone1" || part.zone === "zone2");
             const prevP = explicitZone ? (placed[0] || null) : (placed[i - 1] || placed[0] || null);
             const anchor0 = prevP || { code: (lig.parts[0] || {}).code || "", dx: (lig.parts[0] || {}).dx || 0, dy: (lig.parts[0] || {}).dy || 0 };
@@ -984,11 +1004,12 @@ function renderLigature(parent, name, fontSize) {
             // 与 JSesh Layout.visitLigature 一致：后接部件优先用"底部槽"，没有才用"右侧槽"
             // 与 JSesh Layout.visitLigature 一致：后接部件优先"底部槽"，没有再退"右侧槽"
             if (part.zone === "zoneB" || part.zone === "zone2") {
-                z = zones0 ? (zones0.zoneB || zones0.zone2 || null) : null;
+                z = zones0 ? (zones0.zoneB || zones0.zone2 || zones0.zone1 || null) : null;
             } else {
                 z = zones0 ? zones0[part.zone] : null;
             }
             }
+            z = normZone(z);
             zUsed = !!(z && z.w > 0 && z.h > 0);
 
             if (zUsed) {
@@ -1024,8 +1045,8 @@ function renderLigature(parent, name, fontSize) {
         if (!el) return;
         // 绝对定位：part 的布局底边置于 (dx, dy) 处
         el.style.position = "absolute";
-        el.style.left = px(zdx * fontSize) + "px";
-        el.style.bottom = px(zdy * fontSize) + "px";
+        el.style.left = px((zdx - (__lbox.minX || 0)) * fontSize) + "px";
+        el.style.bottom = px((zdy - (__lbox.minB || 0)) * fontSize) + "px";
         if (noZoneOrigin) { el.style.top = "0px"; el.style.bottom = "auto"; }   // 原点 = 左上
         el.style.marginBottom = "0px";   // 连字区定位已含墨迹底边，避免 dy 二次叠加
         const __m = getMetrics(part.code);
