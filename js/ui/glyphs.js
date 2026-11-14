@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611142440";
+    const BUILD = "glyphs-202611142455";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
@@ -1201,9 +1201,17 @@ out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
 
         zoneFor(code) {
             code = this.canon(code);
+            // 推导出的区可能带负宽高（x + w 才是对侧边界），统一归一化成正矩形，
+            // 否则下游会把 w/h <= 0 的区当作不存在。
+            const __nz = function (z) {
+                if (!z || z.w === undefined || z.h === undefined) return z || null;
+                const x0 = Math.min(z.x, z.x + z.w), x1 = Math.max(z.x, z.x + z.w);
+                const y0 = Math.min(z.y, z.y + z.h), y1 = Math.max(z.y, z.y + z.h);
+                return { x: x0, y: y0, w: x1 - x0, h: y1 - y0, gh: z.gh, gv: z.gv, gravity: z.gravity };
+            };
             // ① SVG 内 <rect id="zone1|zone2"> 是 JSesh 的权威声明（Tier 1）
             const svgZ = svgZones.get(code);
-            if (svgZ) return { zone1: svgZ[0] || null, zone2: svgZ[1] || null, zoneB: null };
+            if (svgZ) return { zone1: __nz(svgZ[0]), zone2: __nz(svgZ[1]), zoneB: null };
             // ② 没有声明才按墨迹推导（三槽）
             if (!derivedZones.has(code)) {
                 let zc = null;
@@ -1212,7 +1220,7 @@ out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
             }
             const d = derivedZones.get(code);
             if (!d) return null;
-            return { zone1: d.zone1 || null, zone2: d.zone2 || null, zoneB: d.zoneB || null };
+            return { zone1: __nz(d.zone1), zone2: __nz(d.zone2), zoneB: __nz(d.zoneB) };
         },
         /** 重开一次渲染的推导预算（每次 renderText 前调用）。 */
         beginZoneBudget(n) { fontZoneBudget = (typeof n === "number" && n > 0) ? n : 8; },
