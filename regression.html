@@ -33,21 +33,21 @@
     <tbody id="tbody"></tbody>
 </table>
 
-<script src="js/lib/paper-core.min.js?v=191230"></script>
-<script src="js/database/mainSigns.js?v=191230"></script>
-<script src="js/database/translit.js?v=191230"></script>
-<script src="js/database/glyphZones.js?v=191230"></script>
-<script src="js/database/serekhTail.js?v=191230"></script>
-<script src="js/database/mdcGlyphTables.js?v=191230"></script>
-<script src="js/database/ngMetrics.js?v=191230"></script>
-<script src="js/plugin/mdcEncoding.js?v=191230"></script>
-<script src="js/plugin/mdcMetrics.js?v=191230"></script>
-<script src="js/plugin/mdcView.js?v=191230"></script>
-<script src="js/plugin/mdcEnclosure.js?v=191230"></script>
-<script src="js/plugin/mdcVrg.js?v=191230"></script>
-<script src="js/plugin/mdcGlyphCore.js?v=191230"></script>
-<script src="js/plugin/MdCRndr.js?v=191230"></script>
-<script src="js/ui/glyphs.js?v=191230"></script>
+<script src="js/lib/paper-core.min.js?v=192019"></script>
+<script src="js/database/mainSigns.js?v=192019"></script>
+<script src="js/database/translit.js?v=192019"></script>
+<script src="js/database/glyphZones.js?v=192019"></script>
+<script src="js/database/serekhTail.js?v=192019"></script>
+<script src="js/database/mdcGlyphTables.js?v=192019"></script>
+<script src="js/database/ngMetrics.js?v=192019"></script>
+<script src="js/plugin/mdcEncoding.js?v=192019"></script>
+<script src="js/plugin/mdcMetrics.js?v=192019"></script>
+<script src="js/plugin/mdcView.js?v=192019"></script>
+<script src="js/plugin/mdcEnclosure.js?v=192019"></script>
+<script src="js/plugin/mdcVrg.js?v=192019"></script>
+<script src="js/plugin/mdcGlyphCore.js?v=192019"></script>
+<script src="js/plugin/MdCRndr.js?v=192019"></script>
+<script src="js/ui/glyphs.js?v=192019"></script>
 <script>
 (async function () {
     "use strict";
@@ -156,9 +156,17 @@
             var box = root.querySelector(".enc-js");
             if (!box || !p.length) return { ok: false, value: "无框" };
             var rb = box.getBoundingClientRect();
-            var top = Math.min.apply(null, p.map(function (x) { return x.top; }));
-            var bot = Math.max.apply(null, p.map(function (x) { return x.top + x.h; }));
-            var d = Math.abs((top - rb.top) - (rb.bottom - bot)) / EM;
+            // 只信 DOM：取框内所有字形元素的并集（不再混用布局的 em 数值与 DOM 的 px）
+            var els = box.querySelectorAll(".hie, .vrg, svg, img");
+            var ct = Infinity, cb = -Infinity;
+            for (var i = 0; i < els.length; i++) {
+                var r = els[i].getBoundingClientRect();
+                if (r.width === 0 && r.height === 0) continue;
+                if (r.top < ct) ct = r.top;
+                if (r.bottom > cb) cb = r.bottom;
+            }
+            if (!isFinite(ct)) return { ok: false, value: "无内容" };
+            var d = Math.abs((ct - rb.top) - (rb.bottom - cb)) / EM;
             return { ok: d <= 0.02, value: d.toFixed(3) + " em" };
         }}
     ]);

@@ -604,8 +604,8 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
             return r && r.tree ? r.tree : { type: "char", code: str };
         };
         // u.source 是框内的 MDC 源码字符串，先按四开组语法切成 cadrat 列表
-        const cadrats = MDC.Cadrat.parse ? MDC.Cadrat.parse(u.source, parseElement) : u.source;
-        const vrg = MDC.Cadrat.renderLine(body, cadrats, fontSize, {
+        const src = String(u.source).replace(/^-+/, "").replace(/-+$/, "");   // 剪掉包围框界符残留
+        const vrg = MDC.Cadrat.renderLine(body, src, fontSize, {
             centerSigns: true,
             parseElement: parseElement,
             renderUnit: function (unit, el, fs) { render(el, unit, fs); }
@@ -1494,7 +1494,7 @@ function parseInput(text) {
         }
         if (u.type === "enc") {
             // 包围框：内容在 parseEnclosure 中已递归解析并展开，这里原样保留
-            return { type: "enc", kind: u.kind, units: u.units || [] };
+            return Object.assign({}, u, { units: u.units || [] });   // 必须保留 source/startPart/endPart
         }
         if (u.type === "word") {
             // 词（lexis）：功能暂留空，内部按普通序列展开
