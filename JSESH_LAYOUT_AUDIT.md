@@ -8,9 +8,9 @@
 | # | 规则 | 源码 | 我们的状态 |
 |---|---|---|---|
 | 1 | Cadrat 高度 = `max(内容高 + smallDim, maxCadratHeight + smallDim)`，**至少 1 em** | `Layout.visitCadrat` 389-431 | ✅ 2026-11-14：`.RenderLine{min-height:1em}`，行盒不再塌陷 |
-| 2 | Cadrat 宽度 = `max(内容宽, maxCadratWidth)`（窄组补到 1 em） | `Layout.visitCadrat` 436-439 | ❌ 宽度随内容 |
-| 3 | Cadrat 太高时整体 `reScale(maxCadratHeight / h)` 缩回 | `QuadratLayout` 193-195 | ❌ 无整体缩放 |
-| 4 | 宽单字按宽度 `scaleToWidth` 填满行 | `QuadratLayout` 117-122, 211-228 | ❌ |
+| 2 | Cadrat 宽度 = `max(内容宽, maxCadratWidth)`（窄组补到 1 em） | `Layout.visitCadrat` 436-439 | ✅ 2026-11-14 实测 JSesh **不压缩也不补齐**：`A1*N35` 组宽 ≈1.97em（A1 0.885 + N35 0.963 + 0.125 间隔），与我们的 1.973em 一致 → 原判读有误，现状正确 |
+| 3 | Cadrat 太高时整体 `reScale(maxCadratHeight / h)` 缩回 | `QuadratLayout` 193-195 | ⚠️ VRG 路径已满足（实测 `.vrg` 恒 1.000em）；单符号超高未处理 |
+| 4 | 宽单字按宽度 `scaleToWidth` 填满行 | `QuadratLayout` 117-122, 211-228 | ✅ 同上：JSesh 不把并列组压进 1em（见 #2 实测） |
 | 5 | 行高恒为 `maxCadratHeight`（换行 view 高度） | `Layout.visitLineBreak` 793-798 | ✅ 2026-11-14：`min-height:1em` 后实测行高恒 1.000em |
 | 6 | `FULLSPACE` 高 = `maxCadratHeight`；`HALFSPACE` 高 = 一半 | `Layout.visitHieroglyph` 617-631 | ❌ 未区分占位符 |
 | 7 | 空行/空 cadrat 也要占 1 em | 同 #5 | ❌ |
