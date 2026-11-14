@@ -189,7 +189,7 @@
             places.push({ x: x, y: h - ms[i].h, w: ms[i].w, h: ms[i].h, elem: elems[i] });
             x += ms[i].w;
         }
-        return { w: w, h: h, y: 0, places: places };
+        return { w: w, h: h, y: 0, places: places, wide: elems.length === 1 && !!(elems[0] && elems[0].wide) };
     }
 
     /** HBox.containsOnlyOneSign()：整行只有一个元素时，返回它的度量 */
@@ -197,9 +197,14 @@
         return elems.length === 1 ? measureElement(elems[0]) : null;
     }
 
-    /** "大字形"：宽 ≥ largeSignSizeRatio × A1 高（Cadrat.isWide 的判据） */
-    function isLargeSign(m) {
-        return !!m && m.w >= GEOM.largeSignSizeRatio * GEOM.heightOfA1;
+    /**
+     * Cadrat.isWide() / HBox.isWide() / Hieroglyph.isWide()
+     *   HBox.isWide   = 该行只有一个子元素且它是 Hieroglyph，且 hiero.isWide()
+     *   hiero.isWide  = getModifiers().getBoolean("l")   ← MdC 的 l 修饰符
+     * 我们目前不支持修饰符，所以这里恒为 false（与"没有写 l"的输入一致）。
+     */
+    function isWideCadrat(cad) {
+        return !!cad && !!cad.wide;
     }
 
     /** QuadratLayout:199-233 fitLoneSignsToColumnWidth —— 单元素行里的宽扁独字等比撑满行宽 */
@@ -236,13 +241,8 @@
         const hboxes = cad.hboxes;
         const rows = hboxes.map(layoutRow);
 
-        // Cadrat.isWide()：只有一行，或某行含"大字形"
-        let wide = (rows.length === 1);
-        if (!wide) {
-            for (let k = 0; k < rows.length; k++) {
-                if (isLargeSign(loneSignOf(hboxes[k]))) { wide = true; break; }
-            }
-        }
+        // QuadratLayout:97  boolean wide = c.isWide();
+        const wide = isWideCadrat(cad);
 
         // QuadratLayout:99-105  先按最大宽度收缩
         if (honourMaxWidth || (rows.length !== 1 && !wide)) {
@@ -255,7 +255,7 @@
             if (honourMaxWidth) maxw = GEOM.maxCadratWidth;
             else for (let k = 0; k < rows.length; k++) if (rows[k].w > maxw) maxw = rows[k].w;
             for (let k = 0; k < rows.length; k++) {
-                if (isLargeSign(loneSignOf(hboxes[k]))) scaleToWidth(rows[k], maxw);
+                if (rows[k].wide) scaleToWidth(rows[k], maxw);
             }
         } else {
             let width = 0;
