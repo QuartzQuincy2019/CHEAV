@@ -862,8 +862,207 @@ function setViewBox(svgText, vb) {
             return false;
         },
 
-        /** 推导 zone1（前置）/ zone2（后接）；风格沿用 glyphZones.js 的数据格式（em）。 */
+
+        _paperReady: null,
+        /** 懒初始化 paper.js；若页面已 setup 过则直接复用（重复 setup 会抛异常）。 */
+        _ensurePaper() {
+            if (this._paperReady !== null) return this._paperReady;
+            try {
+                if (typeof paper === "undefined") { this._paperReady = false; return false; }
+                if (paper.project && paper.view) { this._paperReady = true; return true; }   // 已由页面初始化
+                const cv = document.createElement("canvas");
+                cv.width = 1; cv.height = 1;
+                paper.setup(cv);
+                this._paperReady = true;
+            } catch (e) { this.__paperErr = (e && e.message) || String(e); this._paperReady = false; }
+            return this._paperReady;
+        },
+
+        // ================= 精确推导：逐行照抄 JSesh LigatureZoneBuilder =================
+        // 坐标系：em、y 向下、原点 = 墨迹左上（等价 ShapeChar.fixShape 之后的状态）
+        _MARGIN_E: 1 / 18,      // 源码 MARGIN = 1 个字形单位；1em = 18 单位
+        _MAXH_E: 1,             // 源码 MAXHEIGHT = 18 单位 = 1em
+
+        /** 取字形的多边形（em，y 向下，原点=墨迹左上）。缓存。 */
+        glyphGeoEm(code) {
+            const key = this.canon(code);
+            if (!this._geoCache) this._geoCache = new Map();
+            if (this._geoCache.has(key)) return this._geoCache.get(key);
+            this._geoCache.set(key, null);
+            if (!this._ensurePaper()) return null;
+            try {
+                const url = urls.get(key);
+                if (!url) { this.__geoWhy = "no-url"; return null; }
+                const txt = decodeURIComponent(url.slice(url.indexOf(",") + 1));
+                const vm = /viewBox=("|')([\s\S]*?)\1/.exec(txt);
+                const vb = vm ? vm[2].split(/[\s,]+/).map(Number) : null;
+                const m = metricsEm.get(key) || null;
+                if (!vb || !m) { this.__geoWhy = "no-vb-or-metrics vb=" + !!vb + " m=" + !!m; return null; }
+                const emUnits = vb[2] / m.w;                  // 1em = 多少原始单位（18 或 1800）
+                if (!(emUnits > 0)) { this.__geoWhy = "bad-emUnits " + emUnits; return null; }
+                const polys = [];
+                const re = /<path\b[^>]*\bd=("|')([\s\S]*?)\1/g;
+                let mm;
+                while ((mm = re.exec(txt))) {
+                    const subs = mm[2].split(/(?=[Mm])/).map(function (x) { return x.trim(); }).filter(Boolean);
+                    for (const sub of subs) {
+                        try {
+                            const p = new paper.Path({ pathData: sub, insert: false });
+                            if (!p || !p.segments || p.segments.length < 3) continue;
+                            p.flatten(0.02 * emUnits / 18);
+                            polys.push(p.segments.map(function (sg) {
+                                return [sg.point.x / emUnits, sg.point.y / emUnits];
+                            }));
+                        } catch (e) { }
+                    }
+                }
+                if (!polys.length) { this.__geoWhy = "no-polys"; return null; }
+                let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+                polys.forEach(function (pts) {
+                    pts.forEach(function (q) {
+                        if (q[0] < x0) x0 = q[0]; if (q[0] > x1) x1 = q[0];
+                        if (q[1] < y0) y0 = q[1]; if (q[1] > y1) y1 = q[1];
+                    });
+                });
+                const W = x1 - x0, H = y1 - y0;
+                if (!(W > 0) || !(H > 0)) return null;
+                // fixShape：平移到墨迹左上
+                const moved = polys.map(function (pts) {
+                    return pts.map(function (q) { return [q[0] - x0, q[1] - y0]; });
+                });
+                const geo = { polys: moved, W: W, H: H };
+                this._geoCache.set(key, geo);
+                return geo;
+            } catch (e) { this.__geoErr = (e && e.message) || String(e); return null; }
+        },
+
+        /** Area.intersect(signArea).isEmpty() 的等价判定：交集面积 > 0 才算被占据。 */
+        _clash(geo, x0, y0, x1, y1) {
+            let total = 0;
+            for (let k = 0; k < geo.polys.length; k++) {
+                const R = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+                let out = geo.polys[k];
+                for (let e = 0; e < 4 && out.length; e++) {
+                    const a = R[e], b = R[(e + 1) % 4];
+                    const side = function (q) { return (b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0]); };
+                    const nxt = [];
+                    for (let i = 0; i < out.length; i++) {
+                        const cur = out[i], prv = out[(i + out.length - 1) % out.length];
+                        const ci = side(cur) >= 0, pi = side(prv) >= 0;
+                        const ip = function (p1, q1) {
+                            const dx = q1[0] - p1[0], dy = q1[1] - p1[1], ex = b[0] - a[0], ey = b[1] - a[1];
+                            const den = dx * ey - dy * ex;
+                            if (Math.abs(den) < 1e-12) return q1;
+                            const tt = ((a[0] - p1[0]) * ey - (a[1] - p1[1]) * ex) / den;
+                            return [p1[0] + dx * tt, p1[1] + dy * tt];
+                        };
+                        if (ci) { if (!pi) nxt.push(ip(prv, cur)); nxt.push(cur); }
+                        else if (pi) nxt.push(ip(prv, cur));
+                    }
+                    out = nxt;
+                }
+                if (out && out.length >= 3) {
+                    let s2 = 0;
+                    for (let i = 0; i < out.length; i++) {
+                        const a2 = out[i], b2 = out[(i + 1) % out.length];
+                        s2 += a2[0] * b2[1] - b2[0] * a2[1];
+                    }
+                    total += s2 / 2;
+                }
+            }
+            return Math.abs(total) > 1e-12;
+        },
+
+        /** findBestZonePosition：二分，返回 outerT（源码同名字段）。 */
+        _findBestZone(geo, outer, inner, width, height) {
+            const M = this._MARGIN_E;
+            let innerT = 1, outerT = 0, guard = 0;
+            while (Math.abs(innerT - outerT) > 0.01 && guard++ < 40) {
+                const t = (innerT + outerT) / 2;
+                const px = outer[0] + t * (inner[0] - outer[0]);
+                const py = outer[1] + t * (inner[1] - outer[1]);
+                let minx = px - M, miny = py - M;
+                if (width < 0) minx += width;
+                if (height < 0) miny += height;
+                const busy = this._clash(geo, minx, miny,
+                    minx + Math.abs(width) + 2 * M, miny + Math.abs(height) + 2 * M);
+                if (busy) innerT = t; else outerT = t;
+            }
+            return outerT;
+        },
+
+        _posAt(outer, inner, t) {
+            return [outer[0] + t * (inner[0] - outer[0]), outer[1] + t * (inner[1] - outer[1])];
+        },
+
+        /** 照抄 computeFirstArea / computeSecondArea / computeThirdArea。 */
         deriveZones(code) {
+            code = this.canon(code);
+            const geo = this.glyphGeoEm(code);
+            if (!geo) {
+                try { return this.deriveZonesRaster(code); } catch (e) { this.__rasterErr = (e && e.message) || String(e); return null; }
+            }     // 无几何（如纸面未加载）退回栅格版
+            const W = geo.W, H = geo.H;
+            const out = {};
+
+            // ---- computeFirstArea ----
+            {
+                let y = 0.5 * H;
+                let height = H / 3, width = W / 2;
+                const outer = [-width, y], inner = [0, y];
+                let t = this._findBestZone(geo, outer, inner, width, height);
+                if (t < 0.2) {
+                    height = H / 4; width = W / 4;
+                    t = this._findBestZone(geo, outer, inner, width, height);
+                    if (t >= 0.1) {
+                        const p = this._posAt(outer, inner, t);
+                        out.zone1 = { x: p[0], y: p[1], w: width, h: height, gh: "e", gv: "c" };
+                    }
+                } else {
+                    const p = this._posAt(outer, inner, t);
+                    out.zone1 = { x: p[0], y: p[1], w: width, h: height, gh: "e", gv: "c" };
+                }
+            }
+
+            // ---- computeSecondArea ----
+            {
+                let width = W / 2, height = H / 2.5;
+                const outer = [W, 0], inner = [W / 2, 0];
+                let t = this._findBestZone(geo, outer, inner, width, height);
+                if (t < 0.2) {
+                    height = H / 3;
+                    t = this._findBestZone(geo, outer, inner, width, height);
+                    if (t >= 0.1) {
+                        const p = this._posAt(outer, inner, t);
+                        out.zone2 = { x: p[0], y: p[1], w: width, h: height, gh: "s", gv: "t" };
+                    }
+                } else {
+                    const p = this._posAt(outer, inner, t);
+                    out.zone2 = { x: p[0], y: p[1], w: width, h: height, gh: "s", gv: "t" };
+                }
+            }
+
+            // ---- computeThirdArea（源码：重试结果被无条件丢弃） ----
+            {
+                const outer = [W / 2, H], inner = [W, 0];
+                let t = this._findBestZone(geo, outer, inner, -W, H);
+                if (t > 0.2) {
+                    const p = this._posAt(outer, inner, t);
+                    out.zoneB = { x: 0, y: p[1], w: p[0], h: this._MAXH_E - p[1] + this._MARGIN_E, gh: "c", gv: "b" };
+                } else {
+                    outer[0] = 0;
+                    t = this._findBestZone(geo, outer, inner, -W, H);
+                    out.zoneB = null;      // 源码 line 75：zones[2] = null（重试白做）
+                }
+            }
+            return out;
+        },
+
+        /** 推导 zone1（前置）/ zone2（后接）；风格沿用 glyphZones.js 的数据格式（em）。 */
+        deriveZonesRaster(code) {
+            if (!this.inkGrid(code) && !(typeof enabled !== "undefined" && !enabled)) {
+                // 栅格未就绪：不推导（调用方会稍后重试）
+            }
             const dbg = {};   // 诊断：各槽搜索的 t 值
             if (typeof globalThis !== "undefined") {
                 const tr = globalThis.__zoneTrace || (globalThis.__zoneTrace = []);

@@ -1,13 +1,13 @@
 <!DOCTYPE html><meta charset="utf-8">
 <style>#o{font:11px/1.5 monospace;white-space:pre-wrap;background:#ffef9f;padding:8px}</style>
 <div id="o">running…</div>
-<script src="js/lib/paper-core.min.js?v=115855"></script>
-<script src="js/database/mainSigns.js?v=115855"></script>
-<script src="js/database/translit.js?v=115855"></script>
-<script src="js/database/glyphZones.js?v=115855"></script>
-<script src="js/database/serekhTail.js?v=115855"></script>
-<script src="js/plugin/MdCRndr.js?v=115855"></script>
-<script src="js/ui/glyphs.js?v=115855"></script>
+<script src="js/lib/paper-core.min.js?v=120259"></script>
+<script src="js/database/mainSigns.js?v=120259"></script>
+<script src="js/database/translit.js?v=120259"></script>
+<script src="js/database/glyphZones.js?v=120259"></script>
+<script src="js/database/serekhTail.js?v=120259"></script>
+<script src="js/plugin/MdCRndr.js?v=120259"></script>
+<script src="js/ui/glyphs.js?v=120259"></script>
 <script>
 (async function(){
   const L = [];
@@ -124,6 +124,7 @@
 
       // ---- 生产实现 ----
       const prod = Glyphs.deriveZones(code);
+      L.push("  [内部] geoWhy=" + Glyphs.__geoWhy + "  paper=" + (typeof paper) + "  metrics=" + JSON.stringify(Glyphs.metrics(code)));
       const f = v => (v === undefined ? "-" : v.toFixed(3));
       L.push("  生产: " + (prod ? ("z1=" + (prod.zone1 ? ("w" + f(prod.zone1.w) + " h" + f(prod.zone1.h) + " @" + f(prod.zone1.x) + "," + f(prod.zone1.y)) : "无") +
               "  z2=" + (prod.zone2 ? ("w" + f(prod.zone2.w) + " h" + f(prod.zone2.h) + " @" + f(prod.zone2.x) + "," + f(prod.zone2.y)) : "无")) : "null") +
