@@ -6749,6 +6749,12 @@ defineLigature("AA1-D52-X1", [
     { code: "X1", dx: 0.3, dy: 0.0, scale: 0.8 },
 ], "xmt");
 
+// 与 JSesh 对齐：以下手写条目在 JSesh 源码中**不存在**（源码里没有 w&t / G39-X1 等命名连字），
+// JSesh 的 A&B 完全由连字区驱动；若需回退到旧行为，设置 window.CHEAV_KEEP_LEGACY_LIGATURES = true。
+if (!(typeof window !== "undefined" && window.CHEAV_KEEP_LEGACY_LIGATURES)) {
+    ["w&t", "t&w", "G39-X1", "G39-N5", "G39-n", "I10-D46", "I10-D36", "I10-D21", "I10-X1", "G25-AA1", "G35-X1", "G35-N29", "Q3-G43", "X1-G43", "X1-G43-X1", "G43-Z4", "AA1-D52-X1"].forEach(function (n) { delete LIGATURES[n]; });
+}
+
     // ========================================================================
     // 三、基础工具
     // ========================================================================
