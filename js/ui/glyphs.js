@@ -351,7 +351,7 @@ function setViewBox(svgText, vb) {
             const raw = new TextDecoder("utf-8").decode(bytes);
             // 先解析连字区（stripGuides 会把红框 rect 删掉，必须在它之前）
             try { const sz = api.parseSvgZones(raw); if (sz) svgZones.set(code, sz); } catch (e) { }
-            let svgText = stripGuides(fixSvgNs(raw));
+            let svgText = api.filterNonInk(stripGuides(fixSvgNs(raw)));
             rawSvg.set(code, svgText);      // 供 Tier 2 连字区推导
             // 用数值方法算墨迹范围（不依赖 DOM，getBBox 只作为交叉校验）：
             // JSesh 的画框 width/height 是符号的"自然尺寸"，18 单位 = 1em；
@@ -366,6 +366,21 @@ function setViewBox(svgText, vb) {
             //   · 高清文件 1800 单位 = 1em（Aa1 864.7 → 0.48em、G7 1800 → 1em）
             // 用 100 单位做分界；按各自的"每 em 单位数"归一化，比例才与 JSesh 一致。
             const em = big > 100 ? 1800 : 18;
+            // fixShape：zone 随墨迹平移（原点=墨迹左上），再按本文件比例换算为 em
+            {
+                const sz = svgZones.get(code);
+                if (sz) {
+                    const ox = ink ? ink.x : 0, oy = ink ? ink.y : 0;
+                    for (const k of [0, 1]) {
+                        const z = sz[k];
+                        if (!z) continue;
+                        z.x = (z.x - ox) / em;
+                        z.y = (z.y - oy) / em;
+                        z.w = z.w / em;
+                        z.h = z.h / em;
+                    }
+                }
+            }
             if (fr) {
                 // viewBox 只取「墨迹 + 少量留白」：这样盒子可以贴着字形，字符间距不会被撑大，
                 // 图片也不会宽于盒子而被 background-clip 裁掉。
@@ -694,6 +709,31 @@ function setViewBox(svgText, vb) {
             this.requestGrid(code);
             return null;
         },
+        /**
+         * 与 JSesh SVGSignSource 对齐：只有 path / polygon 进入墨迹；
+         * rect/circle/ellipse/line/polyline 一律忽略；非黑填充且无描边者也不算墨迹。
+         */
+        filterNonInk(svgText) {
+            return svgText.replace(/<(path|polygon|rect|circle|ellipse|line|polyline)\b[^>]*?\/?>/gi, function (tag, name) {
+                const nm = name.toLowerCase();
+                if (nm !== "path" && nm !== "polygon") return "";
+                const sm = /style="([^"]*)"/i.exec(tag);
+                const style = sm ? sm[1] : "";
+                const attr = function (k) { const m = new RegExp(k + "=\"([^\"]*)\"").exec(tag); return m ? m[1].trim() : null; };
+                let fill = attr("fill"), stroke = attr("stroke");
+                const f1 = /fill:\s*([^;"]+)/i.exec(style);   if (f1) fill = f1[1].trim();
+                const s1 = /stroke:\s*([^;"]+)/i.exec(style);  if (s1) stroke = s1[1].trim();
+                const hasStroke = !!stroke && stroke !== "none";
+                const isBlack = function (c) {
+                    return !!c && (/^#0{3,6}$/i.test(c) || c === "black" || /^rgb\(\s*0\s*,\s*0\s*,\s*0/i.test(c) || c.indexOf("currentColor") === 0);
+                };
+                const noFill = fill === "none";
+                if (noFill && !hasStroke) return "";
+                if (!noFill && fill !== null && !isBlack(fill) && !hasStroke) return "";
+                return tag;
+            });
+        },
+
         /** 从 SVG 源提取 <rect id="zone1|zone2"> 的连字区声明（JSesh 的 Tier 1 权威数据）。 */
         parseSvgZones(svgText) {
             const out = {};
@@ -707,7 +747,7 @@ function setViewBox(svgText, vb) {
                 const lab = /gravity:([a-zA-Z]+)/.exec(tag);
                 const g = lab ? lab[1] : "";
                 const z = {
-                    x: x / 18, y: y / 18, w: w / 18, h: h / 18,      // SVG 用户单位 18 = 1em
+                    x: x, y: y, w: w, h: h,        // 原始 SVG 坐标；稍后按 fixShape 平移 + 本文件比例换算
                     gh: g.indexOf("s") >= 0 ? "s" : (g.indexOf("e") >= 0 ? "e" : "c"),
                     gv: g.indexOf("t") >= 0 ? "t" : (g.indexOf("b") >= 0 ? "b" : "c"),
                     gravity: g
