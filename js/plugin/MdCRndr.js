@@ -680,7 +680,7 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     box.className = options.encClass + " enc-js";
     box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
         "line-height:0;font-size:" + fontSize + "px;width:" + (g.w * ESC * fontSize) + "px;height:" + (g.h * ESC * fontSize) + "px;";
-    if (ESC !== 1) box.style.transform = "scale(" + ESC + ")";
+    // 缩放已乘进 inline 宽高与单元格坐标，不再套 transform（否则变成 ESC²）
     let cx = 0, cy = 0;
     if (u.kind === "A") encADepth++;
     try {
