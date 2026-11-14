@@ -1,0 +1,94 @@
+<!DOCTYPE html><meta charset="utf-8">
+<style>#o{font:11px monospace;white-space:pre-wrap;background:#ffef9f;padding:8px}</style>
+<div id="o">loading…</div>
+<script src="js/lib/paper-core.min.js?v=115726"></script>
+<script src="js/database/mainSigns.js?v=115726"></script>
+<script src="js/database/translit.js?v=115726"></script>
+<script src="js/database/glyphZones.js?v=115726"></script>
+<script src="js/database/serekhTail.js?v=115726"></script>
+<script src="js/plugin/MdCRndr.js?v=115726"></script>
+<script src="js/ui/glyphs.js?v=115726"></script>
+<script>
+(async function(){
+  const L = [];
+  const CODE = "A138";
+  try {
+    const cv0 = document.createElement("canvas"); cv0.width = 1; cv0.height = 1; paper.setup(cv0);
+    await Glyphs.useSiteDir(); Glyphs.setRenderer(MdCRndr); Glyphs.setEnabled(true);
+    await Glyphs.preload([CODE]);
+    for (let k = 0; k < 40 && !Glyphs.inkGrid(CODE); k++) await new Promise(r => setTimeout(r, 50));
+    const g = Glyphs.inkGrid(CODE);
+    L.push("grid: " + (g ? ("N=" + g.N + " M=" + g.M + " w=" + g.w.toFixed(2) + " h=" + g.h.toFixed(2)) : "null"));
+    if (g) {
+      const W = g.N, H = g.M || g.N, bits = g.bits;
+      const bit = (c, r) => (bits[((H - 1 - r) * W + c) >> 5] >> (((H - 1 - r) * W + c) & 31)) & 1;
+      let c0 = W, c1 = -1, r0 = H, r1 = -1;
+      for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) if (bit(c, r)) { if (c<c0)c0=c; if (c>c1)c1=c; if (r<r0)r0=r; if (r>r1)r1=r; }
+      L.push("栅格墨迹范围（归一化，y 向上）: x " + (c0/W).toFixed(3) + ".." + ((c1+1)/W).toFixed(3) +
+             "  y " + (r0/H).toFixed(3) + ".." + ((r1+1)/H).toFixed(3));
+    }
+    // 多边形墨迹范围
+    const url = Glyphs.urlFor(CODE);
+    const txt = decodeURIComponent(url.slice(url.indexOf(",") + 1));
+    const vm = /viewBox=("|')([\s\S]*?)\1/.exec(txt);
+    L.push("data URI viewBox = " + (vm ? vm[2] : "?"));
+    const dm = /<path\b[^>]*\bd=("|')([\s\S]*?)\1/.exec(txt);
+    if (dm) {
+      const p = new paper.Path({ pathData: dm[2].trim() });
+      p.flatten(0.02);
+      const xs = p.segments.map(s => s.point.x), ys = p.segments.map(s => s.point.y);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      L.push("路径墨迹（原始单位）: x " + x0.toFixed(2) + ".." + x1.toFixed(2) + "  y " + y0.toFixed(2) + ".." + y1.toFixed(2) +
+             "  w=" + (x1-x0).toFixed(2) + " h=" + (y1-y0).toFixed(2));
+      // 归一化（以 ink 为准）
+      const nx = (v) => (v - x0) / (x1 - x0);
+      // 逐 t 对照左槽：outer=(-0.5,0.5) inner=(0,0.5)（y 向下）
+      const M = 1 / (x1 - x0);         // 归一化后的 MARGIN（单位=1 字形单位）
+      const My = 1 / (y1 - y0);
+      L.push("");
+      L.push("t      矩形(归一化, y 向下)            栅格   多边形");
+      for (const t of [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0]) {
+        const px = -0.5 + t * 0.5, py = 0.5;
+        const rx0 = px - M, ry0 = py - My;
+        const rx1 = rx0 + 0.5 + 2 * M, ry1 = ry0 + 1/3 + 2 * My;
+        // 栅格判定：把 y 向下转成 y 向上
+        const up0 = 1 - ry1, up1 = 1 - ry0;
+        const ras = Glyphs._busy(g, rx0, up0, rx1, up1);
+        // 多边形判定：裁剪求面积
+        let total = 0;
+        const R = [[rx0, ry0], [rx1, ry0], [rx1, ry1], [rx0, ry1]];
+        const poly = p.segments.map(s => [nx(s.point.x), (s.point.y - y0) / (y1 - y0)]);
+        let outp = poly;
+        for (let e = 0; e < 4 && outp.length; e++) {
+          const a = R[e], b = R[(e + 1) % 4];
+          const side = (q) => (b[0]-a[0])*(q[1]-a[1]) - (b[1]-a[1])*(q[0]-a[0]);
+          const nxt = [];
+          for (let i = 0; i < outp.length; i++) {
+            const cur = outp[i], prv = outp[(i + outp.length - 1) % outp.length];
+            const ci = side(cur) >= 0, pi = side(prv) >= 0;
+            const inter = (p1, q1) => {
+              const dx = q1[0]-p1[0], dy = q1[1]-p1[1], ex = b[0]-a[0], ey = b[1]-a[1];
+              const den = dx*ey - dy*ex;
+              if (Math.abs(den) < 1e-12) return q1;
+              const tt = ((a[0]-p1[0])*ey - (a[1]-p1[1])*ex)/den;
+              return [p1[0]+dx*tt, p1[1]+dy*tt];
+            };
+            if (ci) { if (!pi) nxt.push(inter(prv, cur)); nxt.push(cur); }
+            else if (pi) nxt.push(inter(prv, cur));
+          }
+          outp = nxt;
+        }
+        if (outp && outp.length >= 3) {
+          let s2 = 0;
+          for (let i = 0; i < outp.length; i++) { const a2 = outp[i], b2 = outp[(i+1)%outp.length]; s2 += a2[0]*b2[1] - b2[0]*a2[1]; }
+          total = s2 / 2;
+        }
+        const polyBusy = Math.abs(total) > 1e-9;
+        L.push(t.toFixed(1) + "    x[" + rx0.toFixed(3) + "," + rx1.toFixed(3) + "] y[" + ry0.toFixed(3) + "," + ry1.toFixed(3) + "]   " +
+               (ras ? "忙" : "空") + "     " + (polyBusy ? "忙" : "空") + "  面积=" + total.toFixed(6));
+      }
+    }
+  } catch(e) { L.push("ERR " + e.message + "\n" + (e.stack||"")); }
+  document.getElementById("o").textContent = L.join("\n");
+})();
+</script>
