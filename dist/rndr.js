@@ -9369,6 +9369,12 @@
         const ch = decodeCode(code);
         if (!ch) return { height: 0, width: 0 };
         // 字体模式：用 NewGardiner.ttf 的**轮廓墨迹框**（tools/ttf-metrics.js 预生成）
+        // JSesh SVG 墨迹盒优先（tools/svg-bbox.js 从 jseshGlyphs 的 path 算出，
+        // 与 JSesh 排版逐字一致；字体轮廓度量仅作回退）
+        const svgBox = (typeof window !== "undefined" && window.SVG_BOXES) ? window.SVG_BOXES[code] : null;
+        if (svgBox && svgBox.w > 0 && svgBox.h > 0) {
+            return { width: svgBox.w * emSquare(), height: svgBox.h * emSquare() };
+        }
         const key = "x" + ch.codePointAt(0).toString(16).toLowerCase();
         const ng = NGMETRICS[key];
         if (ng && ng.w > 0 && ng.h > 0) {

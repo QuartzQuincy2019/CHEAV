@@ -356,11 +356,16 @@ function showParseErrors(list) {
             return;
         }
         box.style.fontSize = SIZE + "px";
-        for (const line of splitLines(tree)) {
-            const seg = document.createElement("span");
-            seg.className = "RenderLine";
-            render(seg, line, SIZE);
-            box.appendChild(seg);
+        if (typeof MdCRndr !== "undefined" && MdCRndr.getCadratMode && MdCRndr.getCadratMode() === "jsesh") {
+            // 四开组排版：整段交给 renderText（它自己按 $ / 换行分段）
+            MdCRndr.renderText(box, input.value, SIZE);
+        } else {
+            for (const line of splitLines(tree)) {
+                const seg = document.createElement("span");
+                seg.className = "RenderLine";
+                render(seg, line, SIZE);
+                box.appendChild(seg);
+            }
         }
     }
 
@@ -388,6 +393,8 @@ function showParseErrors(list) {
         if (SETTINGS.verticalText) {
             // 竖排模式：预览与正文同向（自上而下成列）
             MdCRndr.renderVerticalText(previewRender, src, IB_PREVIEW_SIZE);
+        } else if (typeof MdCRndr !== "undefined" && MdCRndr.getCadratMode && MdCRndr.getCadratMode() === "jsesh") {
+            MdCRndr.renderText(previewRender, src, IB_PREVIEW_SIZE);
         } else {
             for (const line of splitLines(tree)) {
                 const seg = document.createElement("span");

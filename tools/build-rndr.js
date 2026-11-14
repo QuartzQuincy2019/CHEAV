@@ -7,7 +7,7 @@
  *
  * 产物：
  *   dist/rndr.js        引擎 + 基础表（编码、度量、四开组、王名圈…）
- *   dist/rndr-data.js   ngMetrics + ngZones（度量与连字区，强烈建议一起引入）
+ *   dist/rndr-data.js   ngMetrics + svgBoxes + ngZones（度量与连字区，强烈建议一起引入）
  *   dist/rndr-font.js   NewGardiner 字体内嵌（离线 / file:// 用）
  *   dist/demo.html      最小示例
  *
@@ -100,7 +100,7 @@ fs.writeFileSync(path.join(dist, "rndr.js"), engine, "utf8");
 
 // ---- 数据包 ----
 const data = "/*! rndr-data.js —— 字形度量 + 连字区预生成表 */\n" +
-    read("js/database/ngMetrics.js") + "\n" + read("js/database/ngZones.js");
+    read("js/database/ngMetrics.js") + "\n" + read("js/database/svgBoxes.js") + "\n" + read("js/database/ngZones.js");
 fs.writeFileSync(path.join(dist, "rndr-data.js"), data, "utf8");
 
 // ---- 字体包 ----
