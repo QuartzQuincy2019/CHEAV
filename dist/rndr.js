@@ -10516,12 +10516,30 @@ function renderLigature(parent, name, fontSize) {
         box.style.height = px(Math.max(maxH, 1)) + "px";
         box.style.position = "relative";
         parts.forEach(function (p) {
-            const el = renderGlyph(box, p.code, fontSize * (p.scale || 1), "bottom");
+            const k = p.scale || 1;
+            const el = renderGlyph(box, p.code, fontSize * k, "bottom");
             if (!el) return;
             el.style.position = "absolute";
             el.style.marginBottom = "0px";
             el.style.left = px((p.dx || 0) * fontSize) + "px";
             el.style.top = px((p.dy || 0) * fontSize) + "px";
+            // 官方表的 dx/dy 是以字形墨迹框为基准的：
+            // SVG 模式下 renderGlyph 已经把盒设成墨迹盒；字体模式下
+            // 盒是行内盒（宽度=字形 advance），必须显式给出墨迹尺寸，
+            // 否则 dx/dy 叠放会错位（结果就是“太阳跑到下面”那种）。
+            const am = getMetrics(p.code);
+            const wPx = (am.width / EM_SQUARE) * k * fontSize;
+            const hPx = (am.height / EM_SQUARE) * k * fontSize;
+            el.style.width = px(wPx) + "px";
+            el.style.height = px(hPx) + "px";
+            if (!el.style.backgroundImage) {
+                // 字体模式：把字形放进墨迹盒（水平居中、底边对齐）
+                el.style.display = "block";
+                el.style.textAlign = "center";
+                el.style.lineHeight = px(hPx) + "px";
+                el.style.overflow = "visible";
+                el.style.verticalAlign = "top";
+            }
         });
         parent.appendChild(box);
         return box;
