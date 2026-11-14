@@ -101,124 +101,219 @@
     }
 
     // 一行（HBox）：多元素底对齐；单元素水平居中
-    function layoutRow(elems, width) {
+    // ========================================================================
+    // 三层排版：HBox（行）→ Cadrat（四开组）→ 行串接
+    // 下面三个函数是 JSesh 的直译，函数名与注释都对齐到具体源码位置，
+    // 不再自创规则。常量取自 GeometrySpecification.DEFAULT（单位 em，1em = 18 设计单位）。
+    // ========================================================================
+    const GEOM = {
+        maxCadratHeight: 18 / 18,        // maxCadratHeight 18
+        maxCadratWidth: 22 / 18,         // maxCadratWidth 22
+        smallSkip: 2 / 18,               // smallSkip 2
+        largeSignSizeRatio: 0.8,         // largeSignSizeRatio
+        smallSignSizeRatio: 0.4,         // smallSignSizeRatio
+        heightOfA1: 18 / 18              // getHeightOfA1()：名义 A1 高 = 18 单位 = 1em
+    };
+
+    /** MDCView.stickSubViewsTo(ViewSide.BOTTOM)：子视图贴底 */
+    function stickSubViewsToBottom(row, h) {
+        for (let i = 0; i < row.places.length; i++) row.places[i].y = h - row.places[i].h;
+    }
+
+    /** MDCView.centerSubViewHorizontally：唯一子视图水平居中 */
+    function centerSubViewHorizontally(row, w) {
+        if (row.places.length === 1) row.places[0].x = (w - row.places[0].w) / 2;
+    }
+
+    /** MDCView.distributeHorizontally：多子视图等分多余宽度 */
+    function distributeHorizontally(row, w) {
+        const n = row.places.length;
+        if (n < 2) return;
+        let sum = 0;
+        for (let i = 0; i < n; i++) sum += row.places[i].w;
+        const inner = (w - sum) / (n - 1);
+        let x = 0;
+        for (let i = 0; i < n; i++) {
+            row.places[i].x = x;
+            x += row.places[i].w + inner;
+        }
+    }
+
+    /** MDCView.distributeFromTopToBottom：首行贴顶、末行贴底，行距等分（可为负） */
+    function distributeFromTopToBottom(rows, H) {
+        let sumH = 0;
+        for (let i = 0; i < rows.length; i++) sumH += rows[i].h;
+        const inner = rows.length > 1 ? (H - sumH) / (rows.length - 1) : 0;
+        let y = 0;
+        for (let i = 0; i < rows.length; i++) {
+            rows[i].y = y;
+            y += rows[i].h + inner;
+        }
+    }
+
+    /** MDCView.scaleToWidth：只改横向（xScale），高度不动 */
+    function scaleToWidth(row, w) {
+        if (!(row.w > 0) || !(w > 0) || Math.abs(row.w - w) < 1e-9) return;
+        const k = w / row.w;
+        for (let i = 0; i < row.places.length; i++) {
+            row.places[i].x *= k;
+            row.places[i].w *= k;
+        }
+        row.w = w;
+    }
+
+    /** MDCView.scaleForMaxWidth：超过 maxWidth 时整体等比缩小 */
+    function scaleForMaxWidth(row, maxWidth) {
+        if (!(row.w > maxWidth) || !(row.w > 0)) return;
+        const k = maxWidth / row.w;
+        for (let i = 0; i < row.places.length; i++) {
+            const p = row.places[i];
+            p.x *= k; p.y *= k; p.w *= k; p.h *= k;
+        }
+        row.w *= k;
+        row.h *= k;
+    }
+
+    /** Layout.visitDefault:523-548 —— 一条横排 HBox：宽度求和 + 子视图贴底 */
+    function layoutRow(elems) {
         const ms = elems.map(measureElement);
         let w = 0, h = 0;
         for (let i = 0; i < ms.length; i++) {
-            w += ms[i].w + (i > 0 ? SMALL_SKIP : 0);
+            w += ms[i].w + (i > 0 ? GEOM.smallSkip : 0);
             if (ms[i].h > h) h = ms[i].h;
         }
-        // 注：行内多元素会被各自包进 Cadrat，但那些 Cadrat 是 embedded，
-        // QuadratLayout:82-87 会把 honourMaxHeight 置为 false，所以行高就是墨迹高度，
-        // 不能抬到 1em（抬了会把 t*t*t 拉到中间，不是贴顶）。
-        const rowH = h;
-        const W = (typeof width === "number" && width > w) ? width : w;
         const places = [];
         let x = 0;
         for (let i = 0; i < ms.length; i++) {
-            if (i > 0) x += SMALL_SKIP;
-            const y = rowH - ms[i].h;           // stickSubViewsTo(BOTTOM)
-            places.push({ x: x, y: y, w: ms[i].w, h: ms[i].h, elem: elems[i] });
+            if (i > 0) x += GEOM.smallSkip;
+            places.push({ x: x, y: h - ms[i].h, w: ms[i].w, h: ms[i].h, elem: elems[i] });
             x += ms[i].w;
         }
-        if (elems.length === 1 && W > w) {      // centerSubViewHorizontally
-            places[0].x = (W - places[0].w) / 2;
-        }
-        return { w: W, h: rowH, places: places };
+        return { w: w, h: h, y: 0, places: places };
     }
 
-    // 一个四开组（Cadrat）：行栈 + 1em 下限 + 超高缩放
+    /** HBox.containsOnlyOneSign()：整行只有一个元素时，返回它的度量 */
+    function loneSignOf(elems) {
+        return elems.length === 1 ? measureElement(elems[0]) : null;
+    }
+
+    /** "大字形"：宽 ≥ largeSignSizeRatio × A1 高（Cadrat.isWide 的判据） */
+    function isLargeSign(m) {
+        return !!m && m.w >= GEOM.largeSignSizeRatio * GEOM.heightOfA1;
+    }
+
+    /** QuadratLayout:199-233 fitLoneSignsToColumnWidth —— 单元素行里的宽扁独字等比撑满行宽 */
+    function fitLoneSignsToColumnWidth(hboxes, rows, width) {
+        for (let k = 0; k < rows.length; k++) {
+            if (rows[k].places.length !== 1) continue;
+            const m = loneSignOf(hboxes[k]);
+            if (!m) continue;
+            if (!(m.w >= GEOM.largeSignSizeRatio * GEOM.heightOfA1)) continue;
+            if (!(m.h <= GEOM.smallSignSizeRatio * GEOM.heightOfA1)) continue;
+            const p = rows[k].places[0];
+            if (!(p.w > 0)) continue;
+            const scale = width / p.w;
+            if (!isFinite(scale) || scale <= 0) continue;
+            p.w *= scale;
+            p.h *= scale;
+            p.y = 0;                       // 独字撑满，贴底等价于贴行顶
+            rows[k].w = p.w;
+            rows[k].h = p.h;
+        }
+    }
+
+    /** QuadratLayout:49-197 —— 一个 Cadrat（四开组） */
     function layoutCadrat(cad, ctx) {
         const centre = !!(ctx && ctx.centerSigns);
-        const rows = cad.hboxes.map(function (hb) { return layoutRow(hb); });
+        const horizontal = !(ctx && ctx.vertical);
 
-        let w = 0;
-        for (let i = 0; i < rows.length; i++) if (rows[i].w > w) w = rows[i].w;
+        // QuadratLayout:72-87  honourMaxHeight/Width 与 embedded
+        let honourMaxHeight = horizontal;
+        let honourMaxWidth = !horizontal;
+        const embedded = !!cad.embedded;              // Cadrat.isEmbedded()
+        if (embedded) { honourMaxHeight = false; honourMaxWidth = false; }
 
-        // QuadratLayout:199-233 fitLoneSignsToColumnWidth：
-        // 单元素行里只有一个“宽而扁”的字形时（宽 ≥ 0.8×A1、高 ≤ 0.4×A1），
-        // JSesh 把它整体 reScale(width/宽) 撑满行宽——这就是 z（O34）这类
-        // 横条在垛叠/照型里应该铺满底部、而不是只占一小截的原因。
-        const A1H = 1.0137, LARGE_RATIO = 0.8, SMALL_RATIO = 0.4;
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            if (row.places.length !== 1) continue;
-            const p0 = row.places[0];
-            if (!(p0.w >= LARGE_RATIO * A1H && p0.h <= SMALL_RATIO * A1H)) continue;
-            if (!(p0.w > 0) || !(w > p0.w)) continue;          // 只放大，不缩小
-            const k = w / p0.w;
-            p0.w *= k;
-            p0.h *= k;
-            row.w = w;
-            row.h = p0.h;
-        }
-        let h = 0;
-        for (let i = 0; i < rows.length; i++) h += rows[i].h + (i > 0 ? SMALL_SKIP : 0);
+        const hboxes = cad.hboxes;
+        const rows = hboxes.map(layoutRow);
 
-        // QuadratLayout:174-190 —— 行宽补到 cadrat 宽 w，再决定居中/均分
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            if (row.w >= w - 1e-9) continue;
-            if (row.places.length === 1) {
-                row.places[0].x += (w - row.places[0].w) / 2;          // centerSubViewHorizontally
-            } else {
-                let sum = 0;
-                for (let k = 0; k < row.places.length; k++) sum += row.places[k].w;
-                const gap = (w - sum) / (row.places.length - 1);       // distributeHorizontally
-                let x = 0;
-                for (let k = 0; k < row.places.length; k++) {
-                    row.places[k].x = x;
-                    x += row.places[k].w + gap;
-                }
+        // Cadrat.isWide()：只有一行，或某行含"大字形"
+        let wide = (rows.length === 1);
+        if (!wide) {
+            for (let k = 0; k < rows.length; k++) {
+                if (isLargeSign(loneSignOf(hboxes[k]))) { wide = true; break; }
             }
-            row.w = w;
         }
+
+        // QuadratLayout:99-105  先按最大宽度收缩
+        if (honourMaxWidth || (rows.length !== 1 && !wide)) {
+            for (let k = 0; k < rows.length; k++) scaleForMaxWidth(rows[k], GEOM.maxCadratWidth);
+        }
+
+        // QuadratLayout:107-131  宽行拉伸 / 独字撑满
+        if (wide) {
+            let maxw = 0;
+            if (honourMaxWidth) maxw = GEOM.maxCadratWidth;
+            else for (let k = 0; k < rows.length; k++) if (rows[k].w > maxw) maxw = rows[k].w;
+            for (let k = 0; k < rows.length; k++) {
+                if (isLargeSign(loneSignOf(hboxes[k]))) scaleToWidth(rows[k], maxw);
+            }
+        } else {
+            let width = 0;
+            for (let k = 0; k < rows.length; k++) if (rows[k].w > width) width = rows[k].w;
+            if (honourMaxWidth && !embedded && width < GEOM.maxCadratWidth) width = GEOM.maxCadratWidth;
+            fitLoneSignsToColumnWidth(hboxes, rows, width);
+        }
+
+        // QuadratLayout:133-150  高度 = Σ行高 + 行距，按需抬到 maxCadratHeight
+        let h = 0;
+        for (let i = 0; i < rows.length; i++) h += rows[i].h + (i > 0 ? GEOM.smallSkip : 0);
+        if (honourMaxHeight && h < GEOM.maxCadratHeight) h = GEOM.maxCadratHeight;
+
+        // QuadratLayout:152-162  宽度 = 各行最大宽
+        let w = 0;
+        for (let k = 0; k < rows.length; k++) if (rows[k].w > w) w = rows[k].w;
+        if (honourMaxWidth && !embedded && w < GEOM.maxCadratWidth) w = GEOM.maxCadratWidth;
+
+        // QuadratLayout:164-172  行分布
+        if (rows.length > 1) {
+            distributeFromTopToBottom(rows, h);
+        } else if (rows.length === 1) {
+            rows[0].y = centre ? (h - rows[0].h) / 2 : (h - rows[0].h);
+        }
+
+        // QuadratLayout:177-192  行内：补宽 → 居中/均分 → 贴底
+        for (let k = 0; k < rows.length; k++) {
+            const row = rows[k];
+            if (row.w < w) row.w = w;
+            if (row.places.length === 1) {
+                centerSubViewHorizontally(row, w);
+            } else {
+                distributeHorizontally(row, w);
+                stickSubViewsToBottom(row, row.h);
+            }
+        }
+
+        // QuadratLayout:194-196  超高则整组等比缩回
+        let scale = 1;
+        if (honourMaxHeight && h > GEOM.maxCadratHeight) scale = GEOM.maxCadratHeight / h;
 
         const places = [];
-        if (rows.length > 1) {
-            // distributeFromTopToBottom（MDCView.java:295-312）：
-            //   interSpace = (internalHeight − Σ子高) / (n − 1)
-            // 首行贴上沿、末行贴下沿；整体高度取 max(自然高, 1em)。
-            let sumH = 0;
-            for (let i = 0; i < rows.length; i++) sumH += rows[i].h;
-            const H = Math.max(h, MAX_CADRAT_HEIGHT);
-            const inner = (H - sumH) / (rows.length - 1);   // 可为负（允许重叠）
-            let y = 0;
-            for (let i = 0; i < rows.length; i++) {
-                for (let k = 0; k < rows[i].places.length; k++) {
-                    const p = rows[i].places[k];
-                    places.push({ x: p.x, y: y + p.y, w: p.w, h: p.h, elem: p.elem });
-                }
-                y += rows[i].h + inner;
-            }
-            h = H;
-        } else {
-            h = rows.length ? rows[0].h : 0;
-            if (h < MAX_CADRAT_HEIGHT) h = MAX_CADRAT_HEIGHT;
-            const row = rows[0];
-            if (row) {
-                const dy = centre ? (h - row.h) / 2 : (h - row.h);   // 居中 / 贴底
-                for (let k = 0; k < row.places.length; k++) {
-                    const p = row.places[k];
-                    places.push({ x: p.x, y: dy + p.y, w: p.w, h: p.h, elem: p.elem });
-                }
+        for (let k = 0; k < rows.length; k++) {
+            const row = rows[k];
+            for (let j = 0; j < row.places.length; j++) {
+                const p = row.places[j];
+                places.push({
+                    x: p.x * scale,
+                    y: (row.y + p.y) * scale,
+                    w: p.w * scale,
+                    h: p.h * scale,
+                    elem: p.elem
+                });
             }
         }
-
-        let scale = 1;
-        if (h > MAX_CADRAT_HEIGHT) {            // honourMaxHeight && h > max
-            scale = MAX_CADRAT_HEIGHT / h;
-            h = MAX_CADRAT_HEIGHT;
-            w = w * scale;
-            for (let i = 0; i < places.length; i++) {
-                places[i].x *= scale; places[i].y *= scale;
-                places[i].w *= scale; places[i].h *= scale;
-            }
-        }
-        return { w: w, h: h, scale: scale, places: places };
+        return { w: w * scale, h: h * scale, places: places };
     }
 
-    // 一行里的若干 cadrat：横向串联、顶对齐（visitDefault）
     function layoutLine(cadrats, ctx) {
         const cs = cadrats.map(function (c) { return layoutCadrat(c, ctx); });
         let w = 0, h = 0;
