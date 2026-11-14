@@ -1363,7 +1363,7 @@ function parseInput(text) {
                 break;
             }
         }
-        if (end < 0) invalid.push(s.slice(from - open.length) + " (缺少 " + close + ")");
+        // 边打字边渲染时包围框常常还没闭合：不报错，按到末尾处理
         pos = end < 0 ? s.length : end + close.length;
         const sub = parseInput(inner);                 // 内容递归解析
         for (const msg of sub.invalid) invalid.push(msg);
