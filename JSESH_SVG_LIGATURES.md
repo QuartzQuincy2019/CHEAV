@@ -389,3 +389,115 @@ zone_em.h =  rect.h / emPerEm
 
 - #6/#12 看似"缺 computeScale"，但我们的 `metrics/box` 已经用"每 em 单位数"（18 或 1800）归一化，等价于 JSesh 的样式单位；因此**不需要**再乘一次，否则会双重缩放。
 - #1 是**确定无疑的 bug**，且可以纯数值验证（用 SVG 里 rect 的原始数值 + 墨迹 min 手算）。
+
+---
+
+## 12. 完整规格（第四轮：把整条链路一次查完）
+
+> 本节是"按 JSesh 实现"的唯一依据；每一条都标注源码位置。
+
+### 12.1 SVG 导入：什么算墨迹
+
+`SVGSignSource.java`
+
+| 规则 | 位置 | 说明 |
+|---|---|---|
+| 只有 `path` / `polygon` 进入区域 | :466-499 | `rect` 仅在 id 以 `zone` 开头时被当作连字区；其它 `rect` **完全忽略** |
+| `pattern` / `clipPath` 内部忽略 | :500-503, :526 | `inPattern` / `clipPathDepth` 期间不累加 |
+| `style.outlined` → 加"描边形状" | :528-531 | `new BasicStroke(strokeWidth).createStrokedShape(subPath)` |
+| `style.filled && style.blackPaint` → 加填充形状 | :532-535 | 白色/彩色填充**不算墨迹** |
+| `fill:none` → 不填充 | :319 | style 里含 `fill:none` |
+| 任何非黑填充 → `blackPaint=false` | :325-331 | 只有 `#000000` / `black` / `rgb(0,0,0)` 视为黑 |
+| `stroke` 非 none → `outlined=true` | :293-297 | `stroke-width` 解析为数值 |
+
+### 12.2 坐标：`fixShape()`
+
+`ShapeChar.java:219-241`（`setShape` 自动调用）
+
+```
+shape 平移 (−minX, −minY)
+zones[i] 同量平移
+bbox := (0, 0, maxX−minX, maxY−minY)
+```
+
+⇒ **zone 的原点与字形墨迹左上角一致，且单位同一（字体单位）**。
+
+### 12.3 连字区的来源与数量
+
+| 项 | 规则 | 位置 |
+|---|---|---|
+| 有声明 | 只有 `zone1` / `zone2` 两槽（`new LigatureZone[2]`） | :567-581 |
+| 无声明 | 用 `LigatureZoneBuilder` 算 3 槽，`setZone` 会把数组扩到 3 | :204-222 |
+| 重力 | 从 `label="gravity:xx"` 取 `s/e/t/b`；缺省居中 | :584-600 |
+| 取槽 | `getZone(i)` 直接返回 `zones[i]`（可能为 null） | :435-441 |
+
+### 12.4 字形视图尺寸
+
+`Layout.visitHieroglyph:661-677`
+
+```
+bbox = hieroglyphsDrawer.getBBox(code, angle, true)   // 字体单位，不乘 scale
+view.width  = bbox.width  * computeScale()
+view.height = bbox.height * computeScale()
+// computeScale = standardSignHeight / heightOfA1   (HieroglyphDrawer:93)
+```
+
+`relativeSize != 100` → `view.reScale(size/100)`（:686-692）。
+
+### 12.5 连字排版
+
+`Layout.visitLigature:709-789`
+
+```
+① Tksesh: getPositions(codes) 命中 →
+     x = pos.x * computeScale * getGroupUnitScale()   // groupUnitScale = heightOfA1/1000
+     y = pos.y * computeScale * getGroupUnitScale()
+     subv.resetPos(); subv.reScale(pos.scale/100); subv.setLocation(x, y)
+② 两元素：larger = (sub(1).h*0.8 > sub(0).h) ? 1 : 0
+     larger 在前 → zone 2（底），缺则 zone 1（右）
+     larger 在后 → zone 0（左）
+     取不到槽 → **什么都不做**（两子视图留在原位）
+     取到槽 → sub(larger).resetPos(); placeView(zone.scale(computeScale), sub(smaller))
+③ 三元素：中间为宿主，首 → zone 0，尾 → zone 1；两槽都要存在
+④ 结束：fitToSubViews(true)
+```
+
+### 12.6 placeView
+
+`Layout.java:1006`
+
+```
+scaleToFitDimensions(zone.w, zone.h)      // 只缩不放（MDCView:796）
+x = START ? minX : END ? minX + w − subW : minX + (w − subW)/2
+y = TOP   ? minY : BOTTOM ? minY + h − subH : minY + (h − subH)/2
+position = (x, y)                          // 左上角，y 向下
+```
+
+### 12.7 三个推导区（无声明时）
+
+`LigatureZoneBuilder.java`
+
+| 槽 | 尺寸 | 走向 | 重力 | 回退 | 特殊 |
+|---|---|---|---|---|---|
+| 0 左 | W/2 × H/3，y=H/2 | (−W/2→0) | END | t<0.2 → W/4×H/4；t<0.1 → null | — |
+| 1 右 | W/2 × H/2.5，y=0 | (W→W/2) | START+TOP | t<0.2 → H/3；t<0.1 → null | — |
+| 2 底 | 盒 (0,p.y,p.x,MAXHEIGHT−p.y+1) | (W/2,H)→(W,0) | 默认 CENTER/CENTER | t≤0.2 时重试 outer.x=0，但**无条件置 null** | MARGIN=1, MAXHEIGHT=18 |
+
+### 12.8 与 CHEAV 的差异 → 需要改的地方
+
+| # | 需要改 | 现状 | 改法 |
+|---|---|---|---|
+| A | zone 未按墨迹原点平移 | 直接 `/18` | `(rect − ink.min) / emPerEm`，`emPerEm ∈ {18,1800}` |
+| B | 墨迹栅格包含 `rect/circle/ellipse` | 全画 | 只保留 `path/polygon`（与 signArea 一致） |
+| C | 未区分白色填充 | 全画 | 解析 style：`fill:none` 不画；非黑填充不画；`stroke` 非 none 时按 stroke-width 加粗 |
+| D | 无整体平移 | 无 | 连字容器按 union 计算并对齐原点（等价 fitToSubViews(true)） |
+| E | 无 `relativeSize` | 无 | `l` 等修饰符：缩放视图并同比缩放 zone |
+| F | 镜像不翻 zone | 只翻字形 | `x' = w − maxX`，`gh: e↔s` |
+
+### 12.9 已确认**不需要**改
+
+- `computeScale` 不再额外乘（我们的 em 归一化已等价）；
+- `scaleToFitDimensions`（只缩不放）；
+- 宿主选择 `h1*0.8 > h0`；
+- `hasZones()` 门控（有声明不用推导）；
+- Tksesh 位置公式与单位（pos/1000 em，y 向下）。
