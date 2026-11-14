@@ -917,7 +917,6 @@ function renderLigature(parent, name, fontSize) {
         const ok = function (z) { return !!(z && z.w > 0 && z.h > 0); };
         threeSidesOk = ok(z3.zone1) && ok(z3.zone2);
     }
-    let seqX = null, seqTotal = 0;
     const placed = [];                     // placed[i] = 该部件最终位置（em），供链式定位
     lig.parts.forEach((part, i) => {
         const ps = fontSize * (part.scale || 1);
@@ -944,21 +943,7 @@ function renderLigature(parent, name, fontSize) {
             }
             }
             zUsed = !!(z && z.w > 0 && z.h > 0);
-            if (!zUsed) {
-                // JSesh Layout.visitComplexLigature: no zone -> the operator degenerates to
-                // plain juxtaposition (same as "*"). Place after previous parts instead of
-                // stacking everything at the host origin.
-                const am2 = getMetrics(part.code);
-                const iw = Math.max(0.05, (((am2.width !== undefined ? am2.width : am2.w) || 0) / EM_SQUARE)) * (part.scale || 1);
-                if (typeof seqX !== "number") {
-                    const hb2 = glyphBoxProvider ? glyphBoxProvider((lig.parts[0] || {}).code) : null;
-                    seqX = hb2 ? hb2.w : 1;
-                }
-                zdx = seqX;
-                zdy = 0;
-                seqX += iw;
-                seqTotal = seqX;
-            }
+
             if (zUsed) {
                 const am = getMetrics(part.code);
                 const inkW = Math.max(0.01, (am.width !== undefined ? am.width : am.w) / EM_SQUARE);
