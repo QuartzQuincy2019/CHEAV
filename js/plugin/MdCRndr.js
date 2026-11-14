@@ -326,6 +326,8 @@ if (!(typeof window !== "undefined" && window.CHEAV_KEEP_LEGACY_LIGATURES)) {
             render: function (u, parent, fs) { return render(u, parent, fs); },
             renderEnclosure: function (el, u, fs, vertical) { return renderEnclosure(el, u, fs, vertical); },
             renderLigature: function (el, name, fs) { return renderLigature(el, name, fs); },
+            // 王名圈内容（source 字符串）→ 四开组列表，度量与渲染共用
+            parseCadratSource: function (str) { return MDC.Cadrat.parse(String(str), parseCadratElement); },
             makeUnsupported: function (code, fs, mirror) { return makeUnsupported(code, fs, mirror); }
         };
     }

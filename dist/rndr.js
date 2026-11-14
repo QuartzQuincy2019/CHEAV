@@ -8731,19 +8731,24 @@
         }
         if (u.type === "text") return { w: 0.24 * (u.text || "").length, h: 0.4 };
         if (u.type === "enc") {
-            // 王名圈的自然尺寸 = visitCartouche 几何（内容尺寸 + 端头长度 / 副轴边距）
+            // 王名圈的自然尺寸 = visitCartouche 几何（内容尺寸 + 端头长度 / 副轴边距），
+            // 再按“整框缩到 1em”缩一次（与 renderEnclosureJseth 同源）。
+            // 这里一定要用缩放后的宽高回去，否则四开组会把框塞进 1em 方块里。
             const E = MDC.Enclosure;
             if (E && MDC.Cadrat && MDC.Cadrat.layoutLine && u.source) {
                 try {
-                    const inner = MDC.Cadrat.layoutLine(u.source, { centerSigns: true });
+                    // u.source 是字符串，必须先 parse 成 cadrat 列表；
+                    // 直接丢给 layoutLine 会报 "cadrats.map is not a function"，
+                    // 进而被 catch 吃掉、回退到 1.34em 兜底（王名圈就被塞进方块）。
+                    const list = u.cadrats || (MDC.host && MDC.host.parseCadratSource ? MDC.host.parseCadratSource(u.source) : null);
+                    if (!list || !list.length) return { w: 1.34, h: 1.34 };
+                    const inner = MDC.Cadrat.layoutLine(list, { centerSigns: true });
                     if (inner && inner.w > 0 && inner.h > 0) {
-                        const type = u.kind === "A" ? "c" : "h";
+                        const type = u.kind === "A" ? "c" : (u.kind === "S" ? "s" : (u.kind === "F" ? "f" : "h"));
                         const parts = E.defaultParts(type);
                         if (u.startPart) parts.start = u.startPart;
                         if (u.endPart) parts.end = u.endPart;
                         const g = E.geometry(type, parts.start, parts.end, inner.w, inner.h, false);
-                        // 与 renderEnclosureJseth 一致：整框缩到 1em，
-                        // 量宽度也必须用缩放后的值，否则行内会留出多余间距。
                         const esc = Math.min(1, 1 / Math.max(g.h, 1));
                         return { w: g.w * esc, h: g.h * esc };
                     }
@@ -9850,6 +9855,8 @@ if (!(typeof window !== "undefined" && window.CHEAV_KEEP_LEGACY_LIGATURES)) {
             render: function (u, parent, fs) { return render(u, parent, fs); },
             renderEnclosure: function (el, u, fs, vertical) { return renderEnclosure(el, u, fs, vertical); },
             renderLigature: function (el, name, fs) { return renderLigature(el, name, fs); },
+            // 王名圈内容（source 字符串）→ 四开组列表，度量与渲染共用
+            parseCadratSource: function (str) { return MDC.Cadrat.parse(String(str), parseCadratElement); },
             makeUnsupported: function (code, fs, mirror) { return makeUnsupported(code, fs, mirror); }
         };
     }
