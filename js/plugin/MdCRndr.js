@@ -680,6 +680,16 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     box.className = options.encClass + " enc-js";
     box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
         "line-height:0;font-size:" + fontSize + "px;width:" + (g.w * ESC * fontSize) + "px;height:" + (g.h * ESC * fontSize) + "px;";
+    // 开发期自检：实际渲染高度必须等于 g.h × ESC（防「双重缩放」回归）
+    if (window.CHEAV_DEV_ASSERT) {
+        requestAnimationFrame(function () {
+            const r = box.getBoundingClientRect();
+            const want = g.h * ESC * fontSize;
+            if (want > 0 && Math.abs(r.height - want) / want > 0.05) {
+                console.warn("[enclosure] 框高不符：实际", r.height.toFixed(1), "期望", want.toFixed(1), "ESC", ESC);
+            }
+        });
+    }
     // 缩放已乘进 inline 宽高与单元格坐标，不再套 transform（否则变成 ESC²）
     let cx = 0, cy = 0;
     if (u.kind === "A") encADepth++;
