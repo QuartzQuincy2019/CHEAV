@@ -7618,10 +7618,15 @@ function renderLigature(parent, name, fontSize) {
                 const p = placed[k2++];
                 if (!p) continue;
                 child.style.left = px((p.dx - minX) * fontSize) + "px";
-                // y 向上：容器高 H2 时，部件的 bottom 偏移 = H2 − (hostHm2 − dy) + minTop
-                const nb = (H2 - (hostHm2 - p.dy) + minTop) * fontSize;
-                child.style.bottom = px(nb) + "px";
-                child.style.top = "auto";
+                if (p.topAnchored) {
+                    // 源码的"不放置"= 停在原点（左上）；整体平移时只动 top，不能用 bottom 公式覆盖
+                    child.style.top = px((0 - minTop) * fontSize) + "px";
+                    child.style.bottom = "auto";
+                } else {
+                    const nb = (H2 - (hostHm2 - p.dy) + minTop) * fontSize;
+                    child.style.bottom = px(nb) + "px";
+                    child.style.top = "auto";
+                }
             }
             box.style.width = px(Math.max((maxX - minX) * fontSize, fontSize)) + "px";
             box.style.height = px(Math.max(H2 * fontSize, 1)) + "px";
