@@ -7628,7 +7628,7 @@ function renderLigature(parent, name, fontSize) {
                     child.style.top = "auto";
                 }
             }
-            box.style.width = px(Math.max((maxX - minX) * fontSize, fontSize)) + "px";
+            box.style.width = px(Math.max((maxX - minX) * fontSize, 0.02 * fontSize)) + "px";
             box.style.height = px(Math.max(H2 * fontSize, 1)) + "px";
         }
     }
