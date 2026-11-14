@@ -689,18 +689,20 @@ function setViewBox(svgText, vb) {
             img.decoding = "async";
             img.onload = () => {
                 try {
-                    const N = 128;  // 栅格分辨率（实现细节；算法同 JSesh）
+                    const N = 128;  // 列数（行数按墨迹宽高比）
+                    const em0 = metricsEm.get(code) || { w: 1, h: 1 };
+                    const M = Math.max(8, Math.min(N * 4, Math.round(N * (em0.h / Math.max(em0.w, 1e-6)))));
                     const cv = document.createElement("canvas");
-                    cv.width = N; cv.height = N;
+                    cv.width = N; cv.height = M;
                     const ctx2 = cv.getContext("2d", { willReadFrequently: true });
-                    ctx2.drawImage(img, 0, 0, N, N);
-                    const data = ctx2.getImageData(0, 0, N, N).data;
-                    const bits = new Uint32Array((N * N + 31) >> 5);
-                    for (let i = 0; i < N * N; i++) {
+                    ctx2.drawImage(img, 0, 0, N, M);
+                    const data = ctx2.getImageData(0, 0, N, M).data;
+                    const bits = new Uint32Array((N * M + 31) >> 5);
+                    for (let i = 0; i < N * M; i++) {
                         if (data[i * 4 + 3] > 128) bits[i >> 5] |= (1 << (i & 31));
                     }
                     const em2 = metricsEm.get(code) || { w: 1, h: 1 };
-                    inkGrids.set(code, { N, bits, w: em2.w * 18, h: em2.h * 18 });
+                    inkGrids.set(code, { N, M, bits, w: em2.w * 18, h: em2.h * 18 });
                     derivedZones.delete(code);   // 让下次 zoneFor 重新推导
                     gridLastMs = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
                 } catch (err) { /* 忽略：保持回退槽 */ }
@@ -846,12 +848,12 @@ function setViewBox(svgText, vb) {
             if (!g || !g.bits) return false;   // 栅格尚未就绪：视为空
             // 与 JSesh 的 Area.intersect 等价：完全落在字形包围盒之外 → 必然为空
             if (x1 <= 0 || x0 >= 1 || y1 <= 0 || y0 >= 1) return false;
-            const N = g.N;
-            const c0 = Math.max(0, Math.floor(x0 * N)), c1 = Math.min(N - 1, Math.ceil(x1 * N) - 1);
-            const r0 = Math.max(0, Math.floor(y0 * N)), r1 = Math.min(N - 1, Math.ceil(y1 * N) - 1);
+            const W = g.N, H = g.M || g.N;
+            const c0 = Math.max(0, Math.floor(x0 * W)), c1 = Math.min(W - 1, Math.ceil(x1 * W) - 1);
+            const r0 = Math.max(0, Math.floor(y0 * H)), r1 = Math.min(H - 1, Math.ceil(y1 * H) - 1);
             if (c1 < c0 || r1 < r0) return false;
             for (let r = r0; r <= r1; r++) {
-                const row = (N - 1 - r) * N;
+                const row = (H - 1 - r) * W;
                 for (let c = c0; c <= c1; c++) {
                     const idx = row + c;
                     if (g.bits[idx >> 5] & (1 << (idx & 31))) return true;
