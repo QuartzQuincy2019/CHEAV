@@ -7513,6 +7513,13 @@ function renderLigature(parent, name, fontSize) {
         parent.appendChild(box);
         return box;
     }
+    // 照抄 Layout.visitLigature 的 3 子视图分支：中间为宿主，首→槽0、尾→槽1，**两槽缺一就整组不放置**
+    let threeSidesOk = true;
+    if (lig.parts.length === 3 && glyphZoneProvider) {
+        const z3 = glyphZoneProvider((lig.parts[0] || {}).code) || {};
+        const ok = function (z) { return !!(z && z.w > 0 && z.h > 0); };
+        threeSidesOk = ok(z3.zone1) && ok(z3.zone2);
+    }
     const placed = [];                     // placed[i] = 该部件最终位置（em），供链式定位
     lig.parts.forEach((part, i) => {
         const ps = fontSize * (part.scale || 1);
@@ -7521,7 +7528,7 @@ function renderLigature(parent, name, fontSize) {
         const align = i === 0 ? "center" : undefined;
         // part.zone：按锚字符（parts[0]）的连字区自动缩放并贴边（Tier 1）
         let zdx = (part.dx || 0), zdy = (part.dy || 0), zps = ps, zUsed = false;
-        if (part.zone && glyphZoneProvider) {
+        if (part.zone && glyphZoneProvider && threeSidesOk) {
             const explicitZone = (part.zone === "zone1" || part.zone === "zone2");
             const prevP = explicitZone ? (placed[0] || null) : (placed[i - 1] || placed[0] || null);
             const anchor0 = prevP || { code: (lig.parts[0] || {}).code || "", dx: (lig.parts[0] || {}).dx || 0, dy: (lig.parts[0] || {}).dy || 0 };
