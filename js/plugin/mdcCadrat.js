@@ -108,19 +108,25 @@
             w += ms[i].w + (i > 0 ? SMALL_SKIP : 0);
             if (ms[i].h > h) h = ms[i].h;
         }
+        // HBox.buildHorizontalListElement:126-140：
+        // 行内**多于一个元素**时，JSesh 把每个元素各包一个 Cadrat，
+        // 而 Cadrat 在横排文本里有 1em 高度下限（honourMaxHeight）——
+        // 所以这类行的高度是 1em，字形在各自的格子里贴底。
+        // 单元素行不包 Cadrat，高度就是墨迹高度。
+        const rowH = (elems.length > 1) ? Math.max(h, MAX_CADRAT_HEIGHT) : h;
         const W = (typeof width === "number" && width > w) ? width : w;
         const places = [];
         let x = 0;
         for (let i = 0; i < ms.length; i++) {
             if (i > 0) x += SMALL_SKIP;
-            const y = h - ms[i].h;              // stickSubViewsTo(BOTTOM)
+            const y = rowH - ms[i].h;           // stickSubViewsTo(BOTTOM)
             places.push({ x: x, y: y, w: ms[i].w, h: ms[i].h, elem: elems[i] });
             x += ms[i].w;
         }
         if (elems.length === 1 && W > w) {      // centerSubViewHorizontally
             places[0].x = (W - places[0].w) / 2;
         }
-        return { w: W, h: h, places: places };
+        return { w: W, h: rowH, places: places };
     }
 
     // 一个四开组（Cadrat）：行栈 + 1em 下限 + 超高缩放
@@ -131,6 +137,23 @@
         let w = 0;
         for (let i = 0; i < rows.length; i++) if (rows[i].w > w) w = rows[i].w;
 
+        // QuadratLayout:199-233 fitLoneSignsToColumnWidth：
+        // 单元素行里只有一个“宽而扁”的字形时（宽 ≥ 0.8×A1、高 ≤ 0.4×A1），
+        // JSesh 把它整体 reScale(width/宽) 撑满行宽——这就是 z（O34）这类
+        // 横条在垛叠/照型里应该铺满底部、而不是只占一小截的原因。
+        const A1H = 1.0137, LARGE_RATIO = 0.8, SMALL_RATIO = 0.4;
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.places.length !== 1) continue;
+            const p0 = row.places[0];
+            if (!(p0.w >= LARGE_RATIO * A1H && p0.h <= SMALL_RATIO * A1H)) continue;
+            if (!(p0.w > 0) || !(w > p0.w)) continue;          // 只放大，不缩小
+            const k = w / p0.w;
+            p0.w *= k;
+            p0.h *= k;
+            row.w = w;
+            row.h = p0.h;
+        }
         let h = 0;
         for (let i = 0; i < rows.length; i++) h += rows[i].h + (i > 0 ? SMALL_SKIP : 0);
 
