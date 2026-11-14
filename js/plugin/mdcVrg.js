@@ -73,7 +73,24 @@
             return { w: Math.max(typeof lw === "number" ? lw : 1, 1) / EM_SQUARE, h: 1 };
         }
         if (u.type === "text") return { w: 0.24 * (u.text || "").length, h: 0.4 };
-        if (u.type === "enc") return { w: 1.34, h: 1.34 };
+        if (u.type === "enc") {
+            // 王名圈的自然尺寸 = visitCartouche 几何（内容尺寸 + 端头长度 / 副轴边距）
+            const E = MDC.Enclosure;
+            if (E && MDC.Cadrat && MDC.Cadrat.layoutLine && u.source) {
+                try {
+                    const inner = MDC.Cadrat.layoutLine(u.source, { centerSigns: true });
+                    if (inner && inner.w > 0 && inner.h > 0) {
+                        const type = u.kind === "A" ? "c" : "h";
+                        const parts = E.defaultParts(type);
+                        if (u.startPart) parts.start = u.startPart;
+                        if (u.endPart) parts.end = u.endPart;
+                        const g = E.geometry(type, parts.start, parts.end, inner.w, inner.h, false);
+                        return { w: g.w, h: g.h };
+                    }
+                } catch (e) { /* 落到兜底 */ }
+            }
+            return { w: 1.34, h: 1.34 };
+        }
         return { w: 0.6, h: 1 };
     }
 

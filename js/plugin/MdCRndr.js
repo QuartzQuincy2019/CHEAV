@@ -599,12 +599,15 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     let cw = 0, ch = 0;
     if (u.kind === "A") encADepth++;
     try {
-        const vrg = MDC.Cadrat.renderLine(body, u.source, fontSize, {
+        const parseElement = function (str) {
+            const r = parseInput(str);
+            return r && r.tree ? r.tree : { type: "char", code: str };
+        };
+        // u.source 是框内的 MDC 源码字符串，先按四开组语法切成 cadrat 列表
+        const cadrats = MDC.Cadrat.parse ? MDC.Cadrat.parse(u.source, parseElement) : u.source;
+        const vrg = MDC.Cadrat.renderLine(body, cadrats, fontSize, {
             centerSigns: true,
-            parseElement: function (str) {
-                const r = parseInput(str);
-                return r && r.tree ? r.tree : { type: "char", code: str };
-            },
+            parseElement: parseElement,
             renderUnit: function (unit, el, fs) { render(el, unit, fs); }
         });
         if (vrg && vrg.style) {
