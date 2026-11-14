@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611142121";
+    const BUILD = "glyphs-202611142122";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
@@ -168,6 +168,42 @@
      */
     /** 用浏览器实测 SVG 的实际墨迹范围（含 transform）；拿不到返回 null。 */
     /** 墨迹并集：根 <svg> 的 getBBox() 返回视口，必须逐个 path/polygon 求并集（含 CTM 变换）。 */
+    /**
+     * 从当前元素向上累加 transform（不依赖 getCTM：元素在 0×0 或
+     * 隐藏容器里时 getCTM 会返回 null，子元素的 translate 就丢了，
+     * ——Aa1.svg 正是 <g transform="translate(-1.34,-940)"> 包着路径）。
+     */
+    function ctmOf(el, root) {
+        const toM = function (str) {
+            let m = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            const re = /(matrix|translate|scale|rotate)\s*\(([^)]*)\)/g;
+            let mm;
+            while ((mm = re.exec(str))) {
+                const v = mm[2].split(/[\s,]+/).map(Number).filter(function (x) { return !isNaN(x); });
+                let t = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+                if (mm[1] === "matrix" && v.length >= 6) { t = { a: v[0], b: v[1], c: v[2], d: v[3], e: v[4], f: v[5] }; }
+                else if (mm[1] === "translate") { t.e = v[0] || 0; t.f = v[1] || 0; }
+                else if (mm[1] === "scale") { t.a = v[0]; t.d = (v.length > 1 ? v[1] : v[0]); }
+                else if (mm[1] === "rotate") {
+                    const rad = (v[0] || 0) * Math.PI / 180, cs = Math.cos(rad), sn = Math.sin(rad);
+                    t = { a: cs, b: sn, c: -sn, d: cs, e: 0, f: 0 };
+                }
+                m = { a: m.a * t.a + m.c * t.b, b: m.b * t.a + m.d * t.b, c: m.a * t.c + m.c * t.d, d: m.b * t.c + m.d * t.d, e: m.a * t.e + m.c * t.f + m.e, f: m.b * t.e + m.d * t.f + m.f };
+            }
+            return m;
+        };
+        const chain = [];
+        for (let n = el; n && n !== root && n.nodeType === 1; n = n.parentNode) {
+            const tv = n.getAttribute && n.getAttribute("transform");
+            if (tv) chain.push(tv);
+        }
+        let m = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+        for (let i = chain.length - 1; i >= 0; i--) {
+            const t = toM(chain[i]);
+            m = { a: m.a * t.a + m.c * t.b, b: m.b * t.a + m.d * t.b, c: m.a * t.c + m.c * t.d, d: m.b * t.c + m.d * t.d, e: m.a * t.e + m.c * t.f + m.e, f: m.b * t.e + m.d * t.f + m.f };
+        }
+        return m;
+    }
     function unionInk(el) {
         let ux0 = Infinity, uy0 = Infinity, ux1 = -Infinity, uy1 = -Infinity, any = false;
         const shapes = el.querySelectorAll("path,polygon");
@@ -177,7 +213,8 @@
             if (!bb || !(bb.width > 0) || !(bb.height > 0)) continue;
             let pts = [[bb.x, bb.y], [bb.x + bb.width, bb.y], [bb.x, bb.y + bb.height], [bb.x + bb.width, bb.y + bb.height]];
             let ctm = null;
-            try { ctm = shapes[i].getCTM(); } catch (e) { }
+            try { ctm = ctmOf(shapes[i], el); } catch (e) { ctm = null; }
+            if (!ctm || !isFinite(ctm.a)) { try { ctm = shapes[i].getCTM(); } catch (e) { ctm = null; } }
             if (ctm && isFinite(ctm.a)) {
                 pts = pts.map(function (p) { return [ctm.a * p[0] + ctm.c * p[1] + ctm.e, ctm.b * p[0] + ctm.d * p[1] + ctm.f]; });
             }
@@ -196,13 +233,24 @@
         let holder = null;
         try {
             holder = document.createElement("div");
-            holder.style.cssText = "position:absolute;left:-99999px;top:0;width:0;height:0;overflow:hidden";
+            // holder 不能是 0×0：零尺寸时 getCTM() 会返回 null，
+            // 子元素上的 transform（如 Aa1 的 <g translate(-1.34,-940)>）就丢了。
+            holder.style.cssText = "position:absolute;left:-99999px;top:0;width:8px;height:8px;overflow:hidden";
             holder.innerHTML = svgText;
             document.body.appendChild(holder);
             const el = holder.querySelector("svg");
             if (!el || typeof el.getBBox !== "function") return null;
-            const bb = unionInk(el) || el.getBBox();   // 优先墨迹并集，兜底用视口
-            if (bb && bb.width > 0 && bb.height > 0) return { x: bb.x, y: bb.y, w: bb.width, h: bb.height };
+            const bb = unionInk(el) || el.getBBox();
+            // unionInk 返回 {x,y,w,h}，getBBox 返回 {x,y,width,height}，两种都要认；
+            // 之前只读 width/height，unionInk 的结果永远被当成 0 → measureSvg 总返回 null，
+            // 于是全部回退到不处理 transform 的 numericBBox（Aa1 的 viewBox 就错在这里）。
+            const __w = (bb && (bb.width !== undefined ? bb.width : bb.w)) || 0;
+            const __h = (bb && (bb.height !== undefined ? bb.height : bb.h)) || 0;   // 优先墨迹并集，兜底用视口
+            if (typeof window !== "undefined") {
+                const __log = (window.__msLog = window.__msLog || []);
+                if (__log.length < 200) __log.push({ code: null, x: bb && bb.x, y: bb && bb.y, w: __w, h: __h });
+            }
+            if (__w > 0 && __h > 0) return { x: bb.x, y: bb.y, w: __w, h: __h };
         } catch (e) { /* 忽略 */ } finally {
             if (holder && holder.parentNode) holder.parentNode.removeChild(holder);
         }
