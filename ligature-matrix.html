@@ -4,13 +4,13 @@
 .hie{outline:1px solid rgba(220,0,0,.45)}</style>
 <div id="o">loading…</div>
 <div><span class=d id=top_w></span><span class=d id=bot_w></span><span class=d id=mid_w></span><span class=d id=top_A1></span><span class=d id=bot_A1></span><span class=d id=mid_A1></span><span class=d id=top_N5></span><span class=d id=bot_N5></span><span class=d id=mid_N5></span></div>
-<script src="js/lib/paper-core.min.js?v=121234"></script>
-<script src="js/database/mainSigns.js?v=121234"></script>
-<script src="js/database/translit.js?v=121234"></script>
-<script src="js/database/glyphZones.js?v=121234"></script>
-<script src="js/database/serekhTail.js?v=121234"></script>
-<script src="js/plugin/MdCRndr.js?v=121234"></script>
-<script src="js/ui/glyphs.js?v=121234"></script>
+<script src="js/lib/paper-core.min.js?v=121600"></script>
+<script src="js/database/mainSigns.js?v=121600"></script>
+<script src="js/database/translit.js?v=121600"></script>
+<script src="js/database/glyphZones.js?v=121600"></script>
+<script src="js/database/serekhTail.js?v=121600"></script>
+<script src="js/plugin/MdCRndr.js?v=121600"></script>
+<script src="js/ui/glyphs.js?v=121600"></script>
 <script>
 (async function(){
   const em = 110, L = [];
@@ -44,7 +44,7 @@
     });
     L.push("");
     L.push("=== __ligDebug（最近 12 条） ===");
-    (window.__ligDebug || []).slice(-12).forEach(function (d) {
+    (window.__ligDebug || []).filter(function (d) { return String(d.name).indexOf("G43") >= 0; }).forEach(function (d) {
       L.push("  " + d.name + " 部件=" + d.part + " zone=" + d.zone + " zUsed=" + d.zUsed + " host=" + d.host + " dx=" + d.zx + " dy=" + d.zy + " ps=" + d.zps);
     });
   } catch(e) { L.push("ERR " + e.message); }
