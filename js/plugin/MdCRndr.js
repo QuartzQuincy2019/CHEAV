@@ -680,14 +680,42 @@ function parseCadratElement(str) {
 
 /** 王名圈内容：整段按四开组渲染，再用 visitCartouche 的几何套外框 */
 function renderCadratUnit(el, unit, fs) {
-        // parseInput 对 "t&w" 这类串返回 seq 包一层，四开组把 seq 当成一个单元，
-        // 这里把子单元依次画进同一个盒，避免整块空白。
-        if (unit && unit.type === "seq" && unit.units) {
-            unit.units.forEach(function (sub) { render(el, sub, fs); });
+    // 四开组把每个元素交给这里渲染。parseInput 可能返回 seq / group 包层，
+    // 必须逐层展开到真正的字形单元，否则整块空白。
+    if (!unit) return;
+    if (unit.type === "seq" && unit.units) {
+        unit.units.forEach(function (sub) { renderCadratUnit(el, sub, fs); });
+        return;
+    }
+    if (unit.type === "group") {
+        if (unit.source && MDC.Cadrat && MDC.Cadrat.renderLine) {
+            const v = MDC.Cadrat.renderLine(el, String(unit.source), fs, {
+                centerSigns: true,
+                parseElement: parseCadratElement,
+                renderUnit: function (u2, e2, f2) { renderCadratUnit(e2, u2, f2); }
+            });
+            if (v && v.style) { v.style.position = "relative"; v.style.left = "0px"; v.style.top = "0px"; }
             return;
         }
-        render(el, unit, fs);
+        if (unit.cadrats) {
+            unit.cadrats.forEach(function (cad) {
+                (cad.rows || cad.hboxes || []).forEach(function (row) {
+                    (row.elements || row.elems || []).forEach(function (e3) {
+                        renderCadratUnit(el, (e3 && e3.unit) || e3, fs);
+                    });
+                });
+            });
+        }
+        return;
     }
+    // 单字元：先把转写码（t/w/ra…）归一化成 Gardiner 码，
+    // 否则 renderGlyph 拿到 "t" 找不到字形，整块空白。
+    if (unit.type === "char" && unit.code) {
+        const cc = (MDC.canonicalCode ? MDC.canonicalCode(unit.code) : unit.code);
+        if (cc && cc !== unit.code) { render(el, Object.assign({}, unit, { code: cc }), fs); return; }
+    }
+    render(el, unit, fs);
+}
 
 function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     const E = MDC.Enclosure;

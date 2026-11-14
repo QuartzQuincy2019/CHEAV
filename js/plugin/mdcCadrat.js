@@ -256,11 +256,6 @@
             box.appendChild(el);
             if (p.unit && renderUnit) {
                 renderUnit(p.unit, el, fontSize);
-                // 诊断：渲染后为空说明该单元类型没有落到具体字形，标出来避免"静默消失"
-                if (!el.firstChild) {
-                    const u = p.unit;
-                    el.textContent = "[" + (u.type||"?") + "|" + Object.keys(u).join(",") + "|" + JSON.stringify(u).slice(0,120) + "]";
-                }
                 // 王名圈等"自带几何尺寸"的单元：按其自然尺寸与本格尺寸的比值整体缩放
                 // （JSesh 里 Cartouche 是 Cadrat 的一个 element，QuadratLayout:194-195 的
                 //   reScale 作用在整棵子树上，框与框内内容一起缩）

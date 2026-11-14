@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>rndr.js demo</title>
+<style>
+  body { font: 15px/1.6 system-ui, sans-serif; margin: 24px; }
+  .row { margin: 18px 0; }
+  .label { color: #666; font-size: 13px; margin-bottom: 4px; }
+</style>
+
+<div class="row"><div class="label">A1-N35（基本）</div><div id="a"></div></div>
+<div class="row"><div class="label">t:w（层叠）</div><div id="b"></div></div>
+<div class="row"><div class="label">&lt;-t:w-&gt;（王名圈）</div><div id="c"></div></div>
+<div class="row"><div class="label">t&amp;w（连字）</div><div id="d"></div></div>
+
+<script src="rndr.js"></script>
+<script src="rndr-data.js"></script>
+<script src="rndr-font.js"></script>
+<script>
+  Rndr.render(document.getElementById("a"), "A1-N35", { size: 64 });
+  Rndr.render(document.getElementById("b"), "t:w", { size: 64 });
+  Rndr.render(document.getElementById("c"), "<-t:w->", { size: 64 });
+  Rndr.render(document.getElementById("d"), "t&w", { size: 64 });
+</script>
