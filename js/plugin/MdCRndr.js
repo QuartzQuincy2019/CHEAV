@@ -1140,11 +1140,14 @@ function parseInput(text) {
         pos++; // {
         const at = pos;
         while (pos < s.length && s[pos] !== "}") pos++;
-        const name = s.slice(at, pos).replace(/[:*]/g, "-")
+        const raw = s.slice(at, pos);
+        const name = raw.replace(/[:*]/g, "-")
             .split("-").map(canonicalCode).join("-");
         if (pos < s.length && s[pos] === "}") pos++;
         else { invalid.push(closerError(start, "}")); return { type: "lig", name: "" }; }
-        return { type: "lig", name };
+        // 名字保留两种写法：规范化后的，以及原样（& 连字重写用的是解析后的码名，
+        // 规范化可能把它改写成别的键，查表时以原样兜底）
+        return { type: "lig", name, rawName: raw };
     }
 
     // 包围框：<- … ->（王名圈）、<S- … ->（塞拉赫框）、<h1- … -h1>（裸方框）。
@@ -1368,8 +1371,9 @@ function parseInput(text) {
             return { type: "vrg", layers: u.layers.map(line => line.map(expandUnit).filter(x => x)), shadow: u.shadow };
         }
         if (u.type === "lig") {
-            if (LIGATURES[u.name]) return u; // 连字名保留，渲染时查 LIGATURES 表
-            invalid.push("{" + u.name + "}");
+            const hit = LIGATURES[u.name] || LIGATURES[u.rawName];
+            if (hit) return Object.assign({}, u, { name: hit.name || u.name });
+            invalid.push("{" + (u.rawName || u.name) + "}");
             return null;
         }
         if (u.type === "newline") {
