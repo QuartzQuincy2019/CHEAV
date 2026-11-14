@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611142119";
+    const BUILD = "glyphs-202611142120";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
@@ -427,6 +427,7 @@ function setViewBox(svgText, vb) {
             // data: URL —— file:// 页面下 blob:null/… 无法作为背景图加载，data: 则到处都能用
             const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgText);
             urls.set(code, url);
+        urls.set(String(code).toLowerCase(), url);   // 同字异写（AA1/Aa1）共享缓存
             // 字形已就绪：立即推导连字区（矢量命中测试此时可用），避免"未加载→判定为占据"的误判
             derivedZones.delete(code);
             try { api.deriveZones(code); } catch (e) { }
@@ -448,6 +449,8 @@ function setViewBox(svgText, vb) {
         if (!enabled) return null;
         if (fontFilter && fontFilter(code)) return null;   // 内置字体有这个字形 → 交给字体
         if (urls.has(code)) return urls.get(code);
+        const lc = String(code).toLowerCase();            // 同字异写（AA1 / Aa1）
+        if (urls.has(lc)) return urls.get(lc);
         return null;
     }
 
@@ -618,7 +621,9 @@ function setViewBox(svgText, vb) {
         /** 同步查询某个码的 URL（未就绪返回 null，无副作用）。 */
         urlFor(code) {
             code = this.canon(code);
-            return urls.has(code) ? urls.get(code) : null;
+            if (urls.has(code)) return urls.get(code);
+            const lc = String(code).toLowerCase();
+            return urls.has(lc) ? urls.get(lc) : null;
         },
 
         /** 诊断：返回某码 SVG 的整体 bbox 与各子元素 bbox（找"看不见的大元素"）。 */
