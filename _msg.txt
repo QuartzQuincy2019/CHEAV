@@ -1,0 +1,9 @@
+feat(enclosure): 王名圈按 JSesh visitCartouche 几何 + SVG 环绘制（门控开关，默认关闭）
+
+- 新增 js/plugin/mdcEnclosure.js：GeometrySpecification 常量（lineWidth 1/18、loopLength 10/18、margin 2/18、maxCadratWidth 22/18）换算成 em；
+  partLength(type, part)（c: 10/18 与 11/18；s: 4/18 与 24/18；h: 4/18 与 14/18；f: 7/18；g: 10/18）、secondaryLength、geometry、path/svg
+- path/svg 按 NormalCartoucheDrawer 拼直线 + 三次贝塞尔环（横排 loopSkip=10/54em，竖排 1/54em，照抄 JSesh 的不一致）
+- MdCRndr 新增 renderEnclosureJseth：内容按原尺寸渲染、量墨迹并集、按 geometry 定位内容与容器、内联 SVG 画环
+- 导出 setJsethEnclosure/getJsethEnclosure，默认关闭（不影响现有 CSS 方案）；13 个页面引入新模块
+- 实测（em=100px，jsesh 模式）：<-Z4-> 2.502×1.333em（内容 1.335×1.000，偏移 0.555,0.167）、<-A1-X1-> 4.003×1.333em、<-N35-> 4.167×1.333em，与 visitCartouche 公式逐位一致
+- regression 11/11；BUILD → glyphs-202611150809

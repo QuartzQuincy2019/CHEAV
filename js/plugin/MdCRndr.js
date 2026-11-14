@@ -509,6 +509,10 @@ function renderVertical(parent, tree, fontSize) {
  */
 let encADepth = 0;          // >0 表示正在渲染王名圈内部（框内单字需上下居中）
 function renderEnclosure(parent, u, fontSize, vertical) {
+    // JSesh 严格模式：几何与绘制都按 visitCartouche / NormalCartoucheDrawer
+    if (options.jsethEnclosure && MDC.Enclosure && (u.kind === "A" || u.kind === "h1")) {
+        return renderEnclosureJseth(parent, u, fontSize, vertical);
+    }
     const box = document.createElement("span");
     box.className = options.encClass + " " + (options.encKindClass[u.kind] || "")
         + (vertical ? " " + options.encVerticalClass : "");
@@ -569,6 +573,63 @@ function renderEnclosure(parent, u, fontSize, vertical) {
         box.style.setProperty("--enc-tail", 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(tailSvgV) + '")');
     }
     parent.appendChild(box);
+    return box;
+}
+/**
+ * 按 JSesh 绘制王名圈（kind A = CARTOUCHE，h1 = 裸框）
+ *   1) 内容按**原尺寸**渲染（JSesh 不缩放框内符号）；
+ *   2) 量出内容墨迹尺寸后套 visitCartouche 几何：
+ *      横排 W = 内容宽 + longDim，H = max(内容高 + 6/18, 1em + 6/18)；
+ *      内容落在 (dLong, dSmall)；
+ *   3) 用内联 SVG 画直线 + 三次贝塞尔环（线宽 1/18em）。
+ */
+function renderEnclosureJseth(parent, u, fontSize, vertical) {
+    const E = MDC.Enclosure;
+    const type = u.kind === "A" ? "c" : "h";
+    const parts = E.defaultParts(type);
+    const box = document.createElement("span");
+    box.className = options.encClass + " enc-js";
+    box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
+        "line-height:0;font-size:" + fontSize + "px;";
+    const body = document.createElement("span");
+    body.className = "enc-body enc-js-body";
+    body.style.cssText = "position:absolute;left:0;top:0;display:inline-block;" +
+        "line-height:1;white-space:nowrap;min-height:0;padding:0;border:0;";
+    box.appendChild(body);
+    if (u.kind === "A") encADepth++;
+    try {
+        if (vertical) {
+            for (const x of (u.units || [])) renderLayerUnitV(body, x, fontSize);
+        } else {
+            for (const x of (u.units || [])) render(body, x, fontSize);
+        }
+    } finally {
+        if (u.kind === "A") encADepth--;
+    }
+    parent.appendChild(box);
+    // 量**墨迹**尺寸（不是行盒）：JSesh 的子视图尺寸就是墨迹框
+    const br = body.getBoundingClientRect();
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    const inks = body.querySelectorAll(".hie, svg, img");
+    for (const el of inks) {
+        const b = el.getBoundingClientRect();
+        if (b.width === 0 && b.height === 0) continue;
+        if (b.left < minX) minX = b.left;
+        if (b.top < minY) minY = b.top;
+        if (b.right > maxX) maxX = b.right;
+        if (b.bottom > maxY) maxY = b.bottom;
+    }
+    if (minX === Infinity) { minX = br.left; minY = br.top; maxX = br.right; maxY = br.bottom; }
+    const subW = (maxX - minX) / fontSize;
+    const subH = (maxY - minY) / fontSize;
+    const inkDX = minX - br.left;                 // 墨迹相对 body 盒的偏移（px）
+    const inkDY = minY - br.top;
+    const g = E.geometry(type, parts.start, parts.end, subW, subH, !!vertical);
+    box.style.width = (g.w * fontSize) + "px";
+    box.style.height = (g.h * fontSize) + "px";
+    body.style.left = (g.x * fontSize - inkDX) + "px";
+    body.style.top = (g.y * fontSize - inkDY) + "px";
+    box.appendChild(E.svg(type, parts.start, parts.end, g.w, g.h, !!vertical));
     return box;
 }
 /**
@@ -1706,7 +1767,10 @@ function splitLines(tree) {
          * JSesh 模式用它按画框/墨迹把 SVG 精确摆进字形格（底边对基线、允许越界）。
          */
         /** 切换四开组布局模式："flow"（默认）| "jsesh"（显式几何，实验） */
-        setQuadratMode: function (mode) {
+        /** 切换王名圈实现：true = JSesh 几何 + SVG 环；false = 旧 CSS 方案 */
+    setJsethEnclosure: function (on) { options.jsethEnclosure = !!on; },
+    getJsethEnclosure: function () { return !!options.jsethEnclosure; },
+    setQuadratMode: function (mode) {
             quadratMode = (mode === "jsesh") ? "jsesh" : "flow";
             return MdCRndr;
         },
