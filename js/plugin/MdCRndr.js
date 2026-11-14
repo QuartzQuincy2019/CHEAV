@@ -2062,8 +2062,8 @@ function splitLines(tree) {
         init: function (userOptions) {
             // 零配置：file:// 下若页面已引入 ngFontData.js，自动改用内嵌字体 data URI，
             // 不需要额外字体文件，也不受 @font-face 跨源限制。
-            if (window.NG_FONT_DATA_URI && !(userOptions && userOptions.fontUrl) &&
-                typeof location !== "undefined" && location.protocol === "file:") {
+            if (window.NG_FONT_DATA_URI && !(userOptions && userOptions.fontUrl)) {
+                // 内嵌字体始终作为兜底：SVG 缺失时也能画出字形
                 options.fontUrl = window.NG_FONT_DATA_URI;
             }
             setOptions(userOptions);
