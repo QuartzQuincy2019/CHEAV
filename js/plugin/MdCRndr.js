@@ -400,6 +400,9 @@ function __exposeLigBox() { }
  * 布局与绘制都用它，框内外才不会各量一套（间距/重叠问题的根因）。
  */
 function ligatureBoxEm(name) {
+    // 名字可能带花括号（嵌套/词组路径会送进 "{A&B}"），
+    // 去掉后再查表，否则一律落到 0.5em 兵底值，导致整组不被缩。
+    name = String(name == null ? "" : name).trim().replace(/^\{+|\}+$/g, "");
     let lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;
     if (lig && !lig.parts) lig = null;   // 解析期占位记录（parts 未填）不能用于度量
     let hostW = 0, hostH = 0;
@@ -998,6 +1001,10 @@ function renderLigature(parent, name, fontSize) {
         box.style.width = px(Math.max(maxW, 1)) + "px";
         box.style.height = px(Math.max(maxH, 1)) + "px";
         box.style.position = "relative";
+        // 一定要给盒一个“会报尺寸”的 display：
+        // span 默认 display:inline 会忽略 width/height，盒子 rect 变成 0×0，
+        // 外层 fitContent 就测不到内容、整组也就不被缩（H&a&a 溢出基线就是这个）。
+        box.style.display = "block";
         parts.forEach(function (p) {
             const k = p.scale || 1;
             const el = renderGlyph(box, p.code, fontSize * k, "bottom");

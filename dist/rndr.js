@@ -9195,6 +9195,7 @@
         box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
             "line-height:0;font-size:" + fontSize + "px;width:" + (laid.w * fontSize) + "px;height:" + (laid.h * fontSize) + "px;";
         const renderUnit = o.renderUnit || (MDC.host && MDC.host.render);
+        parent.appendChild(box);   // 先入文档，后面的尺寸才量得到
         flat.forEach(function (p) {
             const el = document.createElement("span");
             el.className = "vrg-part";
@@ -9244,7 +9245,6 @@
                 }
             }
         });
-        parent.appendChild(box);
         return box;
     }
 
@@ -9282,11 +9282,17 @@
             if (r.bottom > maxY) maxY = r.bottom;
         });
         if (!isFinite(minX) || maxX <= minX || maxY <= minY) return;
-        const s = Math.min(targetW / (maxX - minX), targetH / (maxY - minY));
+        // 只缩内容，不缩容器：
+        // 把 transform 下到唯一子元素（.tksesh 包装盒）上，
+        // 否则连容器自己的盒一起缩，整组会变成 0.79em 而不是 1em。
+        const host = (kids.length === 1) ? kids[0] : el;
+        const s = Math.min(targetW / (maxX - minX), targetH / (maxY - minY), 1);
         if (!isFinite(s) || s <= 0) return;
-        const tx = -(minX - base.left), ty = -(minY - base.top);
-        el.style.transformOrigin = "left top";
-        el.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + s + ")";
+        if (s > 0.999) return;                       // 没超出就不动
+        const tx = (host === el) ? -(minX - base.left) : 0;
+        const ty = (host === el) ? -(minY - base.top) : 0;
+        host.style.transformOrigin = "left top";
+        host.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + s + ")";
     }
 
     MDC.Cadrat = {
@@ -9917,6 +9923,9 @@ function __exposeLigBox() { }
  * 布局与绘制都用它，框内外才不会各量一套（间距/重叠问题的根因）。
  */
 function ligatureBoxEm(name) {
+    // 名字可能带花括号（嵌套/词组路径会送进 "{A&B}"），
+    // 去掉后再查表，否则一律落到 0.5em 兵底值，导致整组不被缩。
+    name = String(name == null ? "" : name).trim().replace(/^\{+|\}+$/g, "");
     let lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;
     if (lig && !lig.parts) lig = null;   // 解析期占位记录（parts 未填）不能用于度量
     let hostW = 0, hostH = 0;
@@ -10515,6 +10524,10 @@ function renderLigature(parent, name, fontSize) {
         box.style.width = px(Math.max(maxW, 1)) + "px";
         box.style.height = px(Math.max(maxH, 1)) + "px";
         box.style.position = "relative";
+        // 一定要给盒一个“会报尺寸”的 display：
+        // span 默认 display:inline 会忽略 width/height，盒子 rect 变成 0×0，
+        // 外层 fitContent 就测不到内容、整组也就不被缩（H&a&a 溢出基线就是这个）。
+        box.style.display = "block";
         parts.forEach(function (p) {
             const k = p.scale || 1;
             const el = renderGlyph(box, p.code, fontSize * k, "bottom");

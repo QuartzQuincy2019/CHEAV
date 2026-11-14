@@ -248,6 +248,7 @@
         box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
             "line-height:0;font-size:" + fontSize + "px;width:" + (laid.w * fontSize) + "px;height:" + (laid.h * fontSize) + "px;";
         const renderUnit = o.renderUnit || (MDC.host && MDC.host.render);
+        parent.appendChild(box);   // 先入文档，后面的尺寸才量得到
         flat.forEach(function (p) {
             const el = document.createElement("span");
             el.className = "vrg-part";
@@ -297,7 +298,6 @@
                 }
             }
         });
-        parent.appendChild(box);
         return box;
     }
 
@@ -335,11 +335,17 @@
             if (r.bottom > maxY) maxY = r.bottom;
         });
         if (!isFinite(minX) || maxX <= minX || maxY <= minY) return;
-        const s = Math.min(targetW / (maxX - minX), targetH / (maxY - minY));
+        // 只缩内容，不缩容器：
+        // 把 transform 下到唯一子元素（.tksesh 包装盒）上，
+        // 否则连容器自己的盒一起缩，整组会变成 0.79em 而不是 1em。
+        const host = (kids.length === 1) ? kids[0] : el;
+        const s = Math.min(targetW / (maxX - minX), targetH / (maxY - minY), 1);
         if (!isFinite(s) || s <= 0) return;
-        const tx = -(minX - base.left), ty = -(minY - base.top);
-        el.style.transformOrigin = "left top";
-        el.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + s + ")";
+        if (s > 0.999) return;                       // 没超出就不动
+        const tx = (host === el) ? -(minX - base.left) : 0;
+        const ty = (host === el) ? -(minY - base.top) : 0;
+        host.style.transformOrigin = "left top";
+        host.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + s + ")";
     }
 
     MDC.Cadrat = {
