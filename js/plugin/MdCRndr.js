@@ -590,17 +590,22 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     if (u.startPart) parts.start = u.startPart;
     if (u.endPart) parts.end = u.endPart;
     const units = u.units || [];
-    // 1) 用度量（墨迹）算内容尺寸，不依赖 DOM 行盒
+    // 1) 内容尺寸：宽度 = 各单元墨迹宽之和；高度 = max(1em, 最高单元)（四开组至少 1em）
     const ms = units.map(function (x) {
         const m = (typeof MDC.measureUnitEm === "function") ? MDC.measureUnitEm(x) : null;
         return (m && m.w > 0 && m.h > 0) ? m : { w: 1, h: 1 };
     });
     let cw = 0, ch = 0;
-    for (const m of ms) { cw += m.w; if (m.h > ch) ch = m.h; }
-    if (vertical) { ch = 0; for (const m of ms) ch += m.h; cw = 0; for (const m of ms) if (m.w > cw) cw = m.w; }
+    if (vertical) {
+        for (const m of ms) { ch += m.h; if (m.w > cw) cw = m.w; }
+        if (cw < 1) cw = 1;
+    } else {
+        for (const m of ms) { cw += m.w; if (m.h > ch) ch = m.h; }
+        if (ch < 1) ch = 1;                      // ← 四开组高度下限 1em
+    }
     // 2) visitCartouche 几何
     const g = E.geometry(type, parts.start, parts.end, cw, ch, !!vertical);
-    // 3) 容器 + 逐单元绝对定位（对齐到墨迹框，内部字形盒拉满）
+    // 3) 容器 + 逐单元绝对定位；单元按墨迹尺寸、在 1em 行带内**上下居中**（JSesh centerSubViewsVertically）
     const box = document.createElement("span");
     box.className = options.encClass + " enc-js";
     box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
@@ -610,15 +615,15 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     try {
         units.forEach(function (x, i) {
             const m = ms[i];
+            let left, top;
+            if (vertical) { left = g.x + (cw - m.w) / 2; top = g.y + cy + (m.h - m.h) / 2; cy += m.h; }
+            else { left = g.x + cx; top = g.y + (ch - m.h) / 2; cx += m.w; }
             const cell = document.createElement("span");
-            let left = g.x + cx, top = g.y + (ch - m.h);
-            if (vertical) { left = g.x + (cw - m.w) / 2; top = g.y + cy; cy += m.h; }
-            else { cx += m.w; }
             cell.className = "enc-cell";
             cell.style.cssText = "position:absolute;line-height:0;left:" + (left * fontSize) + "px;top:" +
                 (top * fontSize) + "px;width:" + (m.w * fontSize) + "px;height:" + (m.h * fontSize) + "px;";
             box.appendChild(cell);
-            if (vertical) renderLayerUnitV(cell, x, fontSize); else render(cell, x, fontSize);
+            render(cell, x, fontSize);
             const hie = cell.querySelector(".hie");
             if (hie) {
                 hie.style.position = "absolute";
@@ -627,7 +632,7 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
                 hie.style.margin = "0px";
                 hie.style.width = "100%";
                 hie.style.height = "100%";
-                hie.style.backgroundSize = "100% 100%";
+                hie.style.backgroundSize = "100% 100%";   // 单元盒 = 墨迹盒，比例一致，不拉伸
                 hie.style.backgroundPosition = "left top";
             }
         });

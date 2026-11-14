@@ -124,7 +124,7 @@ body {
        下一行紧贴着上来，视觉上矮字形的"基线"就浮到了上一行的位置。 */
     min-height: 1em;
     row-gap: 0.3em;     /* 段内自动换行的行间距 */
-    column-gap: 0.125em; /* 符号间微小间隔（Faulkner 词典观感） */
+    column-gap: calc(2em / 18); /* JSesh smallSkip = 2/18 em：四开组之间的水平推进 */
 }
 
 /* "$" 换行标记（.br）与 <文本> 片段（.txt）的样式

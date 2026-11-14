@@ -1,8 +1,8 @@
-feat(enclosure): 接受 JSesh 正式王名圈语法（<s…s>、<h…h>、<f…f>、<g…g>、<1/<2/<3…1>/2>/3>）
+fix(enclosure): 框内内容按四开组上下居中（修正"字符上置"）
 
-- ENC_OPENERS 扩成 [kind, 开标记, 闭标记, 起始端 part, 结束端 part] 五列，旧语法 <-/<S-/<h1-/<F- 保留为别名排在最前
-- parseEnclosure 把 startPart/endPart 带进 {type:"enc"}，renderEnclosureJseth 用它们覆盖默认 (1,2)
-- 探针实测：7 种写法全部解析成包围框；<hA1 h> 1.692em 与 E.geometry('h',1,2,0.914,1.014) 一致
-- 已知未完成：<3A1 3> 的起始端仍按 part 1 计算（应 2.136em，实测 2.081em），待追一轮
-- 裸 "<" 仍按 CHEAV 的插入文本处理（JSesh 里它是王名圈起始），避免吃掉现有 <文本> 语法，待与用户确认
-- regression 13/13 通过；BUILD → glyphs-202611150905
+- 内容高度取 max(1em, 最高单元)，单元墨迹在 1em 行带内垂直居中（JSesh centerSubViewsVertically）
+- 宽度仍为各单元墨迹宽之和；几何继续走 visitCartouche
+- 实测：<-Z4-> 单元 0.525x0.383 @0.555,0.470（上 0.470 / 下 0.480，居中）；
+  <-N35-> @0.555,0.539（0.539/0.539）；<-A1-> @0.167（高符号贴 dSmall，与公式一致）
+- regression 把"内容顶距=dSmall"改为"内容上下居中(|上-下|<=0.02em)"，13/13 通过
+- 行间距按 JSesh smallSkip 调整：.RenderLine 的 column-gap 0.125em → 2/18em

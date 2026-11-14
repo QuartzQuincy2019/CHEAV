@@ -33,20 +33,20 @@
     <tbody id="tbody"></tbody>
 </table>
 
-<script src="js/lib/paper-core.min.js?v=154128"></script>
-<script src="js/database/mainSigns.js?v=154128"></script>
-<script src="js/database/translit.js?v=154128"></script>
-<script src="js/database/glyphZones.js?v=154128"></script>
-<script src="js/database/serekhTail.js?v=154128"></script>
-<script src="js/database/mdcGlyphTables.js?v=154128"></script>
-<script src="js/plugin/mdcEncoding.js?v=154128"></script>
-<script src="js/plugin/mdcMetrics.js?v=154128"></script>
-<script src="js/plugin/mdcView.js?v=154128"></script>
-<script src="js/plugin/mdcEnclosure.js?v=154128"></script>
-<script src="js/plugin/mdcVrg.js?v=154128"></script>
-<script src="js/plugin/mdcGlyphCore.js?v=154128"></script>
-<script src="js/plugin/MdCRndr.js?v=154128"></script>
-<script src="js/ui/glyphs.js?v=154128"></script>
+<script src="js/lib/paper-core.min.js?v=154516"></script>
+<script src="js/database/mainSigns.js?v=154516"></script>
+<script src="js/database/translit.js?v=154516"></script>
+<script src="js/database/glyphZones.js?v=154516"></script>
+<script src="js/database/serekhTail.js?v=154516"></script>
+<script src="js/database/mdcGlyphTables.js?v=154516"></script>
+<script src="js/plugin/mdcEncoding.js?v=154516"></script>
+<script src="js/plugin/mdcMetrics.js?v=154516"></script>
+<script src="js/plugin/mdcView.js?v=154516"></script>
+<script src="js/plugin/mdcEnclosure.js?v=154516"></script>
+<script src="js/plugin/mdcVrg.js?v=154516"></script>
+<script src="js/plugin/mdcGlyphCore.js?v=154516"></script>
+<script src="js/plugin/MdCRndr.js?v=154516"></script>
+<script src="js/ui/glyphs.js?v=154516"></script>
 <script>
 (async function () {
     "use strict";
@@ -148,12 +148,14 @@
             var got = box.getBoundingClientRect().width / EM;
             return { ok: Math.abs(got - want) <= 0.02, value: got.toFixed(3) + " em（应 " + want.toFixed(3) + "）" };
         }},
-        { label: "内容顶距 = dSmall = 3/18 em（±0.02）", test: function (p, ref, root) {
+        { label: "内容在框内上下居中（|上−下| ≤ 0.02em）", test: function (p, ref, root) {
             var box = root.querySelector(".enc-js");
             if (!box || !p.length) return { ok: false, value: "无框" };
+            var rb = box.getBoundingClientRect();
             var top = Math.min.apply(null, p.map(function (x) { return x.top; }));
-            var d = (top - box.getBoundingClientRect().top) / EM;
-            return { ok: Math.abs(d - 3 / 18) <= 0.02, value: d.toFixed(3) + " em" };
+            var bot = Math.max.apply(null, p.map(function (x) { return x.top + x.h; }));
+            var d = Math.abs((top - rb.top) - (rb.bottom - bot)) / EM;
+            return { ok: d <= 0.02, value: d.toFixed(3) + " em" };
         }}
     ]);
 
