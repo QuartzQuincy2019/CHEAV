@@ -255,7 +255,64 @@ if (embedded) { honourMaxHeight = false; honourMaxWidth = false; }
 
 ---
 
-## 九、待查
+## 九、实现约定（踩过的坑）
+
+移植 JSesh 视图模型时，以下四条是硬性约定，违反其中任意一条都会出现「尺寸对不上」类问题：
+
+### 1. 一处缩放
+
+**缩放只能发生在一个地方**，且必须同时作用于「量」与「画」。
+
+- JSesh 的做法：`MDCView.reScale(s)` 把 `s` 乘进 `xScale/yScale` 与 `width/height`，
+  绘制时再用 `computeAffineTransform()`（`:263-287`，先 rotate 后 scale、不平移）作用于整棵子树。
+  **量到的就是缩过的**，天然一致。
+- CHEAV 的做法：`renderEnclosureJseth` 里 `ESC = 1/max(g.h,1)`，同时乘进
+  ①容器 inline 宽高 ②各单元格 `left/top/width/height` ③子渲染字号。
+  **禁止**再对容器套 `transform: scale(ESC)`——那是 `ESC²`。
+
+### 2. 量画同源
+
+行内排版用的度量必须与绘制用的尺寸出自同一个函数：
+
+- `mdcVrg.js` 的 `enc` 分支 → `E.geometry(...)` 的结果再乘 `ESC`；
+- 曾经的错误：度量写死 `{w:1.34,h:1.34}`，或度量用自然值而绘制用缩放值。
+
+### 3. 保持宽高比
+
+把内容塞进单元格时，禁止 `width:100%; height:100%`（各向异性拉伸会破坏四开组行距，
+表现为「面包压在鸟背上」）。正确做法：
+
+```js
+const r = Math.min(cellW / naturalW, cellH / naturalH);
+inner.style.transformOrigin = "0 100%";
+inner.style.transform = "scale(" + r + ")";
+```
+
+### 4. 布局完成后不得再改动部件
+
+四开组把各行摆好后，后续逻辑（如旧的「单符号 em 盒居中」）**不得**再用
+`querySelector(".hie")` 取第一个字形去重新定位——组单元里可能有多个 `.hie`。
+判据：`cell.querySelector(".vrg") ? null : cell.querySelector(".hie")`。
+
+### 调试纪律
+
+无头浏览器截图可能因缓存/实例问题产出与代码不对应的画面（曾连续多轮得到逐字节相同的 PNG）。
+定位尺寸类问题时，**以真实浏览器控制台读数为准**：
+
+```js
+const e = document.querySelector(".enc-js");
+const r = e.getBoundingClientRect();
+({ h: r.height, w: r.width, inline: [e.style.width, e.style.height],
+   tf: e.style.transform, cells: e.querySelectorAll(".enc-cell").length,
+   parts: e.querySelectorAll(".vrg-part").length });
+```
+
+对比 `r.height` 与 `inline` 高度即可判断是否被二次缩放；`cells/parts` 计数可判断走的是哪条渲染路径。
+
+---
+
+## 十、待查
+
 
 
 - `fitLoneSignsToColumnWidth(c, width)` 的判定条件。
