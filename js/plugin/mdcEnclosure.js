@@ -98,7 +98,71 @@
      * 绘制路径（NormalCartoucheDrawer.drawHorizontal / drawVertical）。
      * 返回 { d: path数据, stroke: 线宽 }，坐标原点在框的左上角，y 向下。
      */
+
+    const FINE_WIDTH = 0.5 / 18;          // GeometrySpecification.fineLineWidth
+
+    /** 塞拉赫尾端「宫殿立面」——照 SerekhDrawer.drawSerekhEnd（横排） */
+    function serekhEnd(p1, p2, pa, pb, thick, fine) {
+        const L = function (arr, ax, ay, bx, by) {
+            arr.push("M" + n(ax) + " " + n(ay) + "L" + n(bx) + " " + n(by));
+        };
+        const dxv = pa[0] - p1[0], dyv = p2[1] - p1[1];
+        // 两条檐线
+        L(thick, p1[0], p1[1], pa[0], pa[1]);
+        L(thick, p2[0], p2[1], pb[0], pb[1]);
+        // 立面上的三道竖线：10% 粗线，30%/40% 细线
+        const l1x = p1[0] + dxv * 0.1, l2x = p1[0] + dxv * 0.3, l3x = p1[0] + dxv * 0.4;
+        L(thick, l1x, p1[1], l1x, p2[1]);
+        L(fine, l2x, p1[1], l2x, p2[1]);
+        L(fine, l3x, p1[1], l3x, p2[1]);
+        // 壁龛：i = 1,4,7
+        const recessX = p1[0] + dxv * 0.5, endX = pa[0];
+        for (let i = 1; i < 10; i += 3) {
+            const y1 = p1[1] + 0.1 * dyv * i;
+            const y2 = p1[1] + 0.1 * dyv * (i + 1);
+            const y3 = p1[1] + 0.1 * dyv * (i + 2);
+            L(fine, recessX, y1, endX, y1);
+            L(fine, recessX, y3, endX, y3);
+            L(fine, recessX, y1, recessX, y3);
+            const innerX = recessX + 0.2 * (endX - recessX);
+            L(fine, innerX, y2, endX, y2);
+        }
+    }
+
+    /** 塞拉赫（横排）：两端按 CartouchePart 画「小屋端」或「宫殿立面」 */
+    function serekhPath(W, H, startPart, endPart) {
+        const dy = LINE_WIDTH / 2, dx = LINE_WIDTH / 2;
+        const w1 = partLength("s", startPart), w2 = partLength("s", endPart);
+        const p1 = [w1, dy], p2 = [w1, H - dy], p3 = [W - w2, dy], p4 = [W - w2, H - dy];
+        const thick = [], fine = [];
+        const L = function (arr, ax, ay, bx, by) {
+            arr.push("M" + n(ax) + " " + n(ay) + "L" + n(bx) + " " + n(by));
+        };
+        if (startPart !== NONE) {
+            if (startPart === FIRST) {                 // 小屋端
+                L(thick, dx, dy, dx, H - dy);
+                L(thick, dx, dy, p1[0], p1[1]);
+                L(thick, dx, H - dy, p2[0], p2[1]);
+            } else {
+                serekhEnd(p1, p2, [dx, dy], [dx, H - dy], thick, fine);
+            }
+        }
+        L(thick, p1[0], p1[1], p3[0], p3[1]);
+        L(thick, p2[0], p2[1], p4[0], p4[1]);
+        if (endPart !== NONE) {
+            if (endPart === FIRST) {
+                L(thick, W - dx, dy, W - dx, H - dy);
+                L(thick, W - dx, dy, p3[0], p3[1]);
+                L(thick, W - dx, H - dy, p4[0], p4[1]);
+            } else {
+                serekhEnd(p3, p4, [W - dx, dy], [W - dx, H - dy], thick, fine);
+            }
+        }
+        return { d: thick.join(" "), dFine: fine.join(" "), stroke: LINE_WIDTH, fineStroke: FINE_WIDTH };
+    }
+
     function enclosurePath(type, startPart, endPart, W, H, vertical) {
+        if (type === "s" && !vertical) return serekhPath(W, H, startPart, endPart);
         const d = "M0 0";                       // 占位，实际下面拼
         const dy = LINE_WIDTH / 2;
         const dx = LINE_WIDTH / 2;
@@ -180,6 +244,14 @@
         path.setAttribute("stroke-width", String(n(p.stroke)));
         path.setAttribute("vector-effect", "none");
         svg.appendChild(path);
+        if (p.dFine) {
+            const fine = document.createElementNS(svgNs, "path");
+            fine.setAttribute("d", p.dFine);
+            fine.setAttribute("fill", "none");
+            fine.setAttribute("stroke", "currentColor");
+            fine.setAttribute("stroke-width", String(n(p.fineStroke)));
+            svg.appendChild(fine);
+        }
         return svg;
     }
 
