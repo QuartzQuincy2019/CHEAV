@@ -585,6 +585,46 @@ function renderEnclosure(parent, u, fontSize, vertical) {
  *      内容落在 (dLong, dSmall)；
  *   3) 用内联 SVG 画直线 + 三次贝塞尔环（线宽 1/18em）。
  */
+/** 王名圈内容：整段按四开组渲染，再用 visitCartouche 的几何套外框 */
+function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
+    const E = MDC.Enclosure;
+    const box = document.createElement("span");
+    box.className = options.encClass + " enc-js";
+    box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
+        "line-height:0;font-size:" + fontSize + "px;";
+    const body = document.createElement("span");
+    body.className = "enc-js-body";
+    body.style.cssText = "position:absolute;left:0;top:0;line-height:0;";
+    box.appendChild(body);
+    let cw = 0, ch = 0;
+    if (u.kind === "A") encADepth++;
+    try {
+        const vrg = MDC.Cadrat.renderLine(body, u.source, fontSize, {
+            centerSigns: true, embedded: true,
+            parseElement: function (str) {
+                const r = parseInput(str);
+                return r && r.tree ? r.tree : { type: "char", code: str };
+            },
+            renderUnit: function (unit, el, fs) { render(el, unit, fs); }
+        });
+        if (vrg && vrg.style) {
+            cw = parseFloat(vrg.style.width) / fontSize || 0;
+            ch = parseFloat(vrg.style.height) / fontSize || 0;
+        }
+    } finally {
+        if (u.kind === "A") encADepth--;
+    }
+    if (!(cw > 0)) cw = 1;
+    if (!(ch > 0)) ch = 1;
+    const g = E.geometry(type, parts.start, parts.end, cw, ch, !!vertical);
+    box.style.width = (g.w * fontSize) + "px";
+    box.style.height = (g.h * fontSize) + "px";
+    body.style.left = (g.x * fontSize) + "px";
+    body.style.top = (g.y * fontSize) + "px";
+    box.appendChild(E.svg(type, parts.start, parts.end, g.w, g.h, !!vertical));
+    parent.appendChild(box);
+    return box;
+}
 function renderEnclosureJseth(parent, u, fontSize, vertical) {
     const E = MDC.Enclosure;
     const type = u.kind === "A" ? "c" : "h";
@@ -592,6 +632,11 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     if (u.startPart) parts.start = u.startPart;
     if (u.endPart) parts.end = u.endPart;
     const units = u.units || [];
+    // 框内内容交给四开组渲染路径（与框外同一套 HBox/Cadrat/SubCadrat），
+    // 差别只有 centerSigns=true（JSesh Layout.preLayoutHook:179-186）。
+    if (MDC.Cadrat && MDC.Cadrat.renderLine && typeof u.source === "string" && u.source) {
+        return renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts);
+    }
     // 1) 内容尺寸：宽度 = 各单元墨迹宽之和；高度 = max(1em, 最高单元)（四开组至少 1em）
     const ms = units.map(function (x) {
         const m = (typeof MDC.measureUnitEm === "function") ? MDC.measureUnitEm(x) : null;
@@ -1193,7 +1238,7 @@ function parseInput(text) {
         const sub = parseInput(inner);                 // 内容递归解析
         for (const msg of sub.invalid) invalid.push(msg);
         const units = sub.tree && sub.tree.type === "seq" ? sub.tree.units : (sub.tree ? [sub.tree] : []);
-        return { type: "enc", kind: kind, units: units, startPart: startPart, endPart: endPart };
+        return { type: "enc", kind: kind, units: units, startPart: startPart, endPart: endPart, source: inner };
     }
     // 插入文本 "+x…+s"（JSesh alphabeticText）：x 为除 s 外的字母，"+s" 回到圣书体；
     // 文本内 "+" 转义为 "\\+"。
