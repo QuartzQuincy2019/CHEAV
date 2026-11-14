@@ -4,13 +4,13 @@
 .hie{outline:1px solid rgba(220,0,0,.45)}</style>
 <div id="o">loading…</div>
 <div><span class=d id=top_w></span><span class=d id=bot_w></span><span class=d id=mid_w></span><span class=d id=top_A1></span><span class=d id=bot_A1></span><span class=d id=mid_A1></span><span class=d id=top_N5></span><span class=d id=bot_N5></span><span class=d id=mid_N5></span></div>
-<script src="js/lib/paper-core.min.js?v=121723"></script>
-<script src="js/database/mainSigns.js?v=121723"></script>
-<script src="js/database/translit.js?v=121723"></script>
-<script src="js/database/glyphZones.js?v=121723"></script>
-<script src="js/database/serekhTail.js?v=121723"></script>
-<script src="js/plugin/MdCRndr.js?v=121723"></script>
-<script src="js/ui/glyphs.js?v=121723"></script>
+<script src="js/lib/paper-core.min.js?v=122238"></script>
+<script src="js/database/mainSigns.js?v=122238"></script>
+<script src="js/database/translit.js?v=122238"></script>
+<script src="js/database/glyphZones.js?v=122238"></script>
+<script src="js/database/serekhTail.js?v=122238"></script>
+<script src="js/plugin/MdCRndr.js?v=122238"></script>
+<script src="js/ui/glyphs.js?v=122238"></script>
 <script>
 (async function(){
   const em = 110, L = [];
@@ -25,10 +25,12 @@
     await new Promise(r => setTimeout(r, 900));
     MdCRndr.setQuadratMode("flow");
     codes.forEach(function (c) {
-      const z = Glyphs.deriveZones(c) || {};
+      const z = Glyphs.zoneFor(c) || {};          // 放置时实际使用的槽（有声明则用声明）
+      const zd = Glyphs.deriveZones(c) || {};      // 推导值（仅在没有声明时才使用）
       const f = v => (v === undefined ? "-" : v.toFixed(3));
       const fmt = q => q ? ("w" + f(q.w) + " h" + f(q.h) + " @" + f(q.x) + "," + f(q.y)) : "无";
-      L.push(c + "  z1=" + fmt(z.zone1) + "  z2=" + fmt(z.zone2) + "  zB=" + fmt(z.zoneB));
+      L.push(c + "  实际(z1=" + fmt(z.zone1) + " z2=" + fmt(z.zone2) + " zB=" + fmt(z.zoneB) + ")");
+      L.push("     推导(z1=" + fmt(zd.zone1) + " z2=" + fmt(zd.zone2) + " zB=" + fmt(zd.zoneB) + ")");
       ["top","bot","mid"].forEach(function (kind) {
         const txt = kind === "top" ? (c + "&t") : kind === "bot" ? ("t&" + c) : ("t&" + c + "&t");
         const host = document.getElementById(kind + "_" + c);
