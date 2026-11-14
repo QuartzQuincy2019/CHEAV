@@ -1,5 +1,5 @@
 /*
- * mdcCadrat.js — MDC 三层结构（照型）与 JSesh QuadratLayout 等价实现
+ * mdcCadrat.js — MDC 三层结构（四开组）与 JSesh QuadratLayout 等价实现
  * ------------------------------------------------------------------
  * 语法分层（严格照抄 $SRC\parser\MDCParser.java:225-231、410-440）：
  *   mdcfile        ::= topitems                // SEPARATOR = '-' | 空格
@@ -65,7 +65,7 @@
     }
 
     /**
-     * 解析文本为照型序列。
+     * 解析文本为四开组序列。
      * @param {string} text
      * @param {function(string):object} parseElement 把单元素字符串解析成单元（复用现有解析器）
      * @returns {Array} cadrat 列表：[{ hboxes: [ [element, ...], ... ] }]
@@ -233,7 +233,7 @@
     }
 
 
-    /** 把一行文本按照型渲染成 DOM（.vrg + .vrg-part 绝对定位） */
+    /** 把一行文本按四开组结构渲染成 DOM（.vrg + .vrg-part 绝对定位） */
     function renderLine(parent, text, fontSize, opts) {
         const o = opts || {};
         const parseElement = o.parseElement || function (str) { return { type: "char", code: str }; };

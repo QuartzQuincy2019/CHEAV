@@ -1760,7 +1760,7 @@ function splitLines(tree) {
             if (typeof Glyphs !== "undefined" && Glyphs.beginZoneBudget) Glyphs.beginZoneBudget(8);
             ensureStyle();
             const fs = (fontSize === undefined) ? options.fontSize : fontSize;
-            // 照型路径（可选）：按 JSesh 的 Cadrat/HBox/Line 结构排版
+            // 四开组路径（可选）：按 JSesh 的 Cadrat/HBox/Line 结构排版
             if (options.cadratMode === "jsesh" && window.MDC && MDC.Cadrat) {
                 const raw = String(text === undefined || text === null ? "" : text);
                 for (const src of raw.split(/\r?\n/)) {
@@ -1813,7 +1813,7 @@ function splitLines(tree) {
         /** 切换王名圈实现：true = JSesh 几何 + SVG 环；false = 旧 CSS 方案 */
     setJsethEnclosure: function (on) { options.jsethEnclosure = !!on; },
     getJsethEnclosure: function () { return !!options.jsethEnclosure; },
-    /** 预载一段 MDC 文本里出现的所有字形（照型路径渲染前调用） */
+    /** 预载一段 MDC 文本里出现的所有字形（四开组路径渲染前调用） */
     preloadFor: function (text) {
         const codes = [];
         const re = /[A-Za-z][A-Za-z0-9]{0,6}/g;
@@ -1827,7 +1827,7 @@ function splitLines(tree) {
         if (typeof Glyphs !== "undefined" && Glyphs.preload) return Glyphs.preload(codes);
         return Promise.resolve();
     },
-    /** 按 JSesh 照型结构（Cadrat/HBox/Line）渲染一行文本 */
+    /** 按 JSesh 四开组结构（Cadrat/HBox/Line）渲染一行文本 */
     renderCadratLine: function (parent, text, fontSize, opts) {
         if (!window.MDC || !MDC.Cadrat) return null;
         const o = opts || {};
@@ -1843,7 +1843,7 @@ function splitLines(tree) {
             quadratMode = (mode === "jsesh") ? "jsesh" : "flow";
             return MdCRndr;
         },
-    /** 切换正文排版引擎：true = 照型（Cadrat/HBox/Line），false = 旧的 layers/parts */
+    /** 切换正文排版引擎：true = 四开组（Cadrat/HBox/Line），false = 旧的 layers/parts */
     setCadratMode: function (on) { options.cadratMode = on ? "jsesh" : "flow"; return MdCRndr; },
     getCadratMode: function () { return options.cadratMode === "jsesh" ? "jsesh" : "flow"; },
 
