@@ -34,8 +34,6 @@
     let charDecoder = null;        // code → 字体字符（由 MdCRndr.decodeCode 注入）
     const svgZones = new Map();   // code → { 0: zone, 1: zone }（SVG 内 <rect id="zone1|zone2"> 的原始声明）
     const fontGrids = new Map();   // code → { N, bits, w, h }（字体墨迹栅格，em/单位口径与 inkGrid 一致）
-    const inkBox = new Map();        // code → { x, y, w, h, wEm, hEm }（未加 padding 的墨迹盒）
-    const gridEm = new Map();       // code → { w, h }（viewBox 尺寸，单位 em；栅格与它完全一致）
     const inkGrids = new Map();     // code → { N, bits: Uint32Array, w, h }
     const gridPending = new Set();  // 正在栅格化的码
     let gridLastMs = 0;             // 最近一次栅格化耗时（诊断用）
@@ -353,7 +351,7 @@ function setViewBox(svgText, vb) {
             const raw = new TextDecoder("utf-8").decode(bytes);
             // 先解析连字区（stripGuides 会把红框 rect 删掉，必须在它之前）
             try { const sz = api.parseSvgZones(raw); if (sz) svgZones.set(code, sz); } catch (e) { }
-            let svgText = api.filterNonInk(stripGuides(fixSvgNs(raw)));
+            let svgText = stripGuides(fixSvgNs(raw));
             rawSvg.set(code, svgText);      // 供 Tier 2 连字区推导
             // 用数值方法算墨迹范围（不依赖 DOM，getBBox 只作为交叉校验）：
             // JSesh 的画框 width/height 是符号的"自然尺寸"，18 单位 = 1em；
@@ -368,21 +366,6 @@ function setViewBox(svgText, vb) {
             //   · 高清文件 1800 单位 = 1em（Aa1 864.7 → 0.48em、G7 1800 → 1em）
             // 用 100 单位做分界；按各自的"每 em 单位数"归一化，比例才与 JSesh 一致。
             const em = big > 100 ? 1800 : 18;
-            // fixShape：zone 随墨迹平移（原点=墨迹左上），再按本文件比例换算为 em
-            {
-                const sz = svgZones.get(code);
-                if (sz) {
-                    const ox = ink ? ink.x : 0, oy = ink ? ink.y : 0;
-                    for (const k of [0, 1]) {
-                        const z = sz[k];
-                        if (!z) continue;
-                        z.x = (z.x - ox) / em;
-                        z.y = (z.y - oy) / em;
-                        z.w = z.w / em;
-                        z.h = z.h / em;
-                    }
-                }
-            }
             if (fr) {
                 // viewBox 只取「墨迹 + 少量留白」：这样盒子可以贴着字形，字符间距不会被撑大，
                 // 图片也不会宽于盒子而被 background-clip 裁掉。
@@ -396,8 +379,6 @@ function setViewBox(svgText, vb) {
                 aspects.set(code, iw / ih);
                 // 布局尺寸 = 墨迹（em）：字距贴合、堆叠组层高紧凑
                 metricsEm.set(code, { w: iw / em, h: ih / em });
-                gridEm.set(code, { w: iw / em, h: ih / em });   // 栅格画布 = viewBox，宽高必须来自这里
-                if (ink) inkBox.set(code, { x: ink.x, y: ink.y, w: ink.w, h: ink.h, wEm: ink.w / em, hEm: ink.h / em });
                 // 绘制：墨迹在字形格内的位置（em）——底边相对基线的偏移由画框决定
                 const frameH = fr.h;
                 const inkBottom = ink ? ink.y + ink.h : frameH;
@@ -628,7 +609,7 @@ function setViewBox(svgText, vb) {
                     const b = el.getBBox();
                     children.push(el.tagName + (el.getAttribute("style") || "").slice(0, 40) + " " +
                       b.x.toFixed(1) + "," + b.y.toFixed(1) + " " + b.width.toFixed(1) + "×" + b.height.toFixed(1));
-                        } catch (e) { if (typeof globalThis !== "undefined") (globalThis.__polyErr = globalThis.__polyErr || []).push(sub.slice(0, 40) + " => " + e.message); }
+                } catch (e) { }
             });
             holder.remove();
             return { viewBox: svg.getAttribute("viewBox"), bbox: [bb.x.toFixed(1), bb.y.toFixed(1), bb.width.toFixed(1), bb.height.toFixed(1)], children: children };
@@ -684,20 +665,18 @@ function setViewBox(svgText, vb) {
             img.decoding = "async";
             img.onload = () => {
                 try {
-                    const N = 256;  // 栅格列数（行数按墨迹宽高比决定）
-                    const em0 = gridEm.get(code) || metricsEm.get(code) || { w: 1, h: 1 };
-                    const M = Math.max(8, Math.min(N * 4, Math.round(N * (em0.h / Math.max(em0.w, 1e-6)))));
+                    const N = 128;  // 栅格分辨率（实现细节；算法同 JSesh）
                     const cv = document.createElement("canvas");
-                    cv.width = N; cv.height = M;
+                    cv.width = N; cv.height = N;
                     const ctx2 = cv.getContext("2d", { willReadFrequently: true });
-                    ctx2.drawImage(img, 0, 0, N, M);
-                    const data = ctx2.getImageData(0, 0, N, M).data;
-                    const bits = new Uint32Array((N * M + 31) >> 5);
-                    for (let i = 0; i < N * M; i++) {
+                    ctx2.drawImage(img, 0, 0, N, N);
+                    const data = ctx2.getImageData(0, 0, N, N).data;
+                    const bits = new Uint32Array((N * N + 31) >> 5);
+                    for (let i = 0; i < N * N; i++) {
                         if (data[i * 4 + 3] > 128) bits[i >> 5] |= (1 << (i & 31));
                     }
-                    const em2 = gridEm.get(code) || metricsEm.get(code) || { w: 1, h: 1 };
-                    inkGrids.set(code, { N, M, bits, w: em2.w * 18, h: em2.h * 18 });
+                    const em2 = metricsEm.get(code) || { w: 1, h: 1 };
+                    inkGrids.set(code, { N, bits, w: em2.w * 18, h: em2.h * 18 });
                     derivedZones.delete(code);   // 让下次 zoneFor 重新推导
                     gridLastMs = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
                 } catch (err) { /* 忽略：保持回退槽 */ }
@@ -715,50 +694,25 @@ function setViewBox(svgText, vb) {
             this.requestGrid(code);
             return null;
         },
-        /**
-         * 与 JSesh SVGSignSource 对齐：只有 path / polygon 进入墨迹；
-         * rect/circle/ellipse/line/polyline 一律忽略；非黑填充且无描边者也不算墨迹。
-         */
-        filterNonInk(svgText) {
-            return svgText.replace(/<(path|polygon|rect|circle|ellipse|line|polyline)\b[^>]*?\/?>/gi, function (tag, name) {
-                const nm = name.toLowerCase();
-                if (nm !== "path" && nm !== "polygon") return "";
-                const sm = /style=("|')([\s\S]*?)\1/i.exec(tag);
-                const style = sm ? sm[2] : "";
-                const attr = function (k) { const m = new RegExp(k + "=(\"|')([^\"']*)\\1").exec(tag); return m ? m[2].trim() : null; };
-                let fill = attr("fill"), stroke = attr("stroke");
-                const f1 = /fill:\s*([^;"]+)/i.exec(style);   if (f1) fill = f1[1].trim();
-                const s1 = /stroke:\s*([^;"]+)/i.exec(style);  if (s1) stroke = s1[1].trim();
-                const hasStroke = !!stroke && stroke !== "none";
-                const isBlack = function (c) {
-                    return !!c && (/^#0{3,6}$/i.test(c) || c === "black" || /^rgb\(\s*0\s*,\s*0\s*,\s*0/i.test(c) || c.indexOf("currentColor") === 0);
-                };
-                const noFill = fill === "none";
-                if (noFill && !hasStroke) return "";
-                if (!noFill && fill !== null && !isBlack(fill) && !hasStroke) return "";
-                return tag;
-            });
-        },
-
         /** 从 SVG 源提取 <rect id="zone1|zone2"> 的连字区声明（JSesh 的 Tier 1 权威数据）。 */
         parseSvgZones(svgText) {
             const out = {};
-            const re = /<rect\b[^>]*\bid=("|')zone([12])\1[^>]*>/g;
+            const re = /<rect\b[^>]*id="(zone[12])"[^>]*>/g;
             let m;
             while ((m = re.exec(svgText))) {
                 const tag = m[0];
-                const num = (k) => { const mm = new RegExp(k + "=(\"|')([-0-9.eE]+)\\1").exec(tag); return mm ? parseFloat(mm[2]) : null; };
+                const num = (k) => { const mm = new RegExp(k + "=\"([-0-9.eE]+)\"").exec(tag); return mm ? parseFloat(mm[1]) : null; };
                 const x = num("x"), y = num("y"), w = num("width"), h = num("height");
                 if (x === null || y === null || w === null || h === null) continue;
                 const lab = /gravity:([a-zA-Z]+)/.exec(tag);
                 const g = lab ? lab[1] : "";
                 const z = {
-                    x: x, y: y, w: w, h: h,        // 原始 SVG 坐标；稍后按 fixShape 平移 + 本文件比例换算
+                    x: x / 18, y: y / 18, w: w / 18, h: h / 18,      // SVG 用户单位 18 = 1em
                     gh: g.indexOf("s") >= 0 ? "s" : (g.indexOf("e") >= 0 ? "e" : "c"),
                     gv: g.indexOf("t") >= 0 ? "t" : (g.indexOf("b") >= 0 ? "b" : "c"),
                     gravity: g
                 };
-                out[m[2] === "1" ? 1 : 0] = z;
+                out[m[1] === "zone1" ? 0 : 1] = z;
             }
             return Object.keys(out).length ? out : null;
         },
@@ -852,7 +806,7 @@ function setViewBox(svgText, vb) {
                     pt.y = vb.y + (1 - y) * vb.h;
                     for (let k = 0; k < rec.shapes.length; k++) {
                         const el = rec.shapes[k];
-                        try { if (el.isPointInFill && el.isPointInFill(pt)) { if (++hits >= 2) return true; } } catch (e) { }
+                        try { if (el.isPointInFill && el.isPointInFill(pt)) return true; } catch (e) { }
                     }
                 }
             }
@@ -863,135 +817,20 @@ function setViewBox(svgText, vb) {
         /** 诊断：栅格缓存统计（含最近一次耗时）。 */
         gridStats() { return { cached: inkGrids.size, pending: gridPending.size, lastMs: Math.round(gridLastMs * 100) / 100 }; },
 
-        // ================= 精确面积判定（paper.js 解析 path + 自写凸多边形裁剪） =================
-        _paperReady: null,
-        _polys: new Map(),          // code → [[ [x,y], ... ], ...]（归一化坐标，y 向上）
-
-        _ensurePaper() {
-            if (this._paperReady !== null) return this._paperReady;
-            try {
-                if (typeof paper === "undefined") { this._paperReady = false; return false; }
-                const cv = document.createElement("canvas");
-                cv.width = 1; cv.height = 1;
-                paper.setup(cv);
-                this._paperReady = true;
-            } catch (e) { this._paperReady = false; }
-            return this._paperReady;
-        },
-
-        /** 把字形 SVG 的 path/polygon 展平成归一化多边形（[0,1]²，y 向上，原点=墨迹盒左上）。 */
-        glyphPolys(code) {
-            const key = this.canon(code);
-            if (this._polys.has(key)) return this._polys.get(key);
-            this._polys.set(key, null);
-            if (!this._ensurePaper()) return null;
-            try {
-                const url = urls.get(key);
-                if (!url) return null;
-                const txt = decodeURIComponent(url.slice(url.indexOf(",") + 1));
-                const vm = /viewBox=("|')([\s\S]*?)\1/.exec(txt);
-                if (!vm) return null;
-                const vb = vm[2].split(/[\s,]+/).map(Number);
-                if (vb.length !== 4) return null;
-                const out = [];
-                const pushSub = (dstr) => {
-                    // 按顶层 M/m 拆分子路径，逐个交给 paper 展平
-                    const parts = dstr.split(/(?=[Mm])/).filter(function (x) { return x.trim(); });
-                    parts.forEach(function (sub) {
-                        try {
-                            const p = new paper.Path({ pathData: String(sub).trim(), insert: false });   // paper 不接受前导空白
-                            if (!p || !p.segments || p.segments.length < 3) return;
-                            p.flatten(0.02);
-                            const pts = p.segments.map(function (s) {
-                                const ib = inkBox.get(key) || { x: vb[0], y: vb[1], w: vb[2], h: vb[3] };
-                                return [ (s.point.x - ib.x) / ib.w, 1 - (s.point.y - ib.y) / ib.h ];
-                            });
-                            if (pts.length >= 3) out.push(pts);
-                        } catch (e) { }
-                    });
-                };
-                const dRe = /<path\b[^>]*\bd=("|')([\s\S]*?)\1/g;
-                let m;
-                while ((m = dRe.exec(txt))) pushSub(m[2]);
-                const ptsRe = /<polygon\b[^>]*\bpoints=("|')([\s\S]*?)\1/g;
-                while ((m = ptsRe.exec(txt))) {
-                    const pts = m[2].trim().split(/\s+/).map(function (q) {
-                        const a = q.split(",");
-                        return [ (parseFloat(a[0]) - vb[0]) / vb[2], 1 - (parseFloat(a[1]) - vb[1]) / vb[3] ];
-                    }).filter(function (q) { return isFinite(q[0]) && isFinite(q[1]); });
-                    if (pts.length >= 3) out.push(pts);
-                }
-                const res = out.length ? out : null;
-                this._polys.set(key, res);
-                return res;
-            } catch (e) { return null; }
-        },
-
-        /** 多边形与矩形（归一化，y 向上）的交集面积是否 > 0。 */
-        _areaBusy(code, x0, y0, x1, y1) {
-            const polys = this.glyphPolys(code);
-            if (!polys) return null;
-            const clipRect = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
-            const clipArea = (poly) => {
-                let out = poly;
-                for (let e = 0; e < 4 && out.length; e++) {
-                    const a = clipRect[e], b = clipRect[(e + 1) % 4];
-                    const inside = (p) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]) >= 0;
-                    const ins = (p) => {
-                        const side = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
-                        return side >= 0;
-                    };
-                    const inter = (p, q) => {
-                        const x1_ = p[0], y1_ = p[1], x2_ = q[0], y2_ = q[1];
-                        const dx = x2_ - x1_, dy = y2_ - y1_;
-                        const ex = b[0] - a[0], ey = b[1] - a[1];
-                        const den = dx * ey - dy * ex;
-                        if (Math.abs(den) < 1e-12) return q;
-                        const t = ((a[0] - x1_) * ey - (a[1] - y1_) * ex) / den;
-                        return [x1_ + dx * t, y1_ + dy * t];
-                    };
-                    const next = [];
-                    for (let i = 0; i < out.length; i++) {
-                        const cur = out[i], prev = out[(i + out.length - 1) % out.length];
-                        const ci = ins(cur), pi = ins(prev);
-                        if (ci) { if (!pi) next.push(inter(prev, cur)); next.push(cur); }
-                        else if (pi) next.push(inter(prev, cur));
-                    }
-                    out = next;
-                }
-                return out;
-            };
-            const area = (poly) => {
-                let s = 0;
-                for (let i = 0; i < poly.length; i++) {
-                    const p = poly[i], q = poly[(i + 1) % poly.length];
-                    s += p[0] * q[1] - q[0] * p[1];
-                }
-                return s / 2;
-            };
-            let total = 0;
-            for (let i = 0; i < polys.length; i++) {
-                const c = clipArea(polys[i]);
-                if (c && c.length >= 3) total += area(c);
-            }
-            return Math.abs(total) > 1e-7;   // 相切/零面积 → 视为空（等价 Area.isEmpty）
-        },
-
         /** 网格区域是否被占据（坐标 0..1，y 自下而上）。 */
         _busy(g, x0, y0, x1, y1) {
             if (!g || !g.bits) return false;   // 栅格尚未就绪：视为空
+            // 与 JSesh 的 Area.intersect 等价：完全落在字形包围盒之外 → 必然为空
             if (x1 <= 0 || x0 >= 1 || y1 <= 0 || y0 >= 1) return false;
-            const W = g.N, H = g.M || g.N;                       // 列数 / 行数（按墨迹宽高比）
-            const c0 = Math.max(0, Math.floor(x0 * W)), c1 = Math.min(W - 1, Math.ceil(x1 * W) - 1);
-            const r0 = Math.max(0, Math.floor(y0 * H)), r1 = Math.min(H - 1, Math.ceil(y1 * H) - 1);
+            const N = g.N;
+            const c0 = Math.max(0, Math.floor(x0 * N)), c1 = Math.min(N - 1, Math.ceil(x1 * N) - 1);
+            const r0 = Math.max(0, Math.floor(y0 * N)), r1 = Math.min(N - 1, Math.ceil(y1 * N) - 1);
             if (c1 < c0 || r1 < r0) return false;
-            // JSesh 用 Area.intersect：只有"正面积"的相交才算被占据；命中 ≥2 格才算。
-            let hits = 0;
             for (let r = r0; r <= r1; r++) {
-                const row = (H - 1 - r) * W;
+                const row = (N - 1 - r) * N;
                 for (let c = c0; c <= c1; c++) {
                     const idx = row + c;
-                    if (g.bits[idx >> 5] & (1 << (idx & 31))) { if (++hits >= 2) return true; }
+                    if (g.bits[idx >> 5] & (1 << (idx & 31))) return true;
                 }
             }
             return false;
@@ -1009,9 +848,7 @@ function setViewBox(svgText, vb) {
             // SVG 模式只用 SVG 栅格（避免与字体栅格混用导致数值不一致）；
             // 纯字体模式（enabled=false，无 SVG 来源）才退回字体栅格。
             const g = this.inkGrid(code) || (enabled ? null : this.fontGrid(code));
-            if (!g && !this.glyphPolys(code)) return null;   // 有精确面积时不需要栅格
-            // MARGIN = 1 个字形单位 = 1/18 em；归一化到 bbox 后，x 与 y 的换算不同：
-            const MX = 1 / (g.w || 18), MY = 1 / (g.h || 18);
+            const MARGIN = 1 / 18;
             // 判定"矩形是否压到字形"：位图粗筛（快） + 矢量复核（准，等价 Area.intersect）
             const busy = (x, y, w, h) => {
                 const x0 = x, y0 = y, x1 = x + Math.abs(w), y1 = y + Math.abs(h);
@@ -1022,9 +859,7 @@ function setViewBox(svgText, vb) {
             // 诊断：记录被判为"被占据"的最小格子（用于定位 t 上不去的具体原因）
             const blockCells = [];
             const busyRec = (x, y, w, h) => {
-                // 只用栅格判定：矢量 isPointInFill 在隐藏容器中对部分字形恒为 false（实测全部 t→0.99），不可用
-                const exact = this._areaBusy(code, x, y, x + Math.abs(w), y + Math.abs(h));
-                const hit = (exact === null) ? this._busy(g, x, y, x + Math.abs(w), y + Math.abs(h)) : exact;
+                const hit = this._busy(g, x, y, x + Math.abs(w), y + Math.abs(h));
                 if (hit && blockCells.length < 8) {
                     const N2 = g.N;
                     const c = Math.min(N2 - 1, Math.max(0, Math.floor((x + Math.abs(w) / 2) * N2)));
@@ -1035,17 +870,14 @@ function setViewBox(svgText, vb) {
             };
             // 沿 outer→inner 二分，返回"仍不重叠"的最大 t（照 findBestZonePosition）
             const bestT = (ox, oy, ix, iy, w, h) => {
-                if (!dbg.calls) dbg.calls = [];
-                const __rec = (t, px, py, hit) => { if (dbg.calls.length < 60) dbg.calls.push({ t: +t.toFixed(4), px: +px.toFixed(3), py: +py.toFixed(3), hit: hit }); };
                 let innerT = 1, outerT = 0;
                 while (Math.abs(innerT - outerT) > 0.01) {
                     const t = (innerT + outerT) / 2;
                     const px = ox + t * (ix - ox), py = oy + t * (iy - oy);
-                    const x0 = (w < 0) ? px + w - MX : px - MX;
-                    const y0 = (h < 0) ? py + h - MY : py - MY;
-                    const hit = busyRec(x0, y0, Math.abs(w) + 2 * MX, Math.abs(h) + 2 * MY);
-                    __rec(t, px, py, hit);
-                    if (hit) innerT = t; else outerT = t;
+                    const x0 = (w < 0) ? px + w - MARGIN : px - MARGIN;
+                    const y0 = (h < 0) ? py + h - MARGIN : py - MARGIN;
+                    if (busyRec(x0, y0, Math.abs(w) + 2 * MARGIN, Math.abs(h) + 2 * MARGIN)) innerT = t;
+                    else outerT = t;
                 }
                 return outerT;
             };
@@ -1103,19 +935,14 @@ function setViewBox(svgText, vb) {
 out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
             // 归一化坐标（0..1 相对墨迹 bbox）→ em（渲染端与显式数据同一口径）
             {
-                const ib0 = inkBox.get(code);
-                const sx = ib0 ? ib0.wEm : ((g.w || 18) / 18);
-                const sy = ib0 ? ib0.hEm : ((g.h || 18) / 18);
+                const sx = (g.w || 18) / 18, sy = (g.h || 18) / 18;
                 ["zone1", "zone2", "zoneB"].forEach(function (k) {
                     const z = out[k];
                     if (!z) return;
                     z.x *= sx; z.w *= sx; z.y *= sy; z.h *= sy;
                 });
             }
-            const dbgOut = dbg;   // 诊断用（三槽皆空时也要能看到 t 值）
-            if (!(out.zone1 || out.zone2 || out.zoneB)) { this.__lastDbg = dbgOut; return null; }
-            out.__debug = dbgOut;
-            return out;
+            return (out.zone1 || out.zone2 || out.zoneB) ? out : null;
         },
 
         /** 判定 em 坐标矩形（x 相对字形左缘，y 自底向上）是否与字形墨迹重叠。 */
