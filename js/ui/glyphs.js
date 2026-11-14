@@ -34,6 +34,7 @@
     let charDecoder = null;        // code → 字体字符（由 MdCRndr.decodeCode 注入）
     const svgZones = new Map();   // code → { 0: zone, 1: zone }（SVG 内 <rect id="zone1|zone2"> 的原始声明）
     const fontGrids = new Map();   // code → { N, bits, w, h }（字体墨迹栅格，em/单位口径与 inkGrid 一致）
+    const inkBox = new Map();        // code → { x, y, w, h, wEm, hEm }（未加 padding 的墨迹盒）
     const gridEm = new Map();       // code → { w, h }（viewBox 尺寸，单位 em；栅格与它完全一致）
     const inkGrids = new Map();     // code → { N, bits: Uint32Array, w, h }
     const gridPending = new Set();  // 正在栅格化的码
@@ -396,6 +397,7 @@ function setViewBox(svgText, vb) {
                 // 布局尺寸 = 墨迹（em）：字距贴合、堆叠组层高紧凑
                 metricsEm.set(code, { w: iw / em, h: ih / em });
                 gridEm.set(code, { w: iw / em, h: ih / em });   // 栅格画布 = viewBox，宽高必须来自这里
+                if (ink) inkBox.set(code, { x: ink.x, y: ink.y, w: ink.w, h: ink.h, wEm: ink.w / em, hEm: ink.h / em });
                 // 绘制：墨迹在字形格内的位置（em）——底边相对基线的偏移由画框决定
                 const frameH = fr.h;
                 const inkBottom = ink ? ink.y + ink.h : frameH;
@@ -901,7 +903,8 @@ function setViewBox(svgText, vb) {
                             if (!p || !p.segments || p.segments.length < 3) return;
                             p.flatten(0.02);
                             const pts = p.segments.map(function (s) {
-                                return [ (s.point.x - vb[0]) / vb[2], 1 - (s.point.y - vb[1]) / vb[3] ];
+                                const ib = inkBox.get(key) || { x: vb[0], y: vb[1], w: vb[2], h: vb[3] };
+                                return [ (s.point.x - ib.x) / ib.w, 1 - (s.point.y - ib.y) / ib.h ];
                             });
                             if (pts.length >= 3) out.push(pts);
                         } catch (e) { }
@@ -1100,14 +1103,16 @@ function setViewBox(svgText, vb) {
 out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
             // 归一化坐标（0..1 相对墨迹 bbox）→ em（渲染端与显式数据同一口径）
             {
-                const sx = (g.w || 18) / 18, sy = (g.h || 18) / 18;
+                const ib0 = inkBox.get(code);
+                const sx = ib0 ? ib0.wEm : ((g.w || 18) / 18);
+                const sy = ib0 ? ib0.hEm : ((g.h || 18) / 18);
                 ["zone1", "zone2", "zoneB"].forEach(function (k) {
                     const z = out[k];
                     if (!z) return;
                     z.x *= sx; z.w *= sx; z.y *= sy; z.h *= sy;
                 });
             }
-            return (out.zone1 || out.zone2 || out.zoneB) ? out : null;
+            return out;   // 即使三槽皆空也返回（便于诊断 t 值；zoneFor 会按空处理）
         },
 
         /** 判定 em 坐标矩形（x 相对字形左缘，y 自底向上）是否与字形墨迹重叠。 */
