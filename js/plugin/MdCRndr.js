@@ -724,7 +724,8 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
                     }
                 }
             }
-            const hie = cell.querySelector(".hie");
+            // 走四开组路径时，格内已有多个 .hie（面包、鸟各一个），不能再按“单符号 em 盒”处理
+            const hie = cell.querySelector(".vrg") ? null : cell.querySelector(".hie");
             if (hie) {
                 const inkTop = vertical ? (band - m.h) / 2 : (band - m.h) / 2;
                 hie.style.position = "absolute";
