@@ -319,3 +319,123 @@ const r = e.getBoundingClientRect();
 - `Cadrat.getHBox()` / `HBox.isWide()` 在王名圈内部的行为。
 - `TextRun.layoutRuns` 的文本 run 间距细节。
 - `Layout.visitCadrat:389-393` 之外，是否还有对 `Cartouche` 的特殊处理（如 `deltaBase` 的绘制期使用）。
+
+## 十一、四开组排版：MDCView 的尺寸代数（2026-11-15 调查）
+
+这一节记录的是「为什么只做 HBox/Cadrat/Line 三层不够」。真正的排版是围绕
+`MDCView` 的一组尺寸操作展开的，三层只是**调用顺序**。
+
+### 11.1 三种"改尺寸"完全不是一回事
+
+| 方法 | 位置 | 做了什么 | 效果 |
+|---|---|---|---|
+| `setWidth(w)` / `setHeight(h)` | `MDCView:920 / :874` | 只改外部 `width`/`height` | `internalWidth = width/xScale` 随之变大 → `distributeHorizontally` 会把子视图摊开到更宽的盒子，但**子视图本身不变形** |
+| `scaleToWidth(w)` | `MDCView:817` | `xScale = w/internalWidth; width = w` | `internalWidth` 不变，**横向拉伸绘制**（纵向不动） |
+| `reScale(sc)` | `MDCView:695` | `xScale*=sc; yScale*=sc; width*=sc; height*=sc` | 等比缩放（内容与盒子一起） |
+| `scaleForMaxWidth(maxW)` | `MDCView:757` | `if (width > maxW) reScale(maxW/width)` | 只缩不放的等比 |
+| `scaleToFitDimensions(w,h)` | `MDCView:796` | `xScale=yScale=min(h/height, w/width)` | 等比塞进指定框（王名圈里用） |
+
+关键恒等式（`MDCView:478/489`）：
+
+```
+internalWidth  = width  / xScale
+internalHeight = height / yScale
+```
+
+`stickSubViewsTo(BOTTOM)`（`:974`）用的是 **internalHeight**，
+`distributeHorizontally`（`:319`）用的是 **internalWidth**。
+
+所以：**"把盒子加大"和"把内容放大"是两条不同的路径**，我们的 places 里
+一个 `w/h` 同时兼作盒子和绘制尺寸，这是目前最大的结构性偏差（见 11.6）。
+
+### 11.2 行的两条路径
+
+```
+Layout.visitDefault:523-543   通用容器（含 BasicItemList）
+    width = Σ子宽 + smallSkip(n-1)；height = max 子高；
+    setWidth / setHeight / distributeHorizontally
+
+Layout.visitHBox:545-598      HBox（一行）
+    h = getMaximalHeightOfSubView()
+    for each subView:
+        ① 单符号组 且 height > largeSignSizeRatio×heightOfA1
+             → reScale(h / height)        拉到整行高
+        ② ViewVerticalEnlarger().enlarge(subView, h)   只把格子拔高
+    setHeight(h); setWidth(Σw + smallSkip(n-1))
+    ※ 注释明确：位置不由行负责，而由 Cadrat 负责
+```
+
+两者不可混用——我们此前把它们合并成一个 `layoutRow`，这是错的。
+
+### 11.3 ViewVerticalEnlarger 与 yStretchable
+
+```
+QuadratLayout:52      currentView.setYStretchable(true)      // 每个 Cadrat 视图都可纵向拉伸
+Layout.visitHieroglyph:654-659
+    fixed = relativeSize≠100 || inAbsoluteGroup || isAloneInQuadrat || angle≠0
+    if (!fixed) setYStretchable(true)                        // 单个字形是否可拉伸
+
+ViewVerticalEnlarger  (Layout.java:957-1000)
+    visitHieroglyph:  if (view.isYStretchable()) view.setHeight(height)
+    visitSubCadrat :  遍历 BasicItemList 里 isYStretchable() 的子视图
+                      setHeight(height) → distributeFromTopToBottom() → fitToSubViews(false)
+```
+
+因为 `setHeight` 不动 `yScale`，这种拔高**只改变格子与相对位置，不改变字形尺寸**。
+
+### 11.4 行内多元素 → SubCadrat → BasicItemList
+
+```
+HBox.buildHorizontalListElement:126-140
+    单元素  → 直接 deepCopy 该元素
+    多元素  → 每个元素各包一个 Cadrat，装进 BasicItemList，再包成 SubCadrat
+
+Layout.visitSubCadrat:841-845
+    setWidth(Σ子宽); setHeight(max 子高); distributeHorizontally()
+
+Layout.visitBasicItemList:354-368
+    有文本 run → layoutWithRuns；否则横排 → visitDefault（Σ宽 + skip）
+```
+
+所以 `t*t*t` 的视图树是
+`HBox → SubCadrat → BasicItemList → [Cadrat(t), Cadrat(t), Cadrat(t)]`，
+而 `z` 那一行是 `HBox → Cadrat(z)`（单元素不包）。
+**多元素行里的 Cadrat 位于 SubCadrat 内 → isEmbedded()=true。**
+
+### 11.5 QuadratLayout 的完整顺序（49-197）
+
+```
+1  setYStretchable(true); setXStretchable(true)
+2  honourMaxHeight = 横排; honourMaxWidth = 竖排
+3  embedded = c.isEmbedded();  if (embedded) 两者都 false
+4  wide = c.isWide()                      // = 任一 HBox.isWide()
+                                          // HBox.isWide = 单子元素且是 Hieroglyph 且 hiero.isWide
+                                          // hiero.isWide = modifiers("l")
+5  if (honourMaxWidth || (nSubviews != 1 && !wide))
+       for each row: scaleForMaxWidth(maxCadratWidth = 22 单位 = 22/18 em)
+6  if (wide) 对"宽行" scaleToWidth(maxw)，maxw = honourMaxWidth ? maxCadratWidth : 最大行宽
+   else      fitLoneSignsToColumnWidth(c, 最大行宽)
+7  h = Σ行高 + smallSkip(n-1)；if (honourMaxHeight && h < 1em) h = 1em
+8  w = 最大行宽；if (honourMaxWidth && !embedded && w < 22/18) w = 22/18
+9  n>1 → distributeFromTopToBottom()；否则 centerSigns ? centerSubViewsVertically : stickSubViewsTo(BOTTOM)
+10 for each row: if (row.width < w) row.setWidth(w);
+                row 单子视图 ? centerSubViewHorizontally : (distributeHorizontally + stickSubViewsTo(BOTTOM))
+11 if (honourMaxHeight && h > 1em) reScale(1em/h)
+```
+
+### 11.6 仍未建模的四件事（按重要性）
+
+1. **盒子尺寸与绘制比例分离**：需要 `cellW/cellH`（布局用）与 `drawW/drawH`（绘制用）
+   两套量，对应 `width/height` 与 `xScale/yScale`。现在只有一个 `w/h`，所以
+   "只拔高不拉伸"无法表达，`scaleToWidth` 也只能靠改宽度近似。
+2. **视图树**：`Cadrat(t)` 作为独立视图参与父级 `distributeHorizontally`，
+   而不是把叶子直接摆进行里；嵌套（`A1:(B1*C2)`）时宽高传播路径不同。
+3. **`ViewVerticalEnlarger` 对 SubCadrat 的 `distributeFromTopToBottom` 重分布**
+   （会把子 Cadrat 在变高的格子里重新摊开）。
+4. **`computeScale()`**（`Layout:945` → `hieroglyphsDrawer.scaleFromFontToStyle`）：
+   SVG 模式下应为 1，字体模式下与字号换算有关，尚未核对。
+
+已实现（可对照源码检查）：`scaleForMaxWidth`、`scaleToWidth`、`reScale`、
+`distributeHorizontally`、`distributeFromTopToBottom`、`stickSubViewsTo(BOTTOM)`、
+`centerSubViewHorizontally`、`fitLoneSignsToColumnWidth`、`visitHBox` 的单符号拉满行高、
+`maxCadratWidth` 前置收缩、`isWide = l 修饰符`、`embedded → honour*=false`。
