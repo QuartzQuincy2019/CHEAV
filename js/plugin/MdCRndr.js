@@ -1980,6 +1980,12 @@ function splitLines(tree) {
 
         /** 初始化（幂等）：应用配置并注入样式。 */
         init: function (userOptions) {
+            // 零配置：file:// 下若页面已引入 ngFontData.js，自动改用内嵌字体 data URI，
+            // 不需要额外字体文件，也不受 @font-face 跨源限制。
+            if (window.NG_FONT_DATA_URI && !(userOptions && userOptions.fontUrl) &&
+                typeof location !== "undefined" && location.protocol === "file:") {
+                options.fontUrl = window.NG_FONT_DATA_URI;
+            }
             setOptions(userOptions);
             injectStyle();
             return MdCRndr;
