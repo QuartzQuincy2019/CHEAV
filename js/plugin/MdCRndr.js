@@ -673,10 +673,9 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     // 3) 容器 + 逐单元：每个单元占一个"1em 高的 em 盒"（宽=墨迹宽），墨迹在盒内上下居中
     // JSesh 把王名圈包在 Cadrat 里，QuadratLayout.java:194-195 会 reScale(1/h)：
     // 整个框（内容、dSmall、线宽）等比缩到 1em，所以框内符号比框外小。
-    // 框的自然高 = 内容 1em + 2×dSmall = 1.333em；JSesh 靠外层 Cadrat 的
-    // QuadratLayout.reScale(1em/h) 把它缩到 1em（框与内容、边距、线宽同比）。
-    // 这条路径（单元格版）外层不再统一缩，所以在此按同一规则缩一次。
-    const ESC = vertical ? Math.min(1, 1 / Math.max(g.w, 1)) : Math.min(1, 1 / Math.max(g.h, 1));
+    // 框按自然尺寸输出（1.333em）；缩放交给外层四开组的「格位/自然尺寸」比值，
+    // 那里用的也是缩放后的度量（mdcVrg.js 的 enc 分支），保证只缩一次。
+    const ESC = 1;
     const box = document.createElement("span");
     box.className = options.encClass + " enc-js";
     box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
