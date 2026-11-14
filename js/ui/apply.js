@@ -1,3 +1,12 @@
+
+/** 在输入框下方展示解析报错（主界面可见） */
+function showParseErrors(list) {
+    const host = document.getElementById("ParseErrors");
+    if (!host) return;
+    if (!list || !list.length) { host.textContent = ""; host.style.display = "none"; return; }
+    host.style.display = "block";
+    host.textContent = "解析错误：" + list.join("； ");
+}
 // ui/apply.js - UI 集成层：五模块 / 四区域 / 出流-入流状态机
 //
 // 模块：IB 输入缓冲区、VM 词匹配、PM 音素匹配、DM 定符匹配、GM Gardiner Code 匹配
@@ -329,6 +338,7 @@
         const { tree, invalid } = parsed;
         if (invalid.length) {
             input.classList.add("invalid");
+            showParseErrors(invalid);   // 把解析报错直接显示在主界面
             return;                     // 非法 → 中止渲染
         }
         input.classList.remove("invalid");

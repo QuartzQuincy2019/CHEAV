@@ -1158,3 +1158,16 @@ body.mode-vertical .App-canvas .RenderBox {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* 解析报错提示（主界面可见） */
+.parse-errors {
+    margin: 6px 0 0;
+    padding: 6px 10px;
+    border: 1px solid #d33;
+    border-left-width: 4px;
+    background: #fff4f4;
+    color: #a11;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
