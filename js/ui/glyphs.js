@@ -1112,7 +1112,10 @@ out.__debug = dbg; dbg.blocks = blockCells.slice(0, 4);
                     z.x *= sx; z.w *= sx; z.y *= sy; z.h *= sy;
                 });
             }
-            return out;   // 即使三槽皆空也返回（便于诊断 t 值；zoneFor 会按空处理）
+            const dbgOut = dbg;   // 诊断用（三槽皆空时也要能看到 t 值）
+            if (!(out.zone1 || out.zone2 || out.zoneB)) { this.__lastDbg = dbgOut; return null; }
+            out.__debug = dbgOut;
+            return out;
         },
 
         /** 判定 em 坐标矩形（x 相对字形左缘，y 自底向上）是否与字形墨迹重叠。 */
