@@ -605,7 +605,7 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     }
     // 2) visitCartouche 几何
     const g = E.geometry(type, parts.start, parts.end, cw, ch, !!vertical);
-    // 3) 容器 + 逐单元绝对定位；单元按墨迹尺寸、在 1em 行带内**上下居中**（JSesh centerSubViewsVertically）
+    // 3) 容器 + 逐单元：每个单元占一个"1em 高的 em 盒"（宽=墨迹宽），墨迹在盒内上下居中
     const box = document.createElement("span");
     box.className = options.encClass + " enc-js";
     box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
@@ -615,24 +615,26 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     try {
         units.forEach(function (x, i) {
             const m = ms[i];
+            const band = vertical ? m.w : ch;          // em 盒高度（横排取行带高 = 1em）
             let left, top;
-            if (vertical) { left = g.x + (cw - m.w) / 2; top = g.y + cy + (m.h - m.h) / 2; cy += m.h; }
-            else { left = g.x + cx; top = g.y + ((units.length > 1) ? (ch - m.h) : (ch - m.h) / 2); cx += m.w; }
+            if (vertical) { left = g.x + (ch - m.w) / 2; top = g.y + cy; cy += m.h; }
+            else { left = g.x + cx; top = g.y; cx += m.w; }
             const cell = document.createElement("span");
             cell.className = "enc-cell";
-            cell.style.cssText = "position:absolute;line-height:0;left:" + (left * fontSize) + "px;top:" +
-                (top * fontSize) + "px;width:" + (m.w * fontSize) + "px;height:" + (m.h * fontSize) + "px;";
+            cell.style.cssText = "position:absolute;line-height:0;overflow:visible;left:" + (left * fontSize) + "px;top:" +
+                (top * fontSize) + "px;width:" + ((vertical ? m.w : m.w) * fontSize) + "px;height:" + (band * fontSize) + "px;";
             box.appendChild(cell);
             render(cell, x, fontSize);
             const hie = cell.querySelector(".hie");
             if (hie) {
+                const inkTop = vertical ? (band - m.h) / 2 : (band - m.h) / 2;
                 hie.style.position = "absolute";
                 hie.style.left = "0px";
-                hie.style.top = "0px";
+                hie.style.top = (inkTop * fontSize) + "px";
                 hie.style.margin = "0px";
-                hie.style.width = "100%";
-                hie.style.height = "100%";
-                hie.style.backgroundSize = "100% 100%";   // 单元盒 = 墨迹盒，比例一致，不拉伸
+                hie.style.width = (m.w * fontSize) + "px";
+                hie.style.height = (m.h * fontSize) + "px";
+                hie.style.backgroundSize = "100% 100%";
                 hie.style.backgroundPosition = "left top";
             }
         });
