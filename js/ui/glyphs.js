@@ -34,6 +34,7 @@
     let charDecoder = null;        // code → 字体字符（由 MdCRndr.decodeCode 注入）
     const svgZones = new Map();   // code → { 0: zone, 1: zone }（SVG 内 <rect id="zone1|zone2"> 的原始声明）
     const fontGrids = new Map();   // code → { N, bits, w, h }（字体墨迹栅格，em/单位口径与 inkGrid 一致）
+    const gridEm = new Map();       // code → { w, h }（viewBox 尺寸，单位 em；栅格与它完全一致）
     const inkGrids = new Map();     // code → { N, bits: Uint32Array, w, h }
     const gridPending = new Set();  // 正在栅格化的码
     let gridLastMs = 0;             // 最近一次栅格化耗时（诊断用）
@@ -394,6 +395,7 @@ function setViewBox(svgText, vb) {
                 aspects.set(code, iw / ih);
                 // 布局尺寸 = 墨迹（em）：字距贴合、堆叠组层高紧凑
                 metricsEm.set(code, { w: iw / em, h: ih / em });
+                gridEm.set(code, { w: iw / em, h: ih / em });   // 栅格画布 = viewBox，宽高必须来自这里
                 // 绘制：墨迹在字形格内的位置（em）——底边相对基线的偏移由画框决定
                 const frameH = fr.h;
                 const inkBottom = ink ? ink.y + ink.h : frameH;
@@ -681,7 +683,7 @@ function setViewBox(svgText, vb) {
             img.onload = () => {
                 try {
                     const N = 256;  // 栅格列数（行数按墨迹宽高比决定）
-                    const em0 = metricsEm.get(code) || { w: 1, h: 1 };
+                    const em0 = gridEm.get(code) || metricsEm.get(code) || { w: 1, h: 1 };
                     const M = Math.max(8, Math.min(N * 4, Math.round(N * (em0.h / Math.max(em0.w, 1e-6)))));
                     const cv = document.createElement("canvas");
                     cv.width = N; cv.height = M;
@@ -692,7 +694,7 @@ function setViewBox(svgText, vb) {
                     for (let i = 0; i < N * M; i++) {
                         if (data[i * 4 + 3] > 128) bits[i >> 5] |= (1 << (i & 31));
                     }
-                    const em2 = metricsEm.get(code) || { w: 1, h: 1 };
+                    const em2 = gridEm.get(code) || metricsEm.get(code) || { w: 1, h: 1 };
                     inkGrids.set(code, { N, M, bits, w: em2.w * 18, h: em2.h * 18 });
                     derivedZones.delete(code);   // 让下次 zoneFor 重新推导
                     gridLastMs = (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
