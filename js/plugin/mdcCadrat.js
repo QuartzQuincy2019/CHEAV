@@ -30,7 +30,9 @@
     function measure(u) {
         if (MDC.measureUnitEm) {
             const m = MDC.measureUnitEm(u);
-            if (m && m.w > 0) return { w: m.w, h: m.h };
+            // 度量失败或退化成极小值（例如连字名查不到表）时按 1em 方盒处理，
+            // 否则部件会被压成几个像素，看起来"框内什么都没有"。
+            if (m && m.w > 0.05 && m.h > 0.05) return { w: m.w, h: m.h };
         }
         return { w: MAX_CADRAT_WIDTH, h: MAX_CADRAT_HEIGHT };
     }

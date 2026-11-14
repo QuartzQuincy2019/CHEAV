@@ -808,8 +808,20 @@ function makeUnsupported(code, size, mirror) {
  * @param {number} fontSize 连字字号（px），连字整体占 1em 方块
  */
 function renderLigature(parent, name, fontSize) {
-    const lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;   // 名字大小写不敏感
-    if (!lig) return null;
+    let lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;   // 名字大小写不敏感
+    if (!lig) {
+        // 兜底：表里没有就按 "A&B" 现场合成（宿主=第一个，其余进后槽），
+        // 否则框内的 & 连字会整体消失。
+        const codes = String(name).split(/[&-]/).filter(function (c) { return c && c.length; });
+        if (codes.length < 2) return null;
+        lig = LIGATURES[name] = {
+            name: String(name),
+            parts: codes.map(function (c, i) {
+                return i === 0 ? { code: c, dx: 0, dy: 0, scale: 1 }
+                    : { code: c, zone: (i === 1 ? "zoneB" : "zone2") };
+            })
+        };
+    }
 
     const box = document.createElement("span");
     box.className = "lig";
