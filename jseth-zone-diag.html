@@ -1,0 +1,136 @@
+<!DOCTYPE html><meta charset="utf-8">
+<style>#o{font:11px/1.5 monospace;white-space:pre-wrap;background:#ffef9f;padding:8px}</style>
+<div id="o">running…</div>
+<script src="js/lib/paper-core.min.js?v=115855"></script>
+<script src="js/database/mainSigns.js?v=115855"></script>
+<script src="js/database/translit.js?v=115855"></script>
+<script src="js/database/glyphZones.js?v=115855"></script>
+<script src="js/database/serekhTail.js?v=115855"></script>
+<script src="js/plugin/MdCRndr.js?v=115855"></script>
+<script src="js/ui/glyphs.js?v=115855"></script>
+<script>
+(async function(){
+  const L = [];
+  const CODES = ["A138","X1","N5","D58"];
+  const MARGIN = 1, MAXHEIGHT = 18;
+  const cv0 = document.createElement("canvas"); cv0.width = 1; cv0.height = 1; paper.setup(cv0);
+
+  // 取 path 展平后的多边形（单位坐标，y 向下，原点=墨迹左上，与 fixShape 一致）
+  function build(code) {
+    const url = Glyphs.urlFor(code);
+    if (!url) return null;
+    const txt = decodeURIComponent(url.slice(url.indexOf(",") + 1));
+    const polys = [];
+    const re = /<path\b[^>]*\bd=("|')([\s\S]*?)\1/g;
+    let m;
+    while ((m = re.exec(txt))) {
+      const subs = m[2].split(/(?=[Mm])/).map(s => s.trim()).filter(Boolean);
+      for (const sub of subs) {
+        try {
+          const p = new paper.Path({ pathData: sub, insert: false });
+          if (!p || !p.segments || p.segments.length < 3) continue;
+          p.flatten(0.02);
+          polys.push(p.segments.map(s => [s.point.x, s.point.y]));
+        } catch (e) { }
+      }
+    }
+    if (!polys.length) return null;
+    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    polys.forEach(pts => pts.forEach(q => { x0=Math.min(x0,q[0]); x1=Math.max(x1,q[0]); y0=Math.min(y0,q[1]); y1=Math.max(y1,q[1]); }));
+    const moved = polys.map(pts => pts.map(q => [q[0]-x0, q[1]-y0]));   // fixShape 平移
+    return { polys: moved, W: x1-x0, H: y1-y0 };
+  }
+  function clashArea(geo, x0, y0, x1, y1) {           // Area.intersect(signArea).isEmpty()
+    let total = 0;
+    for (const poly of geo.polys) {
+      const R = [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+      let out = poly;
+      for (let e = 0; e < 4 && out.length; e++) {
+        const a = R[e], b = R[(e+1)%4];
+        const side = q => (b[0]-a[0])*(q[1]-a[1]) - (b[1]-a[1])*(q[0]-a[0]);
+        const nxt = [];
+        for (let i = 0; i < out.length; i++) {
+          const cur = out[i], prv = out[(i+out.length-1)%out.length];
+          const ci = side(cur) >= 0, pi = side(prv) >= 0;
+          const ip = (p1,q1) => { const dx=q1[0]-p1[0], dy=q1[1]-p1[1], ex=b[0]-a[0], ey=b[1]-a[1];
+            const den=dx*ey-dy*ex; if (Math.abs(den)<1e-12) return q1;
+            const tt=((a[0]-p1[0])*ey-(a[1]-p1[1])*ex)/den; return [p1[0]+dx*tt, p1[1]+dy*tt]; };
+          if (ci) { if (!pi) nxt.push(ip(prv,cur)); nxt.push(cur); }
+          else if (pi) nxt.push(ip(prv,cur));
+        }
+        out = nxt;
+      }
+      if (out && out.length >= 3) {
+        let s2 = 0;
+        for (let i = 0; i < out.length; i++) { const a2=out[i], b2=out[(i+1)%out.length]; s2 += a2[0]*b2[1]-b2[0]*a2[1]; }
+        total += s2/2;
+      }
+    }
+    return Math.abs(total);
+  }
+  function best(geo, outer, inner, w, h, trace) {
+    let innerT = 1, outerT = 0, n = 0;
+    while (Math.abs(innerT - outerT) > 0.01 && n++ < 40) {
+      const mt = (innerT + outerT) / 2;
+      const px = outer[0] + mt * (inner[0] - outer[0]);
+      const py = outer[1] + mt * (inner[1] - outer[1]);
+      let minx = px - MARGIN, miny = py - MARGIN;
+      if (w < 0) minx += w;
+      if (h < 0) miny += h;
+      const area = clashArea(geo, minx, miny, minx + Math.abs(w) + 2*MARGIN, miny + Math.abs(h) + 2*MARGIN);
+      const busy = area > 1e-9;
+      if (trace) trace.push("t=" + mt.toFixed(4) + " rect[" + minx.toFixed(2) + "," + miny.toFixed(2) + "," + (Math.abs(w)+2*MARGIN).toFixed(2) + "," + (Math.abs(h)+2*MARGIN).toFixed(2) + "] " + (busy ? "忙" : "空") + " 面积=" + area.toFixed(5));
+      if (busy) innerT = mt; else outerT = mt;
+    }
+    return outerT;
+  }
+  function pos(outer, inner, t) { return [outer[0]+t*(inner[0]-outer[0]), outer[1]+t*(inner[1]-outer[1])]; }
+
+  try {
+    await Glyphs.useSiteDir(); Glyphs.setRenderer(MdCRndr); Glyphs.setEnabled(true);
+    await Glyphs.preload(CODES);
+    await new Promise(r => setTimeout(r, 600));
+
+    for (const code of CODES) {
+      const geo = build(code);
+      L.push("===== " + code + " =====");
+      if (!geo) { L.push("  无几何"); continue; }
+      L.push("  W=" + geo.W.toFixed(2) + " H=" + geo.H.toFixed(2) + " （单位，1em=18）  → em " + (geo.W/18).toFixed(3) + "×" + (geo.H/18).toFixed(3));
+      const W = geo.W, H = geo.H;
+
+      // ---- computeFirstArea ----
+      let y = 0.5*H, hh = H/3, ww = W/2;
+      let outer = [-ww, y], inner = [0, y];
+      let tr = [];
+      let t = best(geo, outer, inner, ww, hh, tr);
+      let mode = "主框 " + ww.toFixed(2) + "×" + hh.toFixed(2);
+      if (t < 0.2) { ww = W/4; hh = H/4; tr = []; t = best(geo, outer, inner, ww, hh, tr); mode = "回退 " + ww.toFixed(2) + "×" + hh.toFixed(2); }
+      const z1ok = (t >= 0.1);
+      const p1 = pos(outer, inner, t);
+      L.push("  左槽: " + mode + "  t=" + t.toFixed(4) + " → " + (z1ok ? ("有  @(" + p1[0].toFixed(2) + "," + p1[1].toFixed(2) + ") " + ww.toFixed(2) + "×" + hh.toFixed(2) + " 单位 = w" + (ww/18).toFixed(3) + " h" + (hh/18).toFixed(3) + " @" + (p1[0]/18).toFixed(3) + "," + (p1[1]/18).toFixed(3)) : "无"));
+      tr.slice(0, 8).forEach(s => L.push("      " + s));
+
+      // ---- computeSecondArea ----
+      let w2 = W/2, h2 = H/2.5;
+      const outer2 = [W, 0], inner2 = [W/2, 0];
+      let tr2 = [];
+      let t2 = best(geo, outer2, inner2, w2, h2, tr2);
+      let mode2 = "主框 " + w2.toFixed(2) + "×" + h2.toFixed(2);
+      if (t2 < 0.2) { h2 = H/3; tr2 = []; t2 = best(geo, outer2, inner2, w2, h2, tr2); mode2 = "回退 " + w2.toFixed(2) + "×" + h2.toFixed(2); }
+      const z2ok = (t2 >= 0.1);
+      const p2 = pos(outer2, inner2, t2);
+      L.push("  右槽: " + mode2 + "  t=" + t2.toFixed(4) + " → " + (z2ok ? ("有  @(" + p2[0].toFixed(2) + "," + p2[1].toFixed(2) + ") " + w2.toFixed(2) + "×" + h2.toFixed(2) + " 单位 = w" + (w2/18).toFixed(3) + " h" + (h2/18).toFixed(3) + " @" + (p2[0]/18).toFixed(3) + "," + (p2[1]/18).toFixed(3)) : "无"));
+      tr2.slice(0, 8).forEach(s => L.push("      " + s));
+
+      // ---- 生产实现 ----
+      const prod = Glyphs.deriveZones(code);
+      const f = v => (v === undefined ? "-" : v.toFixed(3));
+      L.push("  生产: " + (prod ? ("z1=" + (prod.zone1 ? ("w" + f(prod.zone1.w) + " h" + f(prod.zone1.h) + " @" + f(prod.zone1.x) + "," + f(prod.zone1.y)) : "无") +
+              "  z2=" + (prod.zone2 ? ("w" + f(prod.zone2.w) + " h" + f(prod.zone2.h) + " @" + f(prod.zone2.x) + "," + f(prod.zone2.y)) : "无")) : "null") +
+              "   t1=" + (prod && prod.__debug ? f(prod.__debug.t1) : "-") + " t2=" + (prod && prod.__debug ? f(prod.__debug.t2) : "-"));
+      L.push("");
+    }
+  } catch(e) { L.push("ERR " + e.message + "\n" + (e.stack || "")); }
+  document.getElementById("o").textContent = L.join("\n");
+})();
+</script>
