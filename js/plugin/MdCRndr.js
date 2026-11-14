@@ -691,6 +691,14 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
                 (top * ESC * fontSize) + "px;width:" + (m.w * ESC * fontSize) + "px;height:" + (band * ESC * fontSize) + "px;";
             box.appendChild(cell);
             render(cell, x, fontSize * ESC);
+            const inner = cell.querySelector(".vrg");
+            if (inner) {
+                inner.style.position = "absolute";
+                inner.style.left = "0px";
+                inner.style.top = "0px";
+                inner.style.width = "100%";
+                inner.style.height = "100%";
+            }
             const hie = cell.querySelector(".hie");
             if (hie) {
                 const inkTop = vertical ? (band - m.h) / 2 : (band - m.h) / 2;
