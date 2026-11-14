@@ -1,17 +1,28 @@
 /**
- * MdCRndr VRG（垂直渲染组）模块（模块化第 5 步）
+ * 四开组（cadrat）布局 —— 逐行照抄 JSesh QuadratLayout.java:49-197
  *
- * 两组实现并存：
- *   · flow  模式（默认）：renderVRG —— 词典式观感，整组压进 1em 见方，只缩不放；
- *   · jsesh 模式：layoutQuadratAbs —— 显式几何，照 QuadratLayout 从顶到底分布。
+ * 文件名沿用 mdcVrg.js（页面接线不变），但布局逻辑已完全改为 JSesh 的
+ * Cadrat / QuadratLayout 模型，原来的 "flow"（词典式压进 1em）分支已删除。
  *
- * 跨模块依赖全部走 MDC.host / MDC：
- *   MDC.getMetrics / MDC.ligatureWidth   —— mdcGlyphCore.js / mdcMetrics.js
- *   MDC.host.px                          —— MdCRndr 注入
- *   MDC.host.quadratMode()               —— 当前四开组模式（"flow" | "jsesh"）
- *   MDC.host.encDepth()                  —— 王名圈嵌套深度（>0 时符号上下居中）
- *   MDC.host.render / renderEnclosure / renderLigature / makeUnsupported —— 由 MdCRndr 提供
- *   MDC.host.options                     —— vrgItemGap / vrgLayerGap / textScale
+ * 依据：
+ *   $SRC/render/layout/QuadratLayout.java:49-197（layout）
+ *   $SRC/render/layout/QuadratLayout.java:199-236（fitLoneSignsToColumnWidth）
+ *   $SRC/render/style/GeometrySpecification.java:101-127（DEFAULT 常量）
+ *
+ * 单位换算：GeometrySpecification 里 1 单位 = 1/18 em
+ *   maxCadratHeight = 18 单位 = 1.000em
+ *   maxCadratWidth  = 22 单位 = 1.222em
+ *   smallSkip       =  2 单位 = 0.111em
+ *
+ * 横排（honourMaxHeight=true, honourMaxWidth=false）流程：
+ *   1. 子视图数 ≠ 1 且非 wide → 每个子视图 scaleForMaxWidth(maxCadratWidth)
+ *   2. 非 wide → fitLoneSignsToColumnWidth(c, width=子视图最大宽)
+ *   3. h = Σ 行高 + (n−1)*smallSkip；h < maxCadratHeight → h = maxCadratHeight
+ *   4. w = 子视图最大宽（横排不补齐）
+ *   5. n > 1 → distributeFromTopToBottom()；否则贴底（centerSigns 时居中）
+ *   6. 每行：宽度补到 w；单元素水平居中，多元素 distributeHorizontally + 贴底
+ *   7. h > maxCadratHeight → reScale(maxCadratHeight / h)
+ * 竖排（honourMaxWidth=true, honourMaxHeight=false）把宽高规则对调。
  */
 (function () {
     "use strict";
@@ -19,199 +30,226 @@
 
     const EM_SQUARE = MDC.EM_SQUARE || 1000;
 
+    // —— GeometrySpecification.DEFAULT（单位 = 1/18 em，这里已换算成 em）——
+    const MAX_CADRAT_HEIGHT = 18 / 18;      // 1.000
+    const MAX_CADRAT_WIDTH = 22 / 18;       // 1.222
+    const SMALL_SKIP = 2 / 18;              // 0.111
+    const LARGE_SIGN_SIZE_RATIO = 0.8;      // largeSignSizeRatio
+    const SMALL_SIGN_SIZE_RATIO = 0.4;      // smallSignSizeRatio
+
     function getMetrics(code) { return MDC.getMetrics ? MDC.getMetrics(code) : { width: EM_SQUARE, height: EM_SQUARE }; }
     function ligatureWidth(name) { return MDC.ligatureWidth ? MDC.ligatureWidth(name) : EM_SQUARE; }
-    function layerMetrics(line) { return MDC.layerMetrics ? MDC.layerMetrics(line) : { h: EM_SQUARE, w: EM_SQUARE }; }
-    function px(v) { return MDC.host ? MDC.host.px(v) : v; }
-    function quadratMode() { return (MDC.host && MDC.host.quadratMode) ? MDC.host.quadratMode() : "flow"; }
-    function opt(name, dflt) {
-        const o = (MDC.host && MDC.host.options) || {};
-        return (typeof o[name] === "number") ? o[name] : dflt;
-    }
-    // 与 MdCRndr 中的同名函数保持一致（取自同一 options 表）
-    function vrgLayerGap() { return opt("vrgLayerGap", 0.05) * EM_SQUARE; }
-    function vrgItemGap() { return opt("vrgItemGap", 0.125) * EM_SQUARE; }
 
-    /**
-     * 显式几何布局（JSesh MDCView / QuadratLayout 语义）
-     *   · 每层自然高 h_i、层间 gap = 0.111em（smallSkip = 2/18）
-     *   · 总高超过 1em 时整组只缩一次 s = 1em / totalNat
-     *   · 组宽 = 最宽层 × s；单元素层居中，多元素层 space-between
-     *   · 层内元素底部对齐；子 cadrat 递归且沿用父级 s（不二次缩放）
-     */
+    /** 单位度量（em） */
     function measureUnitEm(u) {
         if (!u) return { w: 0.3, h: 0.3 };
-        if (u.type === "vrg" && u.layers && u.layers.length > 1) {
-            const gap = 0.111;
-            let wMax = 0, hSum = 0;
-            for (const row of u.layers) {
-                let w = 0, h = 0.15;
-                for (const x of row) { const m = measureUnitEm(x); w += m.w; h = Math.max(h, m.h); }
-                wMax = Math.max(wMax, w); hSum += h;
-            }
-            hSum += gap * (u.layers.length - 1);
-            return { w: Math.max(wMax, 0.05), h: Math.max(hSum, 0.05) };
+        if (u.type === "vrg" && u.layers && u.layers.length) {
+            const g = computeCadrat(u.layers, false);
+            return { w: Math.max(g.w, 0.05), h: Math.max(g.h, 0.05) };
         }
-        if (u.type === "char") {
-            const am = getMetrics(u.code);
-            return { w: Math.max(am.width, 1) / EM_SQUARE, h: Math.max(am.height, 1) / EM_SQUARE };
+        if (u.type === "seq" && u.units) {
+            let w = 0, h = 0;
+            for (const x of u.units) { const m = measureUnitEm(x); w += m.w; if (m.h > h) h = m.h; }
+            return { w: Math.max(w, 0.05), h: Math.max(h, 0.05) };
+        }
+        // 字形（不论 type 叫什么，只要有 code 就按字形量）
+        if (typeof u.code === "string" && u.code && u.type !== "lig") {
+            const m = getMetrics(u.code) || {};
+            const mw = (typeof m.w === "number") ? m.w : ((typeof m.width === "number") ? m.width : 1);
+            const mh = (typeof m.h === "number") ? m.h : ((typeof m.height === "number") ? m.height : 1);
+            return { w: Math.max(mw, 1) / EM_SQUARE, h: Math.max(mh, 1) / EM_SQUARE };
         }
         if (u.type === "lig") return { w: Math.max(ligatureWidth(u.name), 1) / EM_SQUARE, h: 1 };
         if (u.type === "text") return { w: 0.24 * (u.text || "").length, h: 0.4 };
+        if (u.type === "enc") return { w: 1.34, h: 1.34 };
         return { w: 0.6, h: 1 };
     }
 
-    function layoutQuadratAbs(layers, fontSize, targetHpx) {
-        // 严格照 JSesh：QuadratLayout + MDCView.distributeFromTopToBottom
-        //   · 层高 h_i = 该层字形墨迹高（不拉伸字）
-        //   · 总高不足目标高时，差额均分为 interSpace（不放大判定）
-        //   · 超出目标高时整组只缩一次（reScale）
-        //   · 组宽 = 最宽层；单元素居中，多元素均分间隙
-        const gapEm = 0.111;
-        const rows = layers.map((row) => row.map((u) => ({ u, m: measureUnitEm(u) })));
-        const n = rows.length;
-        const hNat = rows.map((r) => Math.max(0.15, ...r.map((x) => x.m.h)));
-        const wNat = rows.map((r) => r.reduce((a, x) => a + x.m.w, 0));
-        const totalNatEm = hNat.reduce((a, b) => a + b, 0) + gapEm * (n - 1);
-        const targetEm = ((typeof targetHpx === "number" && targetHpx > 0) ? targetHpx : fontSize) / fontSize;
-        const s = Math.min(1, targetEm / totalNatEm);          // 只缩不放
-        const Hpx = Math.max(targetEm * fontSize, totalNatEm * s * fontSize);
-        const sumRowsPx = hNat.reduce((a, b) => a + b, 0) * s * fontSize;
-        const interPx = (n > 1) ? Math.max(0, (Hpx - sumRowsPx) / (n - 1)) : 0;
-        const Wpx = Math.max(Math.max(...wNat) * s * fontSize, 1);
-        const box = document.createElement("span");
-        box.className = "vrg";
-        box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
-            "width:" + px(Wpx) + "px;height:" + px(Hpx) + "px;";
-        let y = 0;
-        for (let ri = 0; ri < n; ri++) {
-            const items = rows[ri];
-            const hPx = hNat[ri] * s * fontSize + 1;
-            const rowWpx = wNat[ri] * s * fontSize;
-            const interW = items.length > 1 ? Math.max(0, (Wpx - rowWpx) / (items.length - 1)) : 0;
-            let x = items.length === 1 ? (Wpx - rowWpx) / 2 : 0;
-            for (let k = 0; k < items.length; k++) {
-                placeAbs(box, items[k].u, x, y, hPx, items[k].m, s, fontSize);
-                x += items[k].m.w * s * fontSize + interW;
-            }
-            y += hPx + interPx;
+    function px(v) { return MDC.host ? MDC.host.px(v) : v; }
+
+    /** 一行（HBox）的度量：parts 里带上各自累计缩放 s */
+    function rowMetrics(row) {
+        let w = 0, h = 0;
+        const parts = [];
+        for (const u of row) {
+            const m = measureUnitEm(u);
+            const part = { u, m: { w: m.w, h: m.h }, s: 1 };
+            w += m.w;
+            if (m.h > h) h = m.h;
+            parts.push(part);
         }
-        return box;
+        return { parts, w: w, h: Math.max(h, 0.05) };
     }
 
-    /** 在组内放置一个单位：底部对齐到本行底线；子组按行高重新分布（照型）。 */
-    function placeAbs(box, u, x, yTop, rowH, m, s, fontSize) {
-        const isGroup = (u.type === "vrg" && u.layers && u.layers.length > 1);
-        const wPx = m.w * s * fontSize;
-        const holder = document.createElement("span");
-        holder.style.cssText = "position:absolute;left:" + px(x) + "px;top:" + px(yTop) +
-            "px;width:" + px(wPx) + "px;height:" + px(rowH) + "px;overflow:visible;";
-        if (isGroup) {
-            const sub = layoutQuadratAbs(u.layers, fontSize, rowH);   // 填满本行高度
-            sub.style.position = "absolute";
-            sub.style.left = "0";
-            sub.style.bottom = "0";
-            holder.appendChild(sub);
-        } else {
-            const g = document.createElement("span");
-            g.style.cssText = "position:absolute;left:0;bottom:0;line-height:1;";
-            MDC.host.render(g, u, fontSize * s);
-            holder.appendChild(g);
+    function scaleRow(row, s) {
+        row.w *= s;
+        row.h *= s;
+        for (const p of row.parts) {
+            p.m = { w: p.m.w * s, h: p.m.h * s };
+            p.s *= s;
         }
-        box.appendChild(holder);
-    }
-
-    function renderVRG(parent, layers, fontSize) {
-        if (typeof globalThis !== "undefined") {
-            const qc = globalThis.__quadratCalls || (globalThis.__quadratCalls = { flow: 0, jsesh: 0, abs: 0 });
-            qc[quadratMode()] = (qc[quadratMode()] || 0) + 1;
-        }
-        if (quadratMode() === "jsesh") {
-            parent.appendChild(layoutQuadratAbs(layers, fontSize, fontSize));
-            return;
-        }
-        const scale = fontSize / EM_SQUARE;
-        const N = layers.length;
-
-        // 每层的最大墨迹高度与宽度（含元素间间隔）
-        const metrics = layers.map(layerMetrics);
-
-        // 词典式缩放（Faulkner 观感）：符号保持原比例，不放大。
-        // 层与层之间保留微小间隔（VRG_LAYER_GAP）；
-        // 整体统一缩放系数 s = min(1, 1em/总墨迹高, 1em/最大层宽)，
-        // 仅在堆叠组超出 1em 方块时才等比缩小。
-        const totalH = metrics.reduce((sum, m) => sum + m.h, 0) + vrgLayerGap() * (N - 1);
-        const maxW = Math.max(...metrics.map(m => m.w));
-        const s = Math.min(1, EM_SQUARE / totalH, EM_SQUARE / maxW);
-
-        const box = document.createElement("span");
-        box.className = "vrg";
-        // 组宽 = 最大层宽 × 统一缩放
-        const boxW = maxW * s * scale;
-        box.style.width = px(boxW) + "px";
-        box.style.height = fontSize + "px";
-        {
-            // 行内嵌排：inline-flex 的基线取**首层**基线，若直接对齐正文基线，
-            // 整盒会有 (盒高 − 首层高) 沉到基线以下。此处按该差值上移，
-            // 使盒底（= 末层基线）正好落在正文基线上——与普通字符一致。
-            // 在 flex 排版（渲染区）中 vertical-align 被忽略，故不影响块级排版。
-            box.style.verticalAlign = px(fontSize - metrics[0].h * s * scale) + "px";
-        }
-
-        for (let i = 0; i < N; i++) {
-            const glyphSize = fontSize * s;                    // 层内单位字号（统一等比缩放）
-            const layerH = metrics[i].h * s * scale;           // 层高 = 缩放后的墨迹高度
-            const layer = document.createElement("span");
-            layer.className = "vrg-layer";
-            layer.style.height = px(layerH) + "px";
-
-            // 水平对齐：
-            //   多元素层：所有元素两端对齐（space-between）。
-            //   单符号层：在该层内左右居中（不与其他层交替左右分布，避免对角错开）。
-            layer.style.justifyContent = layers[i].length > 1 ? "space-between" : "center";
-
-            // 层内元素：字符（贴层底）或嵌套 VRG（递归渲染并缩放到层内字号）
-            for (const u of layers[i]) renderLayerUnit(layer, u, glyphSize);
-            box.appendChild(layer);
-        }
-
-        parent.appendChild(box);
-        return box;
     }
 
     /**
-     * 渲染层内元素：字符或嵌套 VRG（递归）。
+     * 核心：按 QuadratLayout.layout() 计算四开组几何（JSesh 单位 = em）
+     * 返回 { w, h, scale, view, places:[{x,y,w,h,fs,unit}] }
+     * places 的坐标与 fs 都是 em 口径（绘制时乘 fontSize）。
      */
-    function renderLayerUnit(layer, u, glyphSize) {
-        if (u.type === "char") {
-            MDC.renderGlyph(layer, u.code, glyphSize, MDC.host.encDepth() > 0 ? "center" : undefined, u.mirror);
-        } else if (u.type === "vrg") {
-            if (u.layers.length === 1) {
-                // 单层 VRG 视为一般字符：层内元素直接按序列渲染
-                for (const x of u.layers[0]) renderLayerUnit(layer, x, glyphSize);
-            } else {
-                renderVRG(layer, u.layers, glyphSize);
+    function computeCadrat(layers, vertical) {
+        const V = MDC.View;
+        if (!V) throw new Error("MDC.View 未加载：请把 mdcView.js 放在 mdcVrg.js 之前");
+
+        // —— 建视图树：cadrat → HBox（层）→ unit ——
+        const cadrat = new V({ isCadrat: true });
+        const rows = [];
+        for (const layer of layers) {
+            const row = new V({ isHBox: true });
+            for (const u of layer) {
+                const m = measureUnitEm(u);
+                const v = new V(u);
+                v.width = m.w;
+                v.height = m.h;
+                v.wide = !!u.wide;                    // \l 修饰符（尚未解析，先留口）
+                row.add(v);
             }
-        } else if (u.type === "enc") {
-            MDC.host.renderEnclosure(layer, u, glyphSize, false);        // 组内包围框：横排朝向
-        } else if (u.type === "lig") {
-            MDC.host.renderLigature(layer, u.name, glyphSize);
-        } else if (u.type === "text") {
-            // 层内文本：字号随层内基准字号（glyphSize）等比，写成绝对 px
-            const txt = document.createElement("span");
-            txt.className = "txt";
-            txt.textContent = u.text;
-            txt.style.fontSize = px(opt("textScale", 0.4) * glyphSize) + "px";
-            layer.appendChild(txt);
-        } else if (u.type === "unsup") {
-            // 层内占位框：随层内基准字号缩放
-            layer.appendChild(MDC.host.makeUnsupported(u.code, glyphSize, u.mirror));
-        } else if (u.type === "seq") {
-            for (const x of u.units) renderLayerUnit(layer, x, glyphSize);
+            row.setWidth(row.getSumOfSubViewsWidths());
+            row.setHeight(row.getMaximalHeightOfSubView());
+            cadrat.add(row);
+            rows.push(row);
+        }
+
+        const n = rows.length;
+        const wide = rows.some(function (r) {
+            return r.getNumberOfSubviews() === 1 && r.getSubView(0).wide;
+        });
+        const embedded = false;                       // (x:t) 子四开组尚未接入
+        const honourMaxHeight = embedded ? false : !vertical;
+        const honourMaxWidth = embedded ? false : !!vertical;
+
+        // 1. 横向超宽的行先整体缩小（QuadratLayout.java:61-73）
+        if (honourMaxWidth || (n !== 1 && !wide)) {
+            for (const r of rows) r.scaleForMaxWidth(MAX_CADRAT_WIDTH);
+        }
+
+        // 2. wide 行横向拉伸；否则单符号行按"宽扁符号"补宽
+        if (wide) {
+            const maxw = honourMaxWidth ? MAX_CADRAT_WIDTH : cadrat.getMaximalWidthOfSubView();
+            for (const r of rows) {
+                if (r.getNumberOfSubviews() === 1 && r.getSubView(0).wide) r.scaleToWidth(maxw);
+            }
+        } else {
+            let width = cadrat.getMaximalWidthOfSubView();
+            if (honourMaxWidth && !embedded && width < MAX_CADRAT_WIDTH) width = MAX_CADRAT_WIDTH;
+            fitLoneSignsToColumnWidth(cadrat, width);
+        }
+
+        // 3. 高度：内容高 + 层间距，不足 1em 补到 1em
+        let h = cadrat.getSumOfSubViewsHeights() + (n - 1) * SMALL_SKIP;
+        if (honourMaxHeight && h < MAX_CADRAT_HEIGHT) h = MAX_CADRAT_HEIGHT;
+        cadrat.setHeight(h);
+
+        // 4. 宽度：取最宽行，竖排补到 maxCadratWidth
+        let w = cadrat.getMaximalWidthOfSubView();
+        if (honourMaxWidth && !embedded && w < MAX_CADRAT_WIDTH) w = MAX_CADRAT_WIDTH;
+        cadrat.setWidth(w);
+
+        // 5. 层间分布
+        if (n > 1) cadrat.distributeFromTopToBottom();
+        else cadrat.stickSubViewsTo(MDC.ViewSide.BOTTOM);   // 单个字形落基线
+
+        // 6. 行内分布：单元素居中，多元素均分后贴底
+        for (const r of cadrat.children) {
+            if (r.getWidth() < w) r.setWidth(w);
+            if (r.getNumberOfSubviews() === 1) r.centerSubViewHorizontally();
+            else { r.distributeHorizontally(); r.stickSubViewsTo(MDC.ViewSide.BOTTOM); }
+        }
+
+        // 7. 过高则整组缩回 1em（只缩不放大）
+        if (honourMaxHeight && h > MAX_CADRAT_HEIGHT) cadrat.reScale(MAX_CADRAT_HEIGHT / h);
+
+        const places = MDC.flattenView(cadrat, cadrat.xScale, cadrat.yScale, 0, 0, []);
+        return { w: cadrat.getWidth(), h: cadrat.getHeight(), scale: cadrat.xScale, view: cadrat, places: places };
+    }
+
+    /**
+     * 单符号行补宽（QuadratLayout.fitLoneSignsToColumnWidth）：
+     * 行只有一个元素、该元素只有一个符号、不是相对字号、且"宽扁"
+     * （宽 ≥ 0.8×A1 高、高 ≤ 0.4×A1 高）时，横向拉伸到列宽。
+     */
+    function fitLoneSignsToColumnWidth(cadrat, width) {
+        for (const row of cadrat.children) {
+            if (row.getNumberOfSubviews() !== 1) continue;
+            const unit = row.getSubView(0);
+            if (unit.getNumberOfSubviews() !== 1) continue;
+            const m = measureUnitEm(unit.getSubView(0).model);
+            if (m.w >= LARGE_SIGN_SIZE_RATIO && m.h <= SMALL_SIGN_SIZE_RATIO) {
+                unit.reScale(width / unit.getWidth());
+                row.fitToSubViews(true);
+            }
         }
     }
 
+    /** 渲染：几何全部算好后**扁平绝对定位**；字号 = fontSize × 累计缩放 */
+    function renderCadrat(parent, layers, fontSize, vertical) {
+        if (typeof globalThis !== "undefined") {
+            globalThis.__quadratCalls = globalThis.__quadratCalls || {};
+            globalThis.__quadratCalls.cadrat = (globalThis.__quadratCalls.cadrat || 0) + 1;
+        }
+        const g = computeCadrat(layers, !!vertical);
+        const box = document.createElement("span");
+        box.className = "vrg";
+        box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
+            "width:" + px(g.w * fontSize) + "px;height:" + px(g.h * fontSize) + "px;";
+        for (const p of g.places) {
+            const holder = document.createElement("span");
+            holder.className = "vrg-part";
+            holder.style.cssText = "position:absolute;left:" + px(p.x * fontSize) + "px;" +
+                "top:" + px(p.y * fontSize) + "px;width:" + px(p.w * fontSize) + "px;" +
+                "height:" + px(p.h * fontSize) + "px;line-height:0;";
+            const fs = p.fs * fontSize;
+            // 统一走 host 的单位渲染器，再把产物拉满到"墨迹盒"
+            if (MDC.host && MDC.host.render) {
+                const inner = document.createElement("span");
+                inner.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%;" +
+                    "line-height:0;font-size:" + px(fs) + "px;";
+                MDC.host.render(inner, p.unit, fs);
+                // 渲染器给出的盒子可能带 1em 行高/基线余量，这里全部按墨迹盒归一
+                const kids = inner.querySelectorAll(".hie, [style*='background-image'], span");
+                for (const k of kids) {
+                    if (!k.style) continue;
+                    if (k.querySelector && k.querySelector(".hie")) continue;
+                    k.style.position = "absolute";
+                    k.style.left = "0";
+                    k.style.top = "0";
+                    k.style.margin = "0";
+                    k.style.width = "100%";
+                    k.style.height = "100%";
+                    k.style.backgroundSize = "100% 100%";
+                    k.style.lineHeight = "0";
+                }
+                holder.appendChild(inner);
+            }
+            box.appendChild(holder);
+        }
+        if (parent) parent.appendChild(box);
+        return box;
+    }
+
+    // —— 兼容旧导出（MdCRndr 里仍以 renderVRG 名字调用）——
+    function renderVRG(parent, layers, fontSize) { return renderCadrat(parent, layers, fontSize, false); }
+
+    function layoutQuadratAbs(layers, fontSize) { return renderCadrat(null, layers, fontSize, false); }
+
+    function renderLayerUnit(layer, u, glyphSize) {
+        const span = document.createElement("span");
+        span.style.cssText = "display:inline-block;line-height:1;vertical-align:bottom;";
+        MDC.host.render(span, u, glyphSize);
+        layer.appendChild(span);
+    }
+
     MDC.measureUnitEm = measureUnitEm;
+    MDC.computeCadrat = computeCadrat;
+    MDC.renderCadrat = renderCadrat;
     MDC.layoutQuadratAbs = layoutQuadratAbs;
     MDC.renderVRG = renderVRG;
     MDC.renderLayerUnit = renderLayerUnit;
