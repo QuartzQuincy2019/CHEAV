@@ -132,6 +132,25 @@
         let h = 0;
         for (let i = 0; i < rows.length; i++) h += rows[i].h + (i > 0 ? SMALL_SKIP : 0);
 
+        // QuadratLayout:174-190 —— 行宽补到 cadrat 宽 w，再决定居中/均分
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.w >= w - 1e-9) continue;
+            if (row.places.length === 1) {
+                row.places[0].x += (w - row.places[0].w) / 2;          // centerSubViewHorizontally
+            } else {
+                let sum = 0;
+                for (let k = 0; k < row.places.length; k++) sum += row.places[k].w;
+                const gap = (w - sum) / (row.places.length - 1);       // distributeHorizontally
+                let x = 0;
+                for (let k = 0; k < row.places.length; k++) {
+                    row.places[k].x = x;
+                    x += row.places[k].w + gap;
+                }
+            }
+            row.w = w;
+        }
+
         const places = [];
         if (rows.length > 1) {
             // distributeFromTopToBottom
