@@ -693,7 +693,20 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
             cell.style.cssText = "position:absolute;line-height:0;overflow:visible;left:" + (left * ESC * fontSize) + "px;top:" +
                 (top * ESC * fontSize) + "px;width:" + (m.w * ESC * fontSize) + "px;height:" + (band * ESC * fontSize) + "px;";
             box.appendChild(cell);
-            render(cell, x, fontSize * ESC);
+            // 组单元必须走四开组布局（与框外同一套），否则会落到旧 VRG 路径，
+            // 行间距/贴底规则不同，表现为「面包压在鸟背上」。
+            if (x && x.type === "group" && x.cadrats && MDC.Cadrat && MDC.Cadrat.renderLine) {
+                MDC.Cadrat.renderLine(cell, x.cadrats, fontSize * ESC, {
+                    centerSigns: true,
+                    parseElement: function (str) {
+                        const r = parseInput(str);
+                        return r && r.tree ? r.tree : { type: "char", code: str };
+                    },
+                    renderUnit: function (unit, el, fs) { render(el, unit, fs); }
+                });
+            } else {
+                render(cell, x, fontSize * ESC);
+            }
             const inner = cell.querySelector(".vrg");
             if (inner) {
                 // 不能把内层 .vrg 拉成 100%×100%（会各向异性压扁，出现“面包压鸟”）；
