@@ -1170,7 +1170,10 @@ function parseInput(text) {
     // 规则：整串里必须且只能有一个"有插槽"的符号（宿主，zone1=前插槽 / zone2=后插槽）；
     //       其余必须是"插头"（无插槽）。宿主排在第一，插头按在原串中的前后进入 zone1/zone2。
     //       两个及以上有插槽、或完全没有宿主 → 视为非法连字，保持原样不合并。
-    text = text.replace(/([A-Za-z][A-Za-z0-9]{0,6}(?:\s*&\s*[A-Za-z][A-Za-z0-9]{0,6})+)/g, (all) => {
+    text = text.replace(/([A-Za-z][A-Za-z0-9]{0,6}(?:\s*&\s*[A-Za-z][A-Za-z0-9]{0,6})+)/g, (all, _g1, offset, whole) => {
+        // 已经在 {A&B} 里的不再改写：否则嵌套解析（框内再次 parseInput）会把
+        // {X1&G43} 再包一层变成 {{X1&G43}}，导致 "多余的 }" 报错。
+        if (whole[offset - 1] === "{" && whole[offset + all.length] === "}") return all;
         const codes = all.split("&").map((x) => x.trim()).filter((x) => x.length)
             .map((c) => resolveTranslitCode(c));
         if (codes.length < 2) return all;
