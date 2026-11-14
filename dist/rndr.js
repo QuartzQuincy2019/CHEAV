@@ -9061,12 +9061,10 @@
             w += ms[i].w + (i > 0 ? SMALL_SKIP : 0);
             if (ms[i].h > h) h = ms[i].h;
         }
-        // HBox.buildHorizontalListElement:126-140：
-        // 行内**多于一个元素**时，JSesh 把每个元素各包一个 Cadrat，
-        // 而 Cadrat 在横排文本里有 1em 高度下限（honourMaxHeight）——
-        // 所以这类行的高度是 1em，字形在各自的格子里贴底。
-        // 单元素行不包 Cadrat，高度就是墨迹高度。
-        const rowH = (elems.length > 1) ? Math.max(h, MAX_CADRAT_HEIGHT) : h;
+        // 注：行内多元素会被各自包进 Cadrat，但那些 Cadrat 是 embedded，
+        // QuadratLayout:82-87 会把 honourMaxHeight 置为 false，所以行高就是墨迹高度，
+        // 不能抬到 1em（抬了会把 t*t*t 拉到中间，不是贴顶）。
+        const rowH = h;
         const W = (typeof width === "number" && width > w) ? width : w;
         const places = [];
         let x = 0;
