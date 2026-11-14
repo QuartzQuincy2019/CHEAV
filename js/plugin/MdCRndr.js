@@ -7514,6 +7514,8 @@ function renderLigature(parent, name, fontSize) {
         return box;
     }
     // 照抄 Layout.visitLigature 的 3 子视图分支：中间为宿主，首→槽0、尾→槽1，**两槽缺一就整组不放置**
+    const __nParts = lig.parts.length;
+    const __placeAllowed = (__nParts === 2 || __nParts === 3);   // 源码只处理 2 与 3 子视图
     let threeSidesOk = true;
     if (lig.parts.length === 3 && glyphZoneProvider) {
         const z3 = glyphZoneProvider((lig.parts[0] || {}).code) || {};
@@ -7528,7 +7530,7 @@ function renderLigature(parent, name, fontSize) {
         const align = i === 0 ? "center" : undefined;
         // part.zone：按锚字符（parts[0]）的连字区自动缩放并贴边（Tier 1）
         let zdx = (part.dx || 0), zdy = (part.dy || 0), zps = ps, zUsed = false;
-        if (part.zone && glyphZoneProvider && threeSidesOk) {
+        if (part.zone && glyphZoneProvider && threeSidesOk && __placeAllowed) {
             const explicitZone = (part.zone === "zone1" || part.zone === "zone2");
             const prevP = explicitZone ? (placed[0] || null) : (placed[i - 1] || placed[0] || null);
             const anchor0 = prevP || { code: (lig.parts[0] || {}).code || "", dx: (lig.parts[0] || {}).dx || 0, dy: (lig.parts[0] || {}).dy || 0 };
@@ -7587,28 +7589,39 @@ function renderLigature(parent, name, fontSize) {
         if (noZoneOrigin) { el.style.top = "0px"; el.style.bottom = "auto"; }   // 原点 = 左上
         el.style.marginBottom = "0px";   // 连字区定位已含墨迹底边，避免 dy 二次叠加
         const __m = getMetrics(part.code);
-        placed[i] = { code: part.code, dx: zdx, dy: zdy, w: (__m.width / EM_SQUARE) * (zps / fontSize) };
+        placed[i] = { code: part.code, dx: zdx, dy: zdy, w: (__m.width / EM_SQUARE) * (zps / fontSize), h: (__m.height / EM_SQUARE) * (zps / fontSize) };
         if (ligatureDebug()) el.classList.add("lig-debug");
     });
 
-    // 按部件范围解析式撑开容器：允许负 dx（前插槽）与右侧伸出（后插槽）
+    // 照抄 Layout.visitLigature 末尾的 fitToSubViews(true)：
+    // 把所有部件的联合包围盒平移回原点（左上对齐），容器尺寸 = 联合尺寸。
     if (placed.length > 1) {
-        let minX = Infinity, maxX = -Infinity;
+        const hostCode0 = (lig.parts[0] || {}).code || "";
+        const hostHm2 = (function (c) { const b = glyphBoxProvider ? glyphBoxProvider(c) : null; return b ? b.h : 1; })(hostCode0);
+        let minX = Infinity, maxX = -Infinity, minTop = Infinity, maxBottom = -Infinity;
         for (const p of placed) {
             if (!p) continue;
             if (p.dx < minX) minX = p.dx;
             if (p.dx + p.w > maxX) maxX = p.dx + p.w;
+            const bottom = hostHm2 - p.dy;          // y 向下：部件底边
+            const top = bottom - (p.h || 0);        // y 向下：部件顶边
+            if (top < minTop) minTop = top;
+            if (bottom > maxBottom) maxBottom = bottom;
         }
-        if (isFinite(minX) && isFinite(maxX)) {
-            if (minX < 0) {
-                let k = 0;
-                for (const child of box.children) {
-                    const p = placed[k++];
-                    if (p) child.style.left = px((p.dx - minX) * fontSize) + "px";
-                }
-                maxX -= minX;
+        if (isFinite(minX) && isFinite(maxX) && isFinite(minTop) && isFinite(maxBottom)) {
+            const H2 = Math.max(maxBottom - minTop, 0.01);
+            let k2 = 0;
+            for (const child of box.children) {
+                const p = placed[k2++];
+                if (!p) continue;
+                child.style.left = px((p.dx - minX) * fontSize) + "px";
+                // y 向上：容器高 H2 时，部件的 bottom 偏移 = H2 − (hostHm2 − dy) + minTop
+                const nb = (H2 - (hostHm2 - p.dy) + minTop) * fontSize;
+                child.style.bottom = px(nb) + "px";
+                child.style.top = "auto";
             }
-            box.style.width = px(Math.max(maxX * fontSize, fontSize)) + "px";
+            box.style.width = px(Math.max((maxX - minX) * fontSize, fontSize)) + "px";
+            box.style.height = px(Math.max(H2 * fontSize, 1)) + "px";
         }
     }
     parent.appendChild(box);
