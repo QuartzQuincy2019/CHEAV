@@ -400,7 +400,8 @@ function __exposeLigBox() { }
  * 布局与绘制都用它，框内外才不会各量一套（间距/重叠问题的根因）。
  */
 function ligatureBoxEm(name) {
-    const lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;
+    let lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;
+    if (lig && !lig.parts) lig = null;   // 解析期占位记录（parts 未填）不能用于度量
     let hostW = 0, hostH = 0;
     const hostCode = lig && lig.parts && lig.parts[0] ? lig.parts[0].code : "";
     if (hostCode) {
@@ -412,27 +413,33 @@ function ligatureBoxEm(name) {
             hostH = Math.max(hostH, (m && (m.height !== undefined ? m.height : m.h) || 0) / EM_SQUARE);
         }
     }
-    let w = hostW, h = hostH || 1;
+﻿    // JSesh fitToSubViews(true): union of host + placed parts
+    let minX = 0, maxX = hostW, minB = 0, maxB = hostH || 1;
     if (lig && lig.parts && lig.parts.length > 1 && glyphZoneProvider && hostCode) {
         const zones = glyphZoneProvider(hostCode) || null;
+        const hostHm = hostH || 1;
         for (let i = 1; i < lig.parts.length; i++) {
-            const p = lig.parts[i];
-            if (!p.zone) continue;
-            const z = zones ? (p.zone === "auto" ? (zones.zone2 || zones.zone1)
-                : (p.zone === "zoneB" ? (zones.zoneB || zones.zone2) : zones[p.zone])) : null;
-            if (!z || !(z.w > 0)) continue;
-            // 与 renderLigature 一致：部件会被缩放进区里，再按重力对齐；
-            // 量宽要用「缩小后的字形宽 + 实际偏移」，用 z.w 会把框撑大。
-            const m = getMetrics(p.code);
-            const inkW = Math.max(0.01, (m.width !== undefined ? m.width : m.w || 0) / EM_SQUARE);
-            const inkH = Math.max(0.01, (m.height !== undefined ? m.height : m.h || 0) / EM_SQUARE);
+            const p2 = lig.parts[i];
+            if (!p2.zone) continue;
+            const z = zones ? (p2.zone === "auto" ? (zones.zone2 || zones.zone1)
+                : (p2.zone === "zoneB" ? (zones.zoneB || zones.zone2) : zones[p2.zone])) : null;
+            if (!z || !(z.w > 0) || !(z.h > 0)) continue;
+            const mm = getMetrics(p2.code);
+            const inkW = Math.max(0.01, (mm.width !== undefined ? mm.width : mm.w || 0) / EM_SQUARE);
+            const inkH = Math.max(0.01, (mm.height !== undefined ? mm.height : mm.h || 0) / EM_SQUARE);
             const fitK = (inkW <= z.w && inkH <= z.h) ? 1 : Math.min(z.w / inkW, z.h / inkH);
             const pw = inkW * fitK, ph = inkH * fitK;
             const px = (z.gh === "s") ? z.x : (z.gh === "e") ? (z.x + z.w - pw) : (z.x + (z.w - pw) / 2);
-            if (px + pw > w) w = px + pw;
-            if (z.y + ph > h) h = z.y + ph;
+            const py = (z.gv === "t") ? z.y : (z.gv === "b") ? (z.y + z.h - ph) : (z.y + (z.h - ph) / 2);
+            if (px < minX) minX = px;
+            if (px + pw > maxX) maxX = px + pw;
+            const zb = hostHm - (py + ph);
+            if (zb < minB) minB = zb;
+            if (zb + ph > maxB) maxB = zb + ph;
         }
     }
+    let w = maxX - minX, h = maxB - minB;
+    const mins = { x: minX, b: minB };
     if (!(w > 0.05)) w = 0.5;
     if (!(h > 0.05)) h = 1;
     return { w: w, h: h };
@@ -1024,8 +1031,8 @@ function renderLigature(parent, name, fontSize) {
         if (!el) return;
         // 绝对定位：part 的布局底边置于 (dx, dy) 处
         el.style.position = "absolute";
-        el.style.left = px(zdx * fontSize) + "px";
-        el.style.bottom = px(zdy * fontSize) + "px";
+        el.style.left = px((zdx - (__lbox.minX || 0)) * fontSize) + "px";
+        el.style.bottom = px((zdy - (__lbox.minB || 0)) * fontSize) + "px";
         if (noZoneOrigin) { el.style.top = "0px"; el.style.bottom = "auto"; }   // 原点 = 左上
         el.style.marginBottom = "0px";   // 连字区定位已含墨迹底边，避免 dy 二次叠加
         const __m = getMetrics(part.code);
@@ -2063,6 +2070,21 @@ function splitLines(tree) {
         catch (e) { return { tree: { type: "seq", units: [] }, invalid: [String(e && e.message)] }; }
     },
     ligatureBoxEm: ligatureBoxEm,
+    /** 诊断：输出一个连字的内部记录、zone 与并集盒（em） */
+    debugLigature: function (name) {
+        const out = { name: name, found: false };
+        try {
+            const lig = LIGATURES[name] || LIGATURES[String(name).toLowerCase()] || null;
+            out.found = !!lig;
+            out.parts = lig && lig.parts ? lig.parts.map(function (p) { return { code: p.code, zone: p.zone || null, dx: p.dx, dy: p.dy, scale: p.scale }; }) : null;
+            out.tksesh = !!(lig && lig.tksesh);
+            const host = out.parts && out.parts[0] ? out.parts[0].code : "";
+            out.host = host;
+            out.hostZones = host && glyphZoneProvider ? glyphZoneProvider(host) : null;
+            out.box = ligatureBoxEm(name);
+        } catch (e) { out.err = String(e && e.message); }
+        return out;
+    },
     debugCadrat: function (text) {
         if (!MDC.Cadrat) return "no MDC.Cadrat";
         const laid = MDC.Cadrat.layoutLine(MDC.Cadrat.parse(String(text), function (str) {
