@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611142112";
+    const BUILD = "glyphs-202611142114";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
@@ -362,11 +362,18 @@ function setViewBox(svgText, vb) {
                 bytes = new Uint8Array(await (await fh.getFile()).arrayBuffer());
             } else if (siteDir && !index.size) {
                 // 站点内已解压目录（如 glyfs/jseshGlyphs/）：直接 fetch 文本，零解压开销
-                let resp = await fetch(siteDir + code + ".svg", { cache: "force-cache" });
-                if (!resp.ok) {
-                    resp = await fetch(siteDir + code.toLowerCase() + ".svg", { cache: "force-cache" });
+                // 站点目录的文件名大小写不一定与码表一致（U21.svg / u21.svg / Aa1.svg…），
+                // 依次尝试原样、小写、首字母大写写法。
+                const variants = [code, code.toLowerCase()];
+                const c0 = code.charAt(0), rest = code.slice(1).toLowerCase();
+                const cap = (c0 === c0.toLowerCase() ? c0.toUpperCase() : c0) + rest;
+                if (variants.indexOf(cap) < 0) variants.push(cap);
+                let resp = null;
+                for (const v of variants) {
+                    resp = await fetch(siteDir + v + ".svg", { cache: "force-cache" });
+                    if (resp.ok) break;
                 }
-                if (!resp.ok) { urls.set(code, null); return null; }
+                if (!resp || !resp.ok) { urls.set(code, null); return null; }
                 bytes = new TextEncoder().encode(await resp.text());
             } else {
                 bytes = await readEntry(name);

@@ -166,6 +166,18 @@ function showParseErrors(list) {
             try { await Glyphs.useSiteDir(); } catch (e) { /* 忽略 */ }
         }
         Glyphs.setEnabled(want && Glyphs.ready);
+        // 实际生效的字形来源标到 <html data-glyph-mode>
+        // （设置里选的是 svg，但 file:// 下读不到 glyfs 时会静默回退到字体）
+        const effective = (want && Glyphs.ready) ? "svg" : "font";
+        document.documentElement.dataset.glyphMode = effective;
+        if (want && !Glyphs.ready && !window.__cheavGlyphWarned) {
+            window.__cheavGlyphWarned = true;
+            if (location.protocol === "file:") {
+                console.warn("[CHEAV] file:// 下浏览器不允许读取 glyfs/*.svg（同源策略），已回退到内置字体。需要 SVG 字形请用本地 http 服务打开。");
+            } else {
+                console.warn("[CHEAV] JSesh SVG 字形未就绪，暂时用内置字体渲染（html[data-glyph-mode=font]）。");
+            }
+        }
     }
 
     /** 切换字形来源（font / svg）。 */
@@ -343,9 +355,19 @@ function showParseErrors(list) {
         }
         input.classList.remove("invalid");
         // 渲染前先把本段用到的 JSesh 字形备齐（首次输入也就能直接出 SVG，不必删改重输）
+        // 自愈：首次初始化时站点目录可能还没探到，Glyphs.ready 会是 false，
+        // 之后就一直当作字体模式（表现为「选了 JSech SVG 但实际没生效」）。
+        if (typeof Glyphs !== "undefined" && SETTINGS.glyphSource === "svg" && !Glyphs.ready && Glyphs.useSiteDir) {
+            try { await Glyphs.useSiteDir(); } catch (e) { /* 忽略 */ }
+            if (Glyphs.ready) await syncGlyphs();
+        }
         if (typeof Glyphs !== "undefined" && SETTINGS.glyphSource === "svg" && Glyphs.ready) {
             const need = codesInTree(tree).filter(c => !Glyphs.tried(c));
             if (need.length) await Glyphs.preload(need);
+            // 四开组/转写写法下，codesInTree 拿不到 {stp&n&ra} 里面的码，
+            // 必须再按原始文本补一遍，否则部分字形没预加载，
+            // 会退化成字体字形被塞进 SVG 布局里（重叠）。
+            if (typeof MdCRndr !== "undefined" && MdCRndr.preloadFor) await MdCRndr.preloadFor(input.value);
         }
         box.innerHTML = "";
         if (SETTINGS.verticalText) {
