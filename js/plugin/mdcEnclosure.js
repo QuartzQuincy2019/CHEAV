@@ -99,7 +99,8 @@
      * 返回 { d: path数据, stroke: 线宽 }，坐标原点在框的左上角，y 向下。
      */
 
-    const FINE_WIDTH = 0.5 / 18;          // GeometrySpecification.fineLineWidth
+    const FINE_WIDTH = 0.5 / 18;
+    const BASTION_LENGTH = 4 * EM;      // bastionLength = 4
 
     /** 塞拉赫尾端「宫殿立面」——照 SerekhDrawer.drawSerekhEnd（横排） */
     function serekhEnd(p1, p2, pa, pb, thick, fine) {
@@ -161,7 +162,65 @@
         return { d: thick.join(" "), dFine: fine.join(" "), stroke: LINE_WIDTH, fineStroke: FINE_WIDTH };
     }
 
+
+    /** 城堡框（CASTLE）：照 EnclosureDrawer.drawEnclosure（横排，四边全画） */
+    function castlePath(W, H) {
+        const bL = BASTION_LENGTH, bD = BASTION_DEPTH;
+        const sides = [];
+        const fills = [];
+        const L = function (ax, ay, bx, by) {
+            sides.push("M" + n(ax) + " " + n(ay) + "L" + n(bx) + " " + n(by));
+        };
+        const R = function (x, y, w, h) {
+            if (w > 0 && h > 0) fills.push([x, y, w, h]);
+        };
+        // 内框（四边各让出碉堡进深）
+        const topX = bD, topY = bD;
+        const innerW = W - 2 * bD, innerH = H - 2 * bD;
+        const tl = [topX, topY], bl = [topX, topY + innerH];
+        const tr = [topX + innerW, topY], br = [topX + innerW, topY + innerH];
+        L(tl[0], tl[1], tr[0], tr[1]);
+        L(bl[0], bl[1], br[0], br[1]);
+        L(tl[0], tl[1], bl[0], bl[1]);
+        L(tr[0], tr[1], br[0], br[1]);
+
+        // 边上的碉堡分布：n = floor((l − 3b)/(2b))，间距 = (l − (n+2)b)/(n+1)
+        function info(len) {
+            let cnt = Math.floor((len - 3 * bL) / (2 * bL));
+            let skip;
+            if (cnt < 0) cnt = 0;
+            skip = (len - (cnt + 2) * bL) / (cnt + 1);
+            if (cnt === 1) { cnt = 0; skip = 0; }
+            return { n: cnt, skip: skip };
+        }
+        const hInfo = info(innerW), vInfo = info(innerH);
+
+        // 上下两条边：顶边碉堡向外（y = topY − bD），底边向外（y = bl.y）
+        let x = tl[0] + hInfo.skip + bL;
+        for (let i = 0; i < hInfo.n; i++) { R(x, topY - bD, bL, bD); x += bL + hInfo.skip; }
+        x = bl[0] + hInfo.skip + bL;
+        for (let i = 0; i < hInfo.n; i++) { R(x, bl[1], bL, bD); x += bL + hInfo.skip; }
+        // 左右两条边
+        let y = tl[1] + vInfo.skip + bL;
+        for (let i = 0; i < vInfo.n; i++) { R(tl[0] - bD, y, bD, bL); y += bL + vInfo.skip; }
+        y = tr[1] + vInfo.skip + bL;
+        for (let i = 0; i < vInfo.n; i++) { R(tr[0], y, bD, bL); y += bL + vInfo.skip; }
+
+        // 四角碉堡（L 形）
+        R(tl[0] - bD, tl[1] - bD, bD + bL, bD);
+        R(tl[0] - bD, tl[1] - bD, bD, bD + bL);
+        R(bl[0] - bD, bl[1] - bL, bD, bL);
+        R(bl[0] - bD, bl[1], bD + bL, bD);
+        R(tr[0] - bL, tr[1] - bD, bD + bL, bD);
+        R(tr[0], tr[1] - bD, bD, bD + bL);
+        R(br[0], br[1] - bL, bD, bL);
+        R(br[0] - bL, br[1], bD + bL, bD);
+
+        return { d: sides.join(" "), fills: fills, stroke: LINE_WIDTH };
+    }
+
     function enclosurePath(type, startPart, endPart, W, H, vertical) {
+        if (type === "f" && !vertical) return castlePath(W, H);
         if (type === "s" && !vertical) return serekhPath(W, H, startPart, endPart);
         const d = "M0 0";                       // 占位，实际下面拼
         const dy = LINE_WIDTH / 2;
@@ -244,6 +303,19 @@
         path.setAttribute("stroke-width", String(n(p.stroke)));
         path.setAttribute("vector-effect", "none");
         svg.appendChild(path);
+        if (p.fills) {
+            for (let i = 0; i < p.fills.length; i++) {
+                const f = p.fills[i];
+                const rect = document.createElementNS(svgNs, "rect");
+                rect.setAttribute("x", String(n(f[0])));
+                rect.setAttribute("y", String(n(f[1])));
+                rect.setAttribute("width", String(n(f[2])));
+                rect.setAttribute("height", String(n(f[3])));
+                rect.setAttribute("fill", "currentColor");
+                rect.setAttribute("stroke", "none");
+                svg.appendChild(rect);
+            }
+        }
         if (p.dFine) {
             const fine = document.createElementNS(svgNs, "path");
             fine.setAttribute("d", p.dFine);
