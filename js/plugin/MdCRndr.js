@@ -2179,9 +2179,10 @@ function splitLines(tree) {
         let m;
         while ((m = re.exec(String(text)))) {
             const raw = m[0];
-            let code = raw;
-            try { const d = decodeCode(raw); if (typeof d === "string" && d) code = d; } catch (e) { }
-            codes.push(code);
+            // 不要把码转成 Unicode 字符：那会让下游拿着
+            // "U00013000" 这种字符去拼文件名（glyfs/jseshGlyphs/%F0%93%80%80.svg → 404）。
+            // 码→字形文件的归一化交给 Glyphs.canon（它认 MAIN_SIGNS/TRANSLIT）。
+            codes.push(raw);
         }
         if (typeof Glyphs !== "undefined" && Glyphs.preload) return Glyphs.preload(codes);
         return Promise.resolve();
