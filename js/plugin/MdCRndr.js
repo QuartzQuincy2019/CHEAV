@@ -510,7 +510,7 @@ function renderVertical(parent, tree, fontSize) {
 let encADepth = 0;          // >0 表示正在渲染王名圈内部（框内单字需上下居中）
 function renderEnclosure(parent, u, fontSize, vertical) {
     // JSesh 严格模式：几何与绘制都按 visitCartouche / NormalCartoucheDrawer
-    if (options.jsethEnclosure && MDC.Enclosure && (u.kind === "A" || u.kind === "h1")) {
+    if (options.jsethEnclosure !== false && MDC.Enclosure && (u.kind === "A" || u.kind === "h1")) {
         return renderEnclosureJseth(parent, u, fontSize, vertical);
     }
     const box = document.createElement("span");
@@ -587,49 +587,53 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     const E = MDC.Enclosure;
     const type = u.kind === "A" ? "c" : "h";
     const parts = E.defaultParts(type);
+    const units = u.units || [];
+    // 1) 用度量（墨迹）算内容尺寸，不依赖 DOM 行盒
+    const ms = units.map(function (x) {
+        const m = (typeof MDC.measureUnitEm === "function") ? MDC.measureUnitEm(x) : null;
+        return (m && m.w > 0 && m.h > 0) ? m : { w: 1, h: 1 };
+    });
+    let cw = 0, ch = 0;
+    for (const m of ms) { cw += m.w; if (m.h > ch) ch = m.h; }
+    if (vertical) { ch = 0; for (const m of ms) ch += m.h; cw = 0; for (const m of ms) if (m.w > cw) cw = m.w; }
+    // 2) visitCartouche 几何
+    const g = E.geometry(type, parts.start, parts.end, cw, ch, !!vertical);
+    // 3) 容器 + 逐单元绝对定位（对齐到墨迹框，内部字形盒拉满）
     const box = document.createElement("span");
     box.className = options.encClass + " enc-js";
     box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
-        "line-height:0;font-size:" + fontSize + "px;";
-    const body = document.createElement("span");
-    body.className = "enc-body enc-js-body";
-    body.style.cssText = "position:absolute;left:0;top:0;display:inline-block;" +
-        "line-height:1;white-space:nowrap;min-height:0;padding:0;border:0;";
-    box.appendChild(body);
+        "line-height:0;font-size:" + fontSize + "px;width:" + (g.w * fontSize) + "px;height:" + (g.h * fontSize) + "px;";
+    let cx = 0, cy = 0;
     if (u.kind === "A") encADepth++;
     try {
-        if (vertical) {
-            for (const x of (u.units || [])) renderLayerUnitV(body, x, fontSize);
-        } else {
-            for (const x of (u.units || [])) render(body, x, fontSize);
-        }
+        units.forEach(function (x, i) {
+            const m = ms[i];
+            const cell = document.createElement("span");
+            let left = g.x + cx, top = g.y + (ch - m.h);
+            if (vertical) { left = g.x + (cw - m.w) / 2; top = g.y + cy; cy += m.h; }
+            else { cx += m.w; }
+            cell.className = "enc-cell";
+            cell.style.cssText = "position:absolute;line-height:0;left:" + (left * fontSize) + "px;top:" +
+                (top * fontSize) + "px;width:" + (m.w * fontSize) + "px;height:" + (m.h * fontSize) + "px;";
+            box.appendChild(cell);
+            if (vertical) renderLayerUnitV(cell, x, fontSize); else render(cell, x, fontSize);
+            const hie = cell.querySelector(".hie");
+            if (hie) {
+                hie.style.position = "absolute";
+                hie.style.left = "0px";
+                hie.style.top = "0px";
+                hie.style.margin = "0px";
+                hie.style.width = "100%";
+                hie.style.height = "100%";
+                hie.style.backgroundSize = "100% 100%";
+                hie.style.backgroundPosition = "left top";
+            }
+        });
     } finally {
         if (u.kind === "A") encADepth--;
     }
-    parent.appendChild(box);
-    // 量**墨迹**尺寸（不是行盒）：JSesh 的子视图尺寸就是墨迹框
-    const br = body.getBoundingClientRect();
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    const inks = body.querySelectorAll(".hie, svg, img");
-    for (const el of inks) {
-        const b = el.getBoundingClientRect();
-        if (b.width === 0 && b.height === 0) continue;
-        if (b.left < minX) minX = b.left;
-        if (b.top < minY) minY = b.top;
-        if (b.right > maxX) maxX = b.right;
-        if (b.bottom > maxY) maxY = b.bottom;
-    }
-    if (minX === Infinity) { minX = br.left; minY = br.top; maxX = br.right; maxY = br.bottom; }
-    const subW = (maxX - minX) / fontSize;
-    const subH = (maxY - minY) / fontSize;
-    const inkDX = minX - br.left;                 // 墨迹相对 body 盒的偏移（px）
-    const inkDY = minY - br.top;
-    const g = E.geometry(type, parts.start, parts.end, subW, subH, !!vertical);
-    box.style.width = (g.w * fontSize) + "px";
-    box.style.height = (g.h * fontSize) + "px";
-    body.style.left = (g.x * fontSize - inkDX) + "px";
-    body.style.top = (g.y * fontSize - inkDY) + "px";
     box.appendChild(E.svg(type, parts.start, parts.end, g.w, g.h, !!vertical));
+    parent.appendChild(box);
     return box;
 }
 /**

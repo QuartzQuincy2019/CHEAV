@@ -33,20 +33,20 @@
     <tbody id="tbody"></tbody>
 </table>
 
-<script src="js/lib/paper-core.min.js?v=073254"></script>
-<script src="js/database/mainSigns.js?v=073254"></script>
-<script src="js/database/translit.js?v=073254"></script>
-<script src="js/database/glyphZones.js?v=073254"></script>
-<script src="js/database/serekhTail.js?v=073254"></script>
-<script src="js/database/mdcGlyphTables.js?v=073254"></script>
-<script src="js/plugin/mdcEncoding.js?v=073254"></script>
-<script src="js/plugin/mdcMetrics.js?v=073254"></script>
-<script src="js/plugin/mdcView.js?v=073254"></script>
-<script src="js/plugin/mdcEnclosure.js?v=073254"></script>
-<script src="js/plugin/mdcVrg.js?v=073254"></script>
-<script src="js/plugin/mdcGlyphCore.js?v=073254"></script>
-<script src="js/plugin/MdCRndr.js?v=073254"></script>
-<script src="js/ui/glyphs.js?v=073254"></script>
+<script src="js/lib/paper-core.min.js?v=153916"></script>
+<script src="js/database/mainSigns.js?v=153916"></script>
+<script src="js/database/translit.js?v=153916"></script>
+<script src="js/database/glyphZones.js?v=153916"></script>
+<script src="js/database/serekhTail.js?v=153916"></script>
+<script src="js/database/mdcGlyphTables.js?v=153916"></script>
+<script src="js/plugin/mdcEncoding.js?v=153916"></script>
+<script src="js/plugin/mdcMetrics.js?v=153916"></script>
+<script src="js/plugin/mdcView.js?v=153916"></script>
+<script src="js/plugin/mdcEnclosure.js?v=153916"></script>
+<script src="js/plugin/mdcVrg.js?v=153916"></script>
+<script src="js/plugin/mdcGlyphCore.js?v=153916"></script>
+<script src="js/plugin/MdCRndr.js?v=153916"></script>
+<script src="js/ui/glyphs.js?v=153916"></script>
 <script>
 (async function () {
     "use strict";
@@ -123,15 +123,37 @@
         }}
     ]);
 
-    add("<-Z4->（王名框内居中）", "<-Z4->", [
-        { label: "内容在框内上下居中（|上−下| ≤ 2px）", test: function (p, ref, root) {
-            var body = root.querySelector(".enc-body");
-            if (!body || !p.length) return { ok: false, value: "无内容" };
-            var rb = body.getBoundingClientRect();
+    // 判据来自 JSesh：Layout.visitCartouche（横排）
+    //   框宽 = 内容宽 + dLong(起始端 10/18) + 结束端(11/18)
+    //   框高 = max(内容高 + 2*dSmall, 1em + 2*dSmall)，dSmall = 3/18
+    //   内容落在 (dLong, dSmall)
+    add("<-Z4->（王名框几何 = visitCartouche）", "<-Z4->", [
+        { label: "框高 = max(内容高+1/3, 4/3) em（±0.02）", test: function (p, ref, root) {
+            var box = root.querySelector(".enc-js");
+            if (!box || !p.length) return { ok: false, value: "无框" };
             var top = Math.min.apply(null, p.map(function (x) { return x.top; }));
             var bot = Math.max.apply(null, p.map(function (x) { return x.top + x.h; }));
-            var d = Math.abs((top - rb.top) - (rb.bottom - bot));
-            return { ok: d <= 2, value: d.toFixed(1) + "px" };
+            var contentH = (bot - top) / EM;
+            var want = Math.max(contentH + 6 / 18, 1 + 6 / 18);
+            var got = box.getBoundingClientRect().height / EM;
+            return { ok: Math.abs(got - want) <= 0.02, value: got.toFixed(3) + " em（应 " + want.toFixed(3) + "）" };
+        }},
+        { label: "框宽 = 内容宽 + 21/18 em（±0.02）", test: function (p, ref, root) {
+            var box = root.querySelector(".enc-js");
+            if (!box || !p.length) return { ok: false, value: "无框" };
+            var left = Math.min.apply(null, p.map(function (x) { return x.left; }));
+            var right = Math.max.apply(null, p.map(function (x) { return x.left + x.w; }));
+            var contentW = (right - left) / EM;
+            var want = contentW + 21 / 18;
+            var got = box.getBoundingClientRect().width / EM;
+            return { ok: Math.abs(got - want) <= 0.02, value: got.toFixed(3) + " em（应 " + want.toFixed(3) + "）" };
+        }},
+        { label: "内容顶距 = dSmall = 3/18 em（±0.02）", test: function (p, ref, root) {
+            var box = root.querySelector(".enc-js");
+            if (!box || !p.length) return { ok: false, value: "无框" };
+            var top = Math.min.apply(null, p.map(function (x) { return x.top; }));
+            var d = (top - box.getBoundingClientRect().top) / EM;
+            return { ok: Math.abs(d - 3 / 18) <= 0.02, value: d.toFixed(3) + " em" };
         }}
     ]);
 
