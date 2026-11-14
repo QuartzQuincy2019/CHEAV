@@ -356,6 +356,8 @@ function showParseErrors(list) {
             return;
         }
         box.style.fontSize = SIZE + "px";
+        // 调试用：标出本次正文用的排版路径（flow / jsesh）
+        box.dataset.cadrat = (typeof MdCRndr !== "undefined" && MdCRndr.getCadratMode && MdCRndr.getCadratMode()) || "flow";
         if (typeof MdCRndr !== "undefined" && MdCRndr.getCadratMode && MdCRndr.getCadratMode() === "jsesh") {
             // 四开组排版：整段交给 renderText（它自己按 $ / 换行分段）
             MdCRndr.renderText(box, input.value, SIZE);
