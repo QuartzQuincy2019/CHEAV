@@ -228,7 +228,12 @@ if (require.main === module) {
         const text = fs.readFileSync(path.join(GLYPH_DIR, f), "utf8");
         const b = svgBBox(text);
         if (!b) { skipped++; continue; }
-        rows.push({ code, w: b.maxX - b.minX, h: b.maxY - b.minY });
+        let w = b.maxX - b.minX, h = b.maxY - b.minY;
+        // 字形文件有两种坐标口径：大多数是 ~18 单位/字，
+        // 但 I10 / U1 / E10 这类是 ~1800 单位（导出时放大了 100 倍）。
+        // 不归一化就会被当成异常尺寸丢弃，这些字形就会退到 TTF 度量。
+        while (Math.max(w, h) > 60) { w /= 100; h /= 100; }
+        rows.push({ code, w: w, h: h });
     }
     const a1 = rows.find((r) => r.code === "A1");
     const em = a1 ? a1.h : 18;

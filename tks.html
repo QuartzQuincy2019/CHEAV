@@ -130,8 +130,12 @@
             const parts = box.querySelectorAll(".hie").length;
             const withSvg = [].filter.call(box.querySelectorAll(".hie"), function (e) { return !!e.style.backgroundImage; }).length;
             const inv = (r && r.invalid) ? r.invalid.length : 0;
+            const declared = (window.TKESH_LIGATURES && window.TKESH_LIGATURES[key]) ? window.TKESH_LIGATURES[key].length : parts;
+            const ligEl = box.querySelector(".lig");
+            const miss = (ligEl && ligEl.dataset.missing) || "";
             meta.textContent = w.toFixed(2) + " × " + h.toFixed(2) + " em · " + parts + " 部件"
                 + (withSvg === parts ? " · SVG ✓" : " · SVG " + withSvg + "/" + parts + " ✗")
+                + (declared !== parts ? " · 声明 " + declared + " 件，缺 " + (declared - parts) + (miss ? "（" + miss + "）" : "") : "")
                 + (inv ? " · invalid " + inv : "");
             lines.push(key.padEnd(14) + " " + w.toFixed(2) + "x" + h.toFixed(2) + " n=" + parts + " svg=" + withSvg + (inv ? " INV" : ""));
         });

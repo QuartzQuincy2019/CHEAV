@@ -1008,7 +1008,12 @@ function renderLigature(parent, name, fontSize) {
         parts.forEach(function (p) {
             const k = p.scale || 1;
             const el = renderGlyph(box, p.code, fontSize * k, "bottom");
-            if (!el) return;
+            if (!el) {
+                // 字形库里没有这个码（如 N、S→N37）：JSesh 自己也画不出，
+                // 这里跳过，但在包装盒上留记号便于排查。
+                (box.dataset.missing = box.dataset.missing ? box.dataset.missing + "," + p.code : p.code);
+                return;
+            }
             el.style.position = "absolute";
             el.style.marginBottom = "0px";
             el.style.left = px((p.dx || 0) * fontSize) + "px";
