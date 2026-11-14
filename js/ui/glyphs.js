@@ -167,6 +167,30 @@
      *     —— 否则浏览器按 16×18 px 的固有尺寸栅格化再放大，细笔画会糊成一团（A1 的手就是这么丢的）
      */
     /** 用浏览器实测 SVG 的实际墨迹范围（含 transform）；拿不到返回 null。 */
+    /** 墨迹并集：根 <svg> 的 getBBox() 返回视口，必须逐个 path/polygon 求并集（含 CTM 变换）。 */
+    function unionInk(el) {
+        let ux0 = Infinity, uy0 = Infinity, ux1 = -Infinity, uy1 = -Infinity, any = false;
+        const shapes = el.querySelectorAll("path,polygon");
+        for (let i = 0; i < shapes.length; i++) {
+            let bb = null;
+            try { bb = shapes[i].getBBox(); } catch (e) { continue; }
+            if (!bb || !(bb.width > 0) || !(bb.height > 0)) continue;
+            let pts = [[bb.x, bb.y], [bb.x + bb.width, bb.y], [bb.x, bb.y + bb.height], [bb.x + bb.width, bb.y + bb.height]];
+            let ctm = null;
+            try { ctm = shapes[i].getCTM(); } catch (e) { }
+            if (ctm && isFinite(ctm.a)) {
+                pts = pts.map(function (p) { return [ctm.a * p[0] + ctm.c * p[1] + ctm.e, ctm.b * p[0] + ctm.d * p[1] + ctm.f]; });
+            }
+            for (let k2 = 0; k2 < pts.length; k2++) {
+                const px = pts[k2][0], py = pts[k2][1];
+                if (px < ux0) ux0 = px; if (px > ux1) ux1 = px;
+                if (py < uy0) uy0 = py; if (py > uy1) uy1 = py;
+                any = true;
+            }
+        }
+        return any ? { x: ux0, y: uy0, w: ux1 - ux0, h: uy1 - uy0 } : null;
+    }
+
     function measureSvg(svgText) {
         if (typeof document === "undefined" || !document.body) return null;
         let holder = null;
@@ -177,7 +201,7 @@
             document.body.appendChild(holder);
             const el = holder.querySelector("svg");
             if (!el || typeof el.getBBox !== "function") return null;
-            const bb = el.getBBox();
+            const bb = unionInk(el) || el.getBBox();   // 优先墨迹并集，兜底用视口
             if (bb && bb.width > 0 && bb.height > 0) return { x: bb.x, y: bb.y, w: bb.width, h: bb.height };
         } catch (e) { /* 忽略 */ } finally {
             if (holder && holder.parentNode) holder.parentNode.removeChild(holder);
