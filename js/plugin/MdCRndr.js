@@ -1876,6 +1876,21 @@ function splitLines(tree) {
     setJsethEnclosure: function (on) { options.jsethEnclosure = !!on; },
     getJsethEnclosure: function () { return !!options.jsethEnclosure; },
     /** 预载一段 MDC 文本里出现的所有字形（四开组路径渲染前调用） */
+    /** 调试：打印一个四开组文本的行数/每行高/每个部件的位置（em） */
+    debugCadrat: function (text) {
+        if (!MDC.Cadrat) return "no MDC.Cadrat";
+        const laid = MDC.Cadrat.layoutLine(MDC.Cadrat.parse(String(text), function (str) {
+            const r = parseInput(str);
+            return r && r.tree ? r.tree : { type: "char", code: str };
+        }), { centerSigns: true, embedded: true });
+        const out = ["w=" + laid.w.toFixed(3) + " h=" + laid.h.toFixed(3)];
+        (laid.places || []).forEach(function (p, i) {
+            out.push("p" + i + " x=" + p.x.toFixed(3) + " y=" + p.y.toFixed(3) +
+                " w=" + p.w.toFixed(3) + " h=" + p.h.toFixed(3) +
+                " u=" + (p.elem && p.elem.text ? p.elem.text : "?"));
+        });
+        return out.join("\n");
+    },
     preloadFor: function (text) {
         const codes = [];
         const re = /[A-Za-z][A-Za-z0-9]{0,6}/g;
