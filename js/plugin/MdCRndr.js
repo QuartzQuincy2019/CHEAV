@@ -729,7 +729,7 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
                 inner.style.left = "0px";
                 inner.style.bottom = "0px";
                 if (nw > 0 && nh > 0) {
-                    const r = Math.min((m.w * fontSize) / nw, (band * fontSize) / nh);
+                    const r = Math.min(1, (m.w * fontSize) / nw, (band * fontSize) / nh);   // 只缩不放
                     if (r < 0.999) {
                         inner.style.transformOrigin = "0 100%";
                         inner.style.transform = "scale(" + r + ")";
