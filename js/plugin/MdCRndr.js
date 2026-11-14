@@ -696,11 +696,20 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
             render(cell, x, fontSize * ESC);
             const inner = cell.querySelector(".vrg");
             if (inner) {
+                // 不能把内层 .vrg 拉成 100%×100%（会各向异性压扁，出现“面包压鸟”）；
+                // 保持它自己的宽高比，按单元格尺寸整体缩小并贴左下角。
+                const nw = parseFloat(inner.style.width) || 0;
+                const nh = parseFloat(inner.style.height) || 0;
                 inner.style.position = "absolute";
                 inner.style.left = "0px";
-                inner.style.top = "0px";
-                inner.style.width = "100%";
-                inner.style.height = "100%";
+                inner.style.bottom = "0px";
+                if (nw > 0 && nh > 0) {
+                    const r = Math.min((m.w * fontSize) / nw, (band * fontSize) / nh);
+                    if (r < 0.999) {
+                        inner.style.transformOrigin = "0 100%";
+                        inner.style.transform = "scale(" + r + ")";
+                    }
+                }
             }
             const hie = cell.querySelector(".hie");
             if (hie) {
