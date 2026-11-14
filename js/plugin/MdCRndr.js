@@ -625,9 +625,9 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     // JSesh：王名圈被包在一个 Cadrat 里，QuadratLayout.java:194-195
     //   if (honourMaxHeight && h > maxCadratHeight) currentView.reScale(maxCadratHeight / h);
     // 于是整个框（含边距与线宽）被等比缩到 1em —— 框内符号因此比框外小。
-    const s = vertical
-        ? Math.min(1, 1 / Math.max(g.w, 1))
-        : Math.min(1, 1 / Math.max(g.h, 1));
+    // 缩放只由外层四开组做一次（mdcCadrat 的 vrg-part 比值），此处输出自然尺寸；
+    // 否则会与 QuadratLayout 的 reScale 叠加成 0.75²。
+    const s = 1;
     box.style.width = (g.w * s * fontSize) + "px";
     box.style.height = (g.h * s * fontSize) + "px";
     body.style.left = (g.x * s * fontSize) + "px";
