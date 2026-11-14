@@ -1797,6 +1797,18 @@ function splitLines(tree) {
         /** 切换王名圈实现：true = JSesh 几何 + SVG 环；false = 旧 CSS 方案 */
     setJsethEnclosure: function (on) { options.jsethEnclosure = !!on; },
     getJsethEnclosure: function () { return !!options.jsethEnclosure; },
+    /** 按 JSesh 照型结构（Cadrat/HBox/Line）渲染一行文本 */
+    renderCadratLine: function (parent, text, fontSize, opts) {
+        if (!window.MDC || !MDC.Cadrat) return null;
+        const o = opts || {};
+        o.parseElement = function (str) {
+            const r = parseInput(str);
+            const u = r && r.tree ? r.tree : { type: "char", code: str };
+            return u;
+        };
+        o.renderUnit = function (unit, el, fs) { render(el, unit, fs); };
+        return MDC.Cadrat.renderLine(parent, text, fontSize, o);
+    },
     setQuadratMode: function (mode) {
             quadratMode = (mode === "jsesh") ? "jsesh" : "flow";
             return MdCRndr;

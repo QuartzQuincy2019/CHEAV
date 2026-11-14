@@ -22,6 +22,7 @@
 <script src="../js/plugin/mdcMetrics.js"></script>
 <script src="../js/plugin/mdcView.js"></script>
 <script src="../js/plugin/mdcEnclosure.js"></script>
+<script src="../js/plugin/mdcCadrat.js?v=160514"></script>
 <script src="../js/plugin/mdcVrg.js"></script>
 <script  src="../js/plugin/mdcGlyphCore.js?v=v1794149314930"></script>
 <script src="../js/plugin/MdCRndr.js?v=v1794149314930"></script>
@@ -99,7 +100,7 @@ function drawAll() {
     const host = document.getElementById(key);
     if (!host) continue;
     host.innerHTML = "";
-    try { MdCRndr.renderText(host, SAMPLES[key], size); }
+    try { if (jseshEl.checked && /^[abcd]$/.test(key)) MdCRndr.renderCadratLine(host, SAMPLES[key], size); else MdCRndr.renderText(host, SAMPLES[key], size); }
     catch (err) { host.innerHTML = '<span style="color:#c00">' + err.message + "</span>"; }
   }
   // 预热：让 I10 的占据网格开始栅格化（完成后下一次重绘生效）

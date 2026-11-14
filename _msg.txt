@@ -1,7 +1,8 @@
-fix(enclosure): 单元改为 1em em 盒，墨迹在盒内居中（对齐 JSesh 的 A1-t 参考图）
+feat(cadrat): 照型三层结构（Cadrat/HBox/Line）落地并接入渲染
 
-- 每个单元占 1em 高的 em 盒（横排），宽=墨迹宽；墨迹按自身尺寸居中放在盒里，不再拉伸到盒
-- <-A1-t-> 实测 2.570x1.347，A1 与 t 的 em 盒同为 1.014em，t 的墨迹在盒内居中 → 视觉上 t 位于 A1 中部
-- 已知问题（下一轮修）：<-t&A1-> / <-A1&t-> 框内单元数为 0（连字在框内解析为空），
-  但 <-A1-t-> 这类普通序列正常
-- regression 13/13；BUILD → glyphs-202611151045
+- 新增 js/plugin/mdcCadrat.js：按 MDCParser 语法分层解析（'-'/空格=cadrat、':'=HBox、'*'=元素、()=内嵌组），
+  布局照抄 QuadratLayout + visitDefault（行内 Σ+smallSkip、单元素居中/多元素贴底、组高下限 1em、超高 reScale、行间顶对齐）
+- MdCRndr 导出 renderCadratLine(parent, text, fontSize)：解析→布局→flatten→.vrg/.vrg-part 绝对定位
+- zhao.html 的 A/B/C/D 用例改走照型路径（其余仍走旧路径）
+- 实测（em=100px）：t:w 0.594x1.000、A1*N35 2.030x1.000、A1-t 1.502x1.000（两组）、A1:B2 0.448x1.000、n:(ra:Z1)*A40 0.742x1.000（4 件）
+- BUILD → glyphs-202611151115
