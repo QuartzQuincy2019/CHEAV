@@ -2002,6 +2002,11 @@ function splitLines(tree) {
     getJsethEnclosure: function () { return !!options.jsethEnclosure; },
     /** 预载一段 MDC 文本里出现的所有字形（四开组路径渲染前调用） */
     /** 调试：打印一个四开组文本的行数/每行高/每个部件的位置（em） */
+    /** 供应用层校验用：用渲染器自己的解析器判断合法性（支持 & 连字、四开组、王名圈语法） */
+    parseForApp: function (text) {
+        try { return parseInput(String(text)); }
+        catch (e) { return { tree: { type: "seq", units: [] }, invalid: [String(e && e.message)] }; }
+    },
     debugCadrat: function (text) {
         if (!MDC.Cadrat) return "no MDC.Cadrat";
         const laid = MDC.Cadrat.layoutLine(MDC.Cadrat.parse(String(text), function (str) {

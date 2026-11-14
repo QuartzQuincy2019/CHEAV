@@ -325,7 +325,8 @@
                 input.selectionStart = input.selectionEnd = np;
             }
         }
-        const { tree, invalid } = parseInput(input.value);
+        const parsed = (typeof MdCRndr !== "undefined" && MdCRndr.parseForApp) ? MdCRndr.parseForApp(input.value) : parseInput(input.value);
+        const { tree, invalid } = parsed;
         if (invalid.length) {
             input.classList.add("invalid");
             return;                     // 非法 → 中止渲染
@@ -361,7 +362,8 @@
     function updateIBPreview() {
         if (!previewBox || !previewRender) return;
         const src = canonicalize(PIC.enabled() ? PIC.convert(ib.value) : ib.value);
-        const { tree, invalid } = parseInput(src);
+        const parsed = (typeof MdCRndr !== "undefined" && MdCRndr.parseForApp) ? MdCRndr.parseForApp(src) : parseInput(src);
+        const { tree, invalid } = parsed;
         const hasText = src.length > 0;
         const valid = hasText && invalid.length === 0;
 
