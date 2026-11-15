@@ -574,6 +574,13 @@ function showParseErrors(list) {
     // ============ PDMBox / GMBox：onload 预建全部单元 ============
     const phonUnits = buildPhonemeUnits();      // 音素单元池
     const detUnits = buildDeterminativeUnits(); // 定符单元池
+    // 同一个码既是音素又是定符时（如 F35），PDMBox 只保留音素那一条，
+    // 否则会出现"两个一模一样的候选"。
+    (function dedupeDet() {
+        const code = function (u) { return String(u.glyph || "").split(/[-:*{}()]/)[0].trim(); };
+        const have = new Set(phonUnits.map(code));
+        for (let i = detUnits.length - 1; i >= 0; i--) if (have.has(code(detUnits[i]))) detUnits.splice(i, 1);
+    })();
     const codeUnits = buildGardinerUnits();     // Gardiner Code 单元池
 
     function createCellEl(u) {

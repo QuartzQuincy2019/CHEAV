@@ -1171,3 +1171,16 @@ body.mode-vertical .App-canvas .RenderBox {
     line-height: 1.5;
     white-space: pre-wrap;
 }
+
+
+/* 候选单元内字形居中（单字符候选在格子里不居中） */
+.mcell-glyph {
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 1.35em;
+}
+.mcell-glyph > * {
+    margin-left: auto;
+    margin-right: auto;
+}

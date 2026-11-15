@@ -2250,11 +2250,16 @@ function splitLines(tree) {
                 for (const one of raw.split(/\$|\r?\n/)) {
                     for (const w of wrapSource(one)) srcLines.push(w);
                 }
+                const needAbs = (srcLines.length > 1) || !!options.justify;
                 for (const src of srcLines) {
                     const lineEl = mkLine();
-                    lineEl.style.position = "absolute";
-                    lineEl.style.left = (leftMargin * fs) + "px";   // flushZone：zone 起点在 leftMargin
-                    lineEl.style.top = (y * fs) + "px";
+                    // 只有"多行 / 两端对齐"才需要绝对定位逐行摆放；
+                    // 单行且不对齐时保持常规流，否则容器没有高度，行会与相邻内容（IB 预览的 MdC 串）重叠。
+                    if (needAbs) {
+                        lineEl.style.position = "absolute";
+                        lineEl.style.left = (leftMargin * fs) + "px";   // flushZone：zone 起点在 leftMargin
+                        lineEl.style.top = (y * fs) + "px";
+                    }
                     if (!src.trim()) { zones.push({ lineEl: lineEl, src: "", w: 0, maxH: 1, minY: 0 }); y += 1 + skip; continue; }
                     const m = paintLine(lineEl, src, 0);
                     zones.push({ lineEl: lineEl, src: src, w: m.w, maxH: m.maxH, minY: m.minY });
