@@ -2250,20 +2250,22 @@ function splitLines(tree) {
                 for (const one of raw.split(/\$|\r?\n/)) {
                     for (const w of wrapSource(one)) srcLines.push(w);
                 }
-                const needAbs = (srcLines.length > 1) || !!options.justify;
+                // 行是独立单位：每行给显式宽高（.vrg 都是绝对定位，行盒量不到尺寸），
+                // 行与行之间用常规流堆叠 —— 一个容器里若干个行 div，与 JSesh 的 zone 对应。
                 for (const src of srcLines) {
                     const lineEl = mkLine();
-                    // 只有"多行 / 两端对齐"才需要绝对定位逐行摆放；
-                    // 单行且不对齐时保持常规流，否则容器没有高度，行会与相邻内容（IB 预览的 MdC 串）重叠。
-                    if (needAbs) {
-                        lineEl.style.position = "absolute";
-                        lineEl.style.left = (leftMargin * fs) + "px";   // flushZone：zone 起点在 leftMargin
-                        lineEl.style.top = (y * fs) + "px";
+                    lineEl.style.position = "relative";
+                    lineEl.style.marginLeft = (leftMargin * fs) + "px";   // flushZone：zone 起点在 leftMargin
+                    if (!src.trim()) {
+                        lineEl.style.width = "0px";
+                        lineEl.style.height = (1 * fs) + "px";
+                        zones.push({ lineEl: lineEl, src: "", w: 0, maxH: 1, minY: 0 });
+                        continue;
                     }
-                    if (!src.trim()) { zones.push({ lineEl: lineEl, src: "", w: 0, maxH: 1, minY: 0 }); y += 1 + skip; continue; }
                     const m = paintLine(lineEl, src, 0);
+                    lineEl.style.width = (m.w * fs) + "px";
+                    lineEl.style.height = ((m.maxH + Math.abs(m.minY || 0)) * fs) + "px";
                     zones.push({ lineEl: lineEl, src: src, w: m.w, maxH: m.maxH, minY: m.minY });
-                    y += m.maxH + m.minY + skip;
                 }
 
                 // 第二遍：LineLayout.endLayout:138-172 ——
@@ -2282,12 +2284,15 @@ function splitLines(tree) {
                             const qualifies = (i !== last) || (z.w >= 0.75 * target);
                             if (!qualifies || Math.abs(z.w - target) < 1e-3) continue;
                             z.lineEl.innerHTML = "";        // 重排这一行
-                            paintLine(z.lineEl, z.src, target);
+                            const m2 = paintLine(z.lineEl, z.src, target);
+                            z.lineEl.style.width = (m2.w * fs) + "px";
+                            z.lineEl.style.height = ((m2.maxH + Math.abs(m2.minY || 0)) * fs) + "px";
                         }
                     }
                 }
                 el.style.position = "relative";
-                el.style.height = (y * fs) + "px";
+                el.style.paddingTop = ((C2.topMargin !== undefined ? C2.topMargin : 5 / 18) * fs) + "px";
+                el.style.height = "auto";
                 return { tree: null };
             }
             const r = parseInput(text);

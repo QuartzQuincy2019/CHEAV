@@ -1190,13 +1190,11 @@ body.mode-vertical .App-canvas .RenderBox {
 /* 关键澄清：.vrg 是"四开组盒子"（通常 1em×1em），.hie 才是字形墨迹，
    渲染器把 .hie 钉在 .vrg 的 left:0/top:0 —— 所以字形在盒内偏左上。
    要居中就得**在 .vrg 内居中的是 .hie**，而不是把整个 .vrg 挪走（那会出框）。 */
+/* .vrg 保持渲染器给的绝对定位（它是 1em 的四开组盒子），只把墨迹在盒内居中 */
 .mcell-glyph .vrg,
 .c-preview .vrg {
-    position: static !important;
-    display: block !important;
-    margin: 0 auto !important;
-    left: auto !important;
-    top: auto !important;
+    left: 0 !important;
+    top: 0 !important;
 }
 .mcell-glyph .hie,
 .c-preview .hie {
