@@ -9158,6 +9158,9 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
         for (let i = 0; i < row.places.length; i++) {
             row.places[i].x *= k;
             row.places[i].w *= k;
+            // MDCView.scaleToWidth:817-825：xScale = w / internalWidth，yScale 不变。
+            // 字形由盒宽自动拉伸（background 100%），文本则需要显式 scaleX。
+            row.places[i].sx = (row.places[i].sx || 1) * k;
         }
         row.w = w;
     }
@@ -9367,7 +9370,7 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
                     walk({ x: p.x + q.x * sx, y: p.y + q.y * sy, w: q.w * sx, h: q.h * sy, elem: q.elem });
                 });
             } else if (p.elem) {
-                out.push({ x: p.x, y: p.y, w: p.w, h: p.h, unit: p.elem.unit, text: p.elem.text, asc: p.asc, nh: p.nh });
+                out.push({ x: p.x, y: p.y, w: p.w, h: p.h, unit: p.elem.unit, text: p.elem.text, asc: p.asc, nh: p.nh, sx: p.sx });
             }
         }
         (laid.places || []).forEach(walk);
@@ -9394,6 +9397,12 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
             el.style.cssText = "position:absolute;line-height:0;left:" + (p.x * fontSize) + "px;top:" +
                 (p.y * fontSize) + "px;width:" + (p.w * fontSize) + "px;height:" + (p.h * fontSize) + "px;";
             box.appendChild(el);
+            // JSesh QuadratLayout:109-119：wide 的行走 scaleToWidth(maxw)，
+            // 只改 xScale（横向拉伸），yScale 不变 —— 这里用 scaleX 等价表达。
+            if (p.sx && Math.abs(p.sx - 1) > 0.001) {
+                const t = el.querySelector(".txt");
+                if (t) { t.style.transformOrigin = "left bottom"; t.style.transform = "scaleX(" + p.sx + ")"; }
+            }
             if (p.unit && renderUnit) {
                 renderUnit(p.unit, el, fontSize);
                 // JSesh 里文本是 view，随 xScale/yScale 一起缩放；
