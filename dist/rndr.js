@@ -9012,7 +9012,7 @@
             const m = MDC.measureUnitEm(u);
             // 度量失败或退化成极小值（例如连字名查不到表）时按 1em 方盒处理，
             // 否则部件会被压成几个像素，看起来"框内什么都没有"。
-            if (m && m.w > 0.05 && m.h > 0.05) return { w: m.w, h: m.h };
+        return (m.asc !== undefined) ? { w: m.w, h: m.h, asc: m.asc } : { w: m.w, h: m.h };
         }
         return { w: MAX_CADRAT_WIDTH, h: MAX_CADRAT_HEIGHT };
     }
@@ -9079,8 +9079,9 @@
             const laid = layoutLine(el.cadrats, { centerSigns: false, embedded: true });
             return { w: laid.w, h: laid.h };
         }
-        const m = measure(el.unit);
-        return { w: m.w, h: m.h };
+        const __u = (el.unit && el.unit.type === "seq" && el.unit.units && el.unit.units.length === 1) ? el.unit.units[0] : el.unit;   // 拆掉 parseInput 的 seq 包装
+        const m = measure(__u);
+        return (m.asc !== undefined) ? { w: m.w, h: m.h, asc: m.asc } : { w: m.w, h: m.h };
     }
 
     // 一行（HBox）：多元素底对齐；单元素水平居中
@@ -9346,7 +9347,7 @@
                     walk({ x: p.x + q.x * sx, y: p.y + q.y * sy, w: q.w * sx, h: q.h * sy, elem: q.elem });
                 });
             } else if (p.elem) {
-                out.push({ x: p.x, y: p.y, w: p.w, h: p.h, unit: p.elem.unit, text: p.elem.text });
+                out.push({ x: p.x, y: p.y, w: p.w, h: p.h, unit: p.elem.unit, text: p.elem.text, asc: p.asc });
             }
         }
         (laid.places || []).forEach(walk);
