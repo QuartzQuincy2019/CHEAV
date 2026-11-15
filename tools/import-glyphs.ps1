@@ -1,4 +1,4 @@
-<#
+﻿<#
   从 JSesh 安装目录里的 jseshGlyphs-*.jar 补齐缺失的字形 SVG。
 
   背景：glyfs/jseshGlyphs/ 是从某一版 jseshGlyphs jar 解压出来的，

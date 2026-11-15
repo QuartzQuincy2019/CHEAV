@@ -32,7 +32,23 @@ js/plugin/keycast.js
 
 # 本机解包的 JSesh 字形目录（glyfs/ = jseshGlyphs jar 的解压内容，约 35MB，不入库）
 glyfs/
-# N37 在 jseshGlyphs 里缺文件（只有 N37A），按图录补了一个，需要入库
+# 这 17 个码 jseshGlyphs 里没有 svg，由 tools/bzr2svg.js 从 goodbzr/*.bzr 生成，需入库
+!glyfs/jseshGlyphs/Aa8.svg
+!glyfs/jseshGlyphs/Aa9.svg
+!glyfs/jseshGlyphs/Aa10.svg
+!glyfs/jseshGlyphs/Aa11.svg
+!glyfs/jseshGlyphs/Aa12.svg
+!glyfs/jseshGlyphs/L6.svg
+!glyfs/jseshGlyphs/M41.svg
+!glyfs/jseshGlyphs/N20.svg
+!glyfs/jseshGlyphs/N22.svg
+!glyfs/jseshGlyphs/N33.svg
+!glyfs/jseshGlyphs/N41.svg
+!glyfs/jseshGlyphs/O50.svg
+!glyfs/jseshGlyphs/Z3.svg
+!glyfs/jseshGlyphs/Z8.svg
+!glyfs/jseshGlyphs/Z9.svg
+!glyfs/jseshGlyphs/Ff1.svg
 !glyfs/jseshGlyphs/N37.svg
 
 # 塞拉赫尾部描摹源图（仅本地参考，不随仓库分发）

@@ -124,18 +124,23 @@ function readMap() {
 }
 
 // ---------- 生成 SVG 路径 ----------
+// .bzr 的坐标单位约为 1/14 em，而 svgBoxes 以 18 单位 = 1 em 记；
+// 实测按 ×10 落到 em 量级（Z3 → 0.04×0.70，N37 → 0.71×0.17）,与 JSesh 的观感一致。
+const BZR_SCALE = 10;
+
 function toPathData(g) {
     const out = [];
     for (const pts of g.paths) {
         if (!pts.length) continue;
-        out.push("M " + pts[0].x.toFixed(2) + " " + pts[0].y.toFixed(2));
+        out.push("M " + (pts[0].x * BZR_SCALE).toFixed(2) + " " + (pts[0].y * BZR_SCALE).toFixed(2));
         for (let i = 1; i < pts.length; i++) {
             const p = pts[i];
             if (p.c1x !== undefined) {
-                out.push("C " + p.c1x.toFixed(2) + " " + p.c1y.toFixed(2) + " " +
-                    p.c2x.toFixed(2) + " " + p.c2y.toFixed(2) + " " + p.x.toFixed(2) + " " + p.y.toFixed(2));
+                out.push("C " + (p.c1x * BZR_SCALE).toFixed(2) + " " + (p.c1y * BZR_SCALE).toFixed(2) + " " +
+                    (p.c2x * BZR_SCALE).toFixed(2) + " " + (p.c2y * BZR_SCALE).toFixed(2) + " " +
+                    (p.x * BZR_SCALE).toFixed(2) + " " + (p.y * BZR_SCALE).toFixed(2));
             } else {
-                out.push("L " + p.x.toFixed(2) + " " + p.y.toFixed(2));
+                out.push("L " + (p.x * BZR_SCALE).toFixed(2) + " " + (p.y * BZR_SCALE).toFixed(2));
             }
         }
         out.push("Z");
