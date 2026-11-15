@@ -745,6 +745,8 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     const E = MDC.Enclosure;
     const box = document.createElement("span");
     box.className = options.encClass + " enc-js";
+    // 回归判据要按 visitCartouche 公式算期望值，而 .hie 量到的是乘过 ESC 的，
+    // 所以把「自然尺寸」和 ESC 一并写到 DOM 上，判据与渲染同源。
     box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
         "line-height:0;font-size:" + fontSize + "px;";
     const body = document.createElement("span");
@@ -832,6 +834,13 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     const ESC = vertical ? Math.min(1, 1 / Math.max(g.w, 1)) : Math.min(1, 1 / Math.max(g.h, 1));
     const box = document.createElement("span");
     box.className = options.encClass + " enc-js";
+    // 判据要按 visitCartouche 公式算期望值，而 .hie 量到的是乘过 ESC 的；
+    // 把自然尺寸与 ESC 写到 DOM 上，判据与渲染同源。
+    box.dataset.naturalW = g.w;
+    box.dataset.naturalH = g.h;
+    box.dataset.contentW = cw;
+    box.dataset.contentH = ch;
+    box.dataset.encScale = ESC;
     box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
         "line-height:0;font-size:" + fontSize + "px;width:" + (g.w * ESC * fontSize) + "px;height:" + (g.h * ESC * fontSize) + "px;";
     // 开发期自检：实际渲染高度必须等于 g.h × ESC（防「双重缩放」回归）
