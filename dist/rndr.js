@@ -11989,20 +11989,19 @@ function splitLines(tree) {
                 // 每行显式给绝对 y，行距不再依赖 CSS 流。
                 const C2 = MDC.Cadrat;
                 const skip = (C2.lineSkip !== undefined) ? C2.lineSkip : 6 / 18;
-                let y = (C2.topMargin !== undefined) ? C2.topMargin : 5 / 18;
-                for (const src of raw.split(/\$|\r?\n/)) {
-                    const lineEl = mkLine();
-                    lineEl.style.position = "absolute";
-                    lineEl.style.left = "0";
-                    lineEl.style.top = (y * fs) + "px";
-                    if (!src.trim()) { y += 1 + skip; continue; }
-                    // Tab 停位（LineLayoutAux.visitTabStop:364-369）：
-                    //   pos = stopPos × tabUnitWidth
-                    // tabUnitWidth 在 GeometrySpecification 里是 18/200；按“占正文宽的千分比”理解，
-                    // 一个 Tab 前进 (18/200) × textWidth ≈ 2.69em。可用 MDC.Cadrat.tabAdvance 覆盖。
-                    const tabAdv = (C2.tabAdvance !== undefined)
-                        ? C2.tabAdvance
-                        : (18 / 200) * (C2.textWidth || 538 / 18);
+                const leftMargin = (C2.leftMargin !== undefined) ? C2.leftMargin : 6 / 18;
+                // Tab 停位（LineLayoutAux.visitTabStop:364-369）：
+                //   pos = stopPos × tabUnitWidth
+                // tabUnitWidth 在 GeometrySpecification 里是 18/200；按“占正文宽的千分比”理解，
+                // 一个 Tab 前进 (18/200) × textWidth ≈ 2.69em。可用 MDC.Cadrat.tabAdvance 覆盖。
+                const tabAdv = (C2.tabAdvance !== undefined)
+                    ? C2.tabAdvance
+                    : (18 / 200) * (C2.textWidth || 538 / 18);
+                const parseEl = function (str) { return parseInput(str).tree; };
+                const renderU = function (unit, box, size) { renderCadratUnit(box, unit, size); };
+
+                // 一个 zone（= 一行）的渲染；justifyWidth 为该行的目标宽（0 = 不对齐）
+                const paintLine = function (lineEl, src, justifyWidth) {
                     const segs = src.split("\t");
                     let x = 0;
                     let maxH = 1, minY = 0;
@@ -12013,25 +12012,54 @@ function splitLines(tree) {
                             segEl.style.cssText = "position:absolute;left:" + (x * fs) + "px;top:0;";
                             lineEl.appendChild(segEl);
                             const laid = C2.renderLine(segEl, seg, fs, {
-                                parseElement: function (str) { return parseInput(str).tree; },
-                                renderUnit: function (unit, box, size) { renderCadratUnit(box, unit, size); },
-                                // 页宽模型：LineLayout.endLayout 用「最宽 zone 减 leftMargin」
-                                justifyWidth: options.pageWidth
-                                    ? Math.max(0, options.pageWidth - (MDC.Cadrat.leftMargin || 0))
-                                    : 0,
+                                parseElement: parseEl,
+                                renderUnit: renderU,
+                                justifyWidth: justifyWidth || 0,
                             });
-                            // renderLine 不返回宽度，直接量容器（em）
-                            const segW = segEl.getBoundingClientRect().width / fs;
-                            x += segW || 0;
+                            x += (segEl.getBoundingClientRect().width / fs) || 0;
                             if (laid) {
                                 maxH = Math.max(maxH, laid.maxH || laid.h || 1);
                                 minY = Math.min(minY, laid.minY || 0);
                             }
                         }
-                        if (si < segs.length - 1) x += tabAdv;   // 段间插入 Tab 停位
+                        if (si < segs.length - 1) x += tabAdv;
                     }
-                    const h = maxH;
-                    y += h + minY + skip;
+                    return { w: x, maxH: maxH, minY: minY };
+                };
+
+                // 第一遍：按自然宽度排好并记录每行宽度（LineLayout 的 Zone 就是一个行）
+                let y = (C2.topMargin !== undefined) ? C2.topMargin : 5 / 18;
+                const zones = [];
+                for (const src of raw.split(/\$|\r?\n/)) {
+                    const lineEl = mkLine();
+                    lineEl.style.position = "absolute";
+                    lineEl.style.left = "0";
+                    lineEl.style.top = (y * fs) + "px";
+                    if (!src.trim()) { zones.push({ lineEl: lineEl, src: "", w: 0, maxH: 1, minY: 0 }); y += 1 + skip; continue; }
+                    const m = paintLine(lineEl, src, 0);
+                    zones.push({ lineEl: lineEl, src: src, w: m.w, maxH: m.maxH, minY: m.minY });
+                    y += m.maxH + m.minY + skip;
+                }
+
+                // 第二遍：LineLayout.endLayout:138-172 ——
+                //   width = max(zone.getWidth()) − leftMargin
+                //   除最后一个 zone 外都对齐到 width；最后一个仅在“宽 ≥ 0.75×width”时对齐
+                if (options.justify) {
+                    let maxW = 0;
+                    for (const z of zones) if (z.w > maxW) maxW = z.w;
+                    if (options.pageWidth) maxW = Math.min(maxW, options.pageWidth);   // 页宽只是上限
+                    const target = Math.max(0, maxW - leftMargin);
+                    if (target > 0) {
+                        const last = zones.length - 1;
+                        for (let i = 0; i < zones.length; i++) {
+                            const z = zones[i];
+                            if (!z.src) continue;
+                            const qualifies = (i !== last) || (z.w >= 0.75 * target);
+                            if (!qualifies || Math.abs(z.w - target) < 1e-3) continue;
+                            z.lineEl.innerHTML = "";        // 重排这一行
+                            paintLine(z.lineEl, z.src, target);
+                        }
+                    }
                 }
                 el.style.position = "relative";
                 el.style.height = (y * fs) + "px";
@@ -12147,6 +12175,8 @@ function splitLines(tree) {
     /** 切换正文排版引擎：true = 四开组（Cadrat/HBox/Line），false = 旧的 layers/parts */
     setCadratMode: function (on) { options.cadratMode = on ? "jsesh" : "flow"; return MdCRndr; },
     /** 设置页宽（em，0 = 不启用）。启用后每行按 endLayout 右边界拉满。 */
+    setJustify: function (on) { options.justify = !!on; },
+    getJustify: function () { return !!options.justify; },
     setPageWidth: function (em) { options.pageWidth = (typeof em === "number" && em > 0) ? em : 0; },
     getPageWidth: function () { return options.pageWidth || 0; },
     getCadratMode: function () { return options.cadratMode === "jsesh" ? "jsesh" : "flow"; },
