@@ -1196,14 +1196,12 @@ body.mode-vertical .App-canvas .RenderBox {
 .mcell-glyph .vrg,
 .c-preview .vrg {
     left: 50% !important;
-    top: 50% !important;
-    transform: translate(-50%, -50%) !important;
+    transform: translateX(-50%) !important;
 }
 .mcell-glyph .hie,
 .c-preview .hie {
     left: 50% !important;
-    top: 50% !important;
-    transform: translate(-50%, -50%) !important;
+    transform: translateX(-50%) !important;
 }
 .mcell-glyph,
 .c-preview {
