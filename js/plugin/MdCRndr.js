@@ -281,7 +281,14 @@ if (!(typeof window !== "undefined" && window.CHEAV_KEEP_LEGACY_LIGATURES)) {
      * @param {string} gardinerCode
      * @returns {string|null}
      */
-    function hg(gardinerCode) {
+    // 可渲染判定：有 Gardiner 字符，或者我们的墨迹表里有这个码
+// （数字码 3 / 2 / 20 … 在 GARDINER 表里没有，但 3.svg 等文件与 svgBoxes 都有）
+function renderable(code) {
+    if (hg(code)) return true;
+    return !!(typeof SVG_BOXES !== "undefined" && SVG_BOXES && SVG_BOXES[code]);
+}
+
+function hg(gardinerCode) {
         let ch = GARDINER[gardinerCode];
         if (!ch) {
             const match = gardinerCode.match(/^([A-Z])([A-Za-z]*)(\d+)([A-Za-z]?)$/);
@@ -1685,7 +1692,7 @@ function parseInput(text) {
             if (mode === "Gardiner") {
                 // 表内只登记字体实有的字形；查不到 → 语法合法但字体不支持 → 占位框
                 const code = canonicalCode(u);
-                return hg(code) ? { type: "char", code: code } : { type: "unsup", code: code };
+                return renderable(code) ? { type: "char", code: code } : { type: "unsup", code: code };
             }
             if (mode === "Hex") {
                 const ch = decodeCode(u);
@@ -1712,7 +1719,7 @@ function parseInput(text) {
             }
             if (translitCode) {
                 const code = canonicalCode(translitCode);
-                return hg(code) ? { type: "char", code: code } : { type: "unsup", code: code };
+                return renderable(code) ? { type: "char", code: code } : { type: "unsup", code: code };
             }
             // 其余非码串（读音 / 词名 / 定符名等）→ 非法
             invalid.push(u);

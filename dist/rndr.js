@@ -9670,15 +9670,15 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
                 return { width: jm.w * emSquare(), height: jm.h * emSquare() };
             }
         }
+        const svgBox0 = (typeof window !== "undefined" && window.SVG_BOXES) ? window.SVG_BOXES[code] : null;
+        if (svgBox0 && svgBox0.w > 0 && svgBox0.h > 0) {
+            return { width: svgBox0.w * emSquare(), height: svgBox0.h * emSquare() };
+        }
         const ch = decodeCode(code);
         if (!ch) return { height: 0, width: 0 };
         // 字体模式：用 NewGardiner.ttf 的**轮廓墨迹框**（tools/ttf-metrics.js 预生成）
         // JSesh SVG 墨迹盒优先（tools/svg-bbox.js 从 jseshGlyphs 的 path 算出，
         // 与 JSesh 排版逐字一致；字体轮廓度量仅作回退）
-        const svgBox = (typeof window !== "undefined" && window.SVG_BOXES) ? window.SVG_BOXES[code] : null;
-        if (svgBox && svgBox.w > 0 && svgBox.h > 0) {
-            return { width: svgBox.w * emSquare(), height: svgBox.h * emSquare() };
-        }
         const key = "x" + ch.codePointAt(0).toString(16).toLowerCase();
         const ng = NGMETRICS[key];
         if (ng && ng.w > 0 && ng.h > 0) {
@@ -10102,7 +10102,14 @@ if (!(typeof window !== "undefined" && window.CHEAV_KEEP_LEGACY_LIGATURES)) {
      * @param {string} gardinerCode
      * @returns {string|null}
      */
-    function hg(gardinerCode) {
+    // 可渲染判定：有 Gardiner 字符，或者我们的墨迹表里有这个码
+// （数字码 3 / 2 / 20 … 在 GARDINER 表里没有，但 3.svg 等文件与 svgBoxes 都有）
+function renderable(code) {
+    if (hg(code)) return true;
+    return !!(typeof SVG_BOXES !== "undefined" && SVG_BOXES && SVG_BOXES[code]);
+}
+
+function hg(gardinerCode) {
         let ch = GARDINER[gardinerCode];
         if (!ch) {
             const match = gardinerCode.match(/^([A-Z])([A-Za-z]*)(\d+)([A-Za-z]?)$/);
@@ -11506,7 +11513,7 @@ function parseInput(text) {
             if (mode === "Gardiner") {
                 // 表内只登记字体实有的字形；查不到 → 语法合法但字体不支持 → 占位框
                 const code = canonicalCode(u);
-                return hg(code) ? { type: "char", code: code } : { type: "unsup", code: code };
+                return renderable(code) ? { type: "char", code: code } : { type: "unsup", code: code };
             }
             if (mode === "Hex") {
                 const ch = decodeCode(u);
@@ -11533,7 +11540,7 @@ function parseInput(text) {
             }
             if (translitCode) {
                 const code = canonicalCode(translitCode);
-                return hg(code) ? { type: "char", code: code } : { type: "unsup", code: code };
+                return renderable(code) ? { type: "char", code: code } : { type: "unsup", code: code };
             }
             // 其余非码串（读音 / 词名 / 定符名等）→ 非法
             invalid.push(u);
