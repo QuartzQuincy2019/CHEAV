@@ -9045,7 +9045,10 @@
      * @returns {Array} cadrat 列表：[{ hboxes: [ [element, ...], ... ] }]
      */
     function parse(text, parseElement) {
-        const cadratTexts = splitTop(text, ["-", " "]);
+        // JSesh 把 "+…+s" 当成独立的四开组：输入 A1+hhello+sN35 时，
+        // 它存盘变成 "A1-+hhello+s-N35"（自带分隔符）。这里先把文本块用 "-" 包起来。
+        const __src = String(text).replace(/(\+[a-rt-z](?:\\.|[^+])*\+s)/g, function (m) { return "-" + m + "-"; });
+        const cadratTexts = splitTop(__src, ["-", " "]);
         return cadratTexts.map(function (ct) {
             const rows = splitTop(ct, [":"]).map(function (rt) {
                 const elems = splitTop(rt, ["*"]).map(function (et) {
@@ -9169,8 +9172,8 @@
                 w *= k; inkH *= k;
             }
             // 文本 run（带 asc）按基线对齐：
-            // JSesh deltaBaseY = maxCadratHeight - alphabeticTextBaseline - ascent = 14/18 - ascent
-            const __y = (ms[i].asc !== undefined) ? (h - ms[i].asc) : (h - inkH);
+            // JSesh 实测：文本在四开组里是**垂直居中**的（不是贴基线），见 m14162 对照图
+            const __y = (ms[i].asc !== undefined) ? ((h - inkH) / 2) : (h - inkH);
             places.push({
                 x: x, y: __y, w: w, h: inkH,
                 cellH: h,                            // ② 格子高 = 行高（绘制仍用 h）
