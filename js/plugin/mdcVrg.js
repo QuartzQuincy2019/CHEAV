@@ -102,7 +102,10 @@
                     const mt = __txtCtx.measureText(s2);
                     const w2 = (mt.width || 0) / 100;
                     const h2 = (((mt.fontBoundingBoxAscent || 0) + (mt.fontBoundingBoxDescent || 0)) || (mt.width ? 40 : 0)) / 100;
-                    if (w2 > 0 && h2 > 0) return { w: w2, h: h2, asc: (mt.fontBoundingBoxAscent || 0) / 100 };
+                    // 浏览器度量按 100px 字号；渲染时字号 = textScale × 基准字号，
+                    // 所以宽高都要乘 textScale，否则会留下一大截空隙。
+                    const __ts = (MDC.host && MDC.host.options && MDC.host.options.textScale) || 0.4;
+                    if (w2 > 0 && h2 > 0) return { w: w2 * __ts, h: h2 * __ts, asc: ((mt.fontBoundingBoxAscent || 0) / 100) * __ts };
                 } catch (e) { /* 退化到粗估 */ }
             }
             return { w: 0.24 * s2.length, h: 0.4 };
