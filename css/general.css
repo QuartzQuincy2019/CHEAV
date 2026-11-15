@@ -1252,3 +1252,27 @@ body.mode-vertical .App-canvas .RenderBox {
     position: static !important;
     display: inline-block !important;
 }
+
+/* text-align 居中兜底：不依赖 flex 的 justify-content 与绝对定位的相互作用 */
+.mcell-glyph,
+.c-preview {
+    display: block !important;
+    text-align: center !important;
+}
+.mcell-glyph .RenderLine {
+    width: auto !important;
+    margin-left: 0 !important;
+    display: inline-block !important;
+    position: static !important;
+    text-align: left;
+}
+.mcell-glyph .RenderLine > div {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    display: inline-block !important;
+}
+.mcell-glyph .RenderLine .vrg {
+    position: static !important;
+    display: inline-block !important;
+}
