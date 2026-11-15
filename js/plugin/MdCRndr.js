@@ -2211,23 +2211,13 @@ function splitLines(tree) {
                 //      或用 data-fixed-width 显式标记
                 // 自动宽度（撑满父级、随内容伸缩）的画板不折行 —— 这与 CHEAV
                 // "粘到哪儿都按块排"的用法一致。
-                let limitEm = options.pageWidth;
-                if (!limitEm) {
-                    // 画板宽度是"给定的"就会有宽度：block 元素撑满父级、或 CSS 里写了宽度。
-                    // 收缩自适应的画板（inline-block / inline，内容为空时宽为 0）则视为
-                    // "没有固定宽度" —— 不折行，让整块随内容延展。
-                    // 也支持用 data-fixed-width 显式指定。
-                    let fixed = false;
-                    let node = el;
-                    for (let d = 0; d < 3 && node && node.getAttribute; d++) {
-                        if (node.hasAttribute && (node.hasAttribute("data-fixed-width") || node.hasAttribute("data-width"))) { fixed = true; break; }
-                        node = node.parentElement;
-                    }
-                    if (!fixed) {
-                        const cw0 = el.getBoundingClientRect().width;
-                        if (cw0 > fs) fixed = true;          // 空内容时已有宽度 → 宽度是给定的
-                    }
-                    if (fixed) {
+                // 是否折行由使用方显式决定（settings.autoWrap）：
+                //   开 → 按页宽（给了的话）或画板宽度折行
+                //   关 → 不折行，画板应允许被内容撑宽（overflow 由宿主控制）
+                let limitEm = 0;
+                if (options.autoWrap) {
+                    limitEm = options.pageWidth;
+                    if (!limitEm) {
                         const cw = el.getBoundingClientRect().width / fs;
                         limitEm = cw > 1 ? cw : 0;
                     }
@@ -2403,6 +2393,8 @@ function splitLines(tree) {
     setCadratMode: function (on) { options.cadratMode = on ? "jsesh" : "flow"; return MdCRndr; },
     /** 设置页宽（em，0 = 不启用）。启用后每行按 endLayout 右边界拉满。 */
     setJustify: function (on) { options.justify = !!on; },
+    setAutoWrap: function (on) { options.autoWrap = !!on; },
+    getAutoWrap: function () { return !!options.autoWrap; },
     getJustify: function () { return !!options.justify; },
     setPageWidth: function (em) { options.pageWidth = (typeof em === "number" && em > 0) ? em : 0; },
     getPageWidth: function () { return options.pageWidth || 0; },
