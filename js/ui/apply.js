@@ -394,13 +394,13 @@ function showParseErrors(list) {
     }
 
     // ============ IB 实时预览 ============
-    // 预览内容 = IB 经 PIC（主字符隐式转换，开启时）与别名规范化后的文本；内置该功能。
+    // 预览内容 = IB 原文经别名规范化后的文本；发音→码的隐式转换（GIMPC）在解析层完成。
     //   合法且非空 → 渲染字形 + MdC 串
     //   非法       → 警戒样式（边框/底色转警戒色，只显示文本串，不渲染）
     //   空         → 隐藏
     function updateIBPreview() {
         if (!previewBox || !previewRender) return;
-        const src = canonicalize(PIC.enabled() ? PIC.convert(ib.value) : ib.value);
+        const src = canonicalize(ib.value);
         const parsed = (typeof MdCRndr !== "undefined" && MdCRndr.parseForApp) ? MdCRndr.parseForApp(src) : parseInput(src);
         const { tree, invalid } = parsed;
         const hasText = src.length > 0;
@@ -429,28 +429,6 @@ function showParseErrors(list) {
         }
         if (previewMdc) previewMdc.textContent = src;
         refreshPreviewToSvg(tree);
-    }
-
-    /**
-     * PIC 就地转换 IB 内容（开启时）；返回是否发生变化。
-     * 保留光标位置：分别转换光标前 / 后的文本，光标随前缀长度平移。
-     * 光标位于 "<...>" 文本区内时跳过（文本内容不参与转换）。
-     */
-    function picConvertInPlace() {
-        if (!PIC.enabled()) return false;
-        const val = ib.value;
-        const caret = (typeof ib.selectionStart === "number") ? ib.selectionStart : val.length;
-        const lt = val.lastIndexOf("<", caret - 1);
-        const gt = val.lastIndexOf(">", caret - 1);
-        if (lt > gt) return false;                       // 光标在文本区内 → 不转换
-        const before = val.slice(0, caret);
-        const after = val.slice(caret);
-        const nb = PIC.convert(before);
-        const na = PIC.convert(after);
-        if (nb === before && na === after) return false;
-        ib.value = nb + na;
-        ib.selectionStart = ib.selectionEnd = nb.length;
-        return true;
     }
 
     // ============ VMBox（页内选择模型 + 只渲染当前页） ============
@@ -852,10 +830,9 @@ function showParseErrors(list) {
     }
 
     /** 入流：终止一个词 / 字符的输入 → 除 VMBox 外，其余 MBox 空闲。
-     *  此处执行 PIC 就地转换，使转换结果参与 VMBox 的匹配。 */
+     *  匹配使用 IB 原文（GIMPC 在解析层生效，不改写文本）。 */
     function enterInflow() {
         inflow = true;
-        picConvertInPlace();
         focusBox = "VM";
         clearCharBoxes();
     }
@@ -909,12 +886,12 @@ function showParseErrors(list) {
     }
 
     /**
-     * IBBox 确认键：IB 内容经 PIC 与别名规范化后入总文本框（自动处理连字符），IB 清空。
+     * IBBox 确认键：IB 内容经别名规范化后入总文本框（自动处理连字符），IB 清空。
      * 别名规范化：J… 是 AA…／Aa… 组的不规范简写，写入正文一律换成正式名
      * （J1 → AA1、J80 → Aa80、Y1v → Y1a）。
      */
     function commitAll() {
-        const raw = PIC.enabled() ? PIC.convert(ib.value) : ib.value;
+        const raw = ib.value;
         const text = canonicalize(raw);
         if (!text) return;
         insertToInput(text);
@@ -1017,7 +994,7 @@ function showParseErrors(list) {
 
     // ============ 事件与初始化 ============
     // 【入流】触发键：终止一个词 / 单字符输入的字符——分隔符 "-" ":"，
-    // 以及组闭合符 "}"（敲完即视为该单位输入结束，随即执行 PIC 就地转换）。
+    // 以及组闭合符 "}"（敲完即视为该单位输入结束）。
     const INFLOW_KEYS = /^[-:}]$/;
 
     function onInput(e) {
@@ -1028,7 +1005,6 @@ function showParseErrors(list) {
         const terminator = !!data && INFLOW_KEYS.test(data);
         if (terminator) {
             inflow = true;
-            picConvertInPlace();
         } else if (typing) {
             inflow = false;
         }
@@ -1099,8 +1075,7 @@ function showParseErrors(list) {
         ["key", ["optionKeys", "PDM", "next"], "settingsPdmOptNext"],
         ["key", ["optionKeys", "GM", "prev"], "settingsGmOptPrev"],
         ["key", ["optionKeys", "GM", "next"], "settingsGmOptNext"],
-        ["bool", ["picEnabled"], "settingsPic"],
-        ["bool", ["watermark"], "settingsWatermark"],
+                ["bool", ["watermark"], "settingsWatermark"],
         ["bool", ["justify"], "settingsJustify"],
         ["bool", ["autoWrap"], "settingsAutoWrap"],
         ["pageWidth", ["pageWidth"], "settingsPageWidth"],

@@ -31,12 +31,14 @@ function normCodeKey(s) {
 }
 
 /**
- * 发音片段规范化为码（= 主字符隐式转换 PIC）。
- * 实现已解耦到独立模块 pic.js（仅依赖 PHONEMES / g，并跳过 "<...>" 文本区）；
- * 此处保留薄封装，便于调用方语义清晰。
+ * 发音片段 → 码的规范化入口。
+ * 真正的隐式转换（GIMPC）在解析层完成（MdCRndr.resolveTranslitCode：
+ * SVG_BOXES → MAIN_SIGNS → PHONEMES → TRANSLIT_SIGNS），且**不改写文本**，
+ * 因此这里保持恒等，仅作为调用方的语义锚点。
  */
 function normalizeMdC(text) {
-    return (typeof PIC !== "undefined") ? PIC.convert(text) : text;
+        // GIMPC 由解析层负责（MdCRndr.resolveTranslitCode），这里不做文本替换
+    return text;
 }
 
 // ============ 当前编辑段（run） ============

@@ -140,7 +140,7 @@ const PHONEME_TABLE = [
 
 // 全部登记项 [{pron, code}]（含同音异形 / 一形多音的所有组合）
 const PHONEME_ROWS = [];
-// 派生：pron → 主码（该发音首个登记的 Gardiner 码；供 hm() 逐字转写与 PIC 规范化使用）
+// 派生：pron → 主码（该发音首个登记的 Gardiner 码；供 hm() 逐字转写与 GIMPC 使用）
 const PHONEMES = {};
 (function buildPhonemeTable() {
     for (const row of PHONEME_TABLE) {

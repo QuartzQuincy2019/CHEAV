@@ -1328,6 +1328,9 @@ function resolveTranslitCode(c) {
     // 放开就会把转写 w→G43 覆盖掉，所以只认数字码（2/3/4/5/20/100…）。
     if (/^\d+$/.test(c) && typeof SVG_BOXES !== "undefined" && SVG_BOXES && SVG_BOXES[c]) return c;
     if (typeof MAIN_SIGNS !== "undefined" && MAIN_SIGNS[c]) return MAIN_SIGNS[c];
+    // GIMPC 的第二级：PHONEMES（maps.js 的 PHONEME_TABLE 派生，pron → 主码）
+    // 让 nfr / stp / km 这类"只在音素表里"的纯发音也能直接解析成主码。
+    if (typeof PHONEMES !== "undefined" && PHONEMES && PHONEMES[c]) return PHONEMES[c];
     if (typeof TRANSLIT_SIGNS !== "undefined" && TRANSLIT_SIGNS[c] && TRANSLIT_SIGNS[c].length) return TRANSLIT_SIGNS[c][0];
     return c;
 }

@@ -316,7 +316,6 @@
 │   ├─ core.js              ← 兼容层：detectInputMode
 │   ├─ rendering.js         ← 兼容层：渲染函数绑定
 │   ├─ parser.js            ← 兼容层：parseInput / splitLines
-│   ├─ pic.js               PIC 主字符隐式转换（独立模块）
 │   └─ matcher.js           匹配与候选排序
 └─ js/ui/apply.js           UI 集成：五模块 / 四区域 / 出流-入流状态机</pre>
                 <p>脚本加载顺序（<code>index.html</code> 中的实际顺序）：</p>
@@ -331,7 +330,6 @@ js/database/lang.js
 js/database/settings.js
 js/engine/core.js         ┘
 js/engine/rendering.js    渲染函数绑定 + 注入样式
-js/engine/pic.js
 js/database/vocabulary.js 词库（MdC 串，不再依赖渲染标记）
 js/engine/parser.js       parseInput / splitLines 绑定
 js/engine/matcher.js
@@ -919,7 +917,7 @@ MdCRndr.internals.ligatureWidth("X1-G43");</pre>
                 </div>
                 <div class="note">
                     <b>引擎不认识的输入：</b>发音（<code>nfr</code>）、定符名（<code>;eye</code>）、词条名一律判为非法 ——
-                    渲染引擎只吃「纯 MdC 渲染串」。CHEAV 在送入正文<b>之前</b>用 PIC 模块把发音换成码，因此正文里永远是合法的。
+                    渲染引擎只吃「纯 MdC 渲染串」。发音 / 主字符的隐式映射由<b>解析层（GIMPC）</b>完成，<b>不修改文本</b>——所以正文里写 <code>nfr</code> 也会渲染成 F35。
                 </div>
                 <div class="note">
                     <b>字体缺失的码不是非法输入：</b>语法合法（Gardiner 形状的码或圣书体区十六进制）但字体没有对应字形的，
@@ -1025,7 +1023,7 @@ IB（输入缓冲区）───updateMatch()──→ 匹配引擎 matcher.js
    │                                   ├─ DM：定符单元池（DETERMINATIVES）
    │                                   └─ GM：Gardiner 单元池（GARDINER）
    ↓ Tab 确认（replaceForBox）
-IB 内容被替换为码串 ──入流（enterInflow）──→ PIC 就地转换（engine/pic.js）
+IB 内容（原文，不改写）──入流（enterInflow）──→ 正文区
    ↓ Enter 确认（commitAll）
 正文文本框 ──parseInput()──→ 单位树 ──render()──→ 渲染区 DOM</pre>
                 <h3>模块职责</h3>
@@ -1038,7 +1036,6 @@ IB 内容被替换为码串 ──入流（enterInflow）──→ PIC 就地转
                     <tr><td class="k">database/vocabulary.js</td><td>词库 <code>VOCABULARY</code>（第二参数为 MdC 渲染串）、音素实例、<code>SEMANTICS</code> 集合</td></tr>
                     <tr><td class="k">database/determinatives.js</td><td>定符表（码 + 英文名称，可一名多码）</td></tr>
                     <tr><td class="k">engine/matcher.js</td><td>四类匹配 + 候选排序 + 单元池构建</td></tr>
-                    <tr><td class="k">engine/pic.js</td><td>PIC：仅按音素表把发音片段换成主字符码，跳过 <code>&lt; &gt;</code> 文本区</td></tr>
                     <tr><td class="k">engine/*.js（兼容层）</td><td>绑定插件导出，保持既有全局名可用</td></tr>
                     <tr><td class="k">ui/apply.js</td><td>DOM 构建、事件、出流/入流状态机、分页与选择、设置面板、按键展示桥接</td></tr>
                 </table>
@@ -1058,7 +1055,6 @@ Phoneme(pron, char)            独立类（不继承 Semantics）：只服务 PD
   optionKeys: { VM:  { prev: "ArrowUp",    next: "ArrowDown" },
                 PDM: { prev: "ArrowLeft",  next: "ArrowRight" },
                 GM:  { prev: "ArrowLeft",  next: "ArrowRight" } },
-  picEnabled: true,        // 主字符隐式转换
   keyCastEnabled: false,   // 按键展示（录屏；插件缺失时设置面板不显示该项）
 }</pre>
                 <h4>控制台入口</h4>
@@ -1090,7 +1086,7 @@ new Vocabulary("tw",   "{X1-G43}",         { en: "you", chs: "你" }),</pre>
 
                 <h3>加音素（database/maps.js 的 PHONEME_TABLE）</h3>
                 <p>音素是<b>单点注册</b>：只在这里登记「发音 → Gardiner 码」，<code>vocabulary.js</code> 会自动生成音素实例。
-                    注意表中写的是 <b>码</b>而不是字符（字符由码经 <code>hg()</code> 得到），行内第 1 个码即该发音的<b>主码</b>（PIC 与 <code>hm()</code> 取它）。</p>
+                    注意表中写的是 <b>码</b>而不是字符（字符由码经 <code>hg()</code> 得到），行内第 1 个码即该发音的<b>主码</b>（GIMPC 与 <code>hm()</code> 取它）。</p>
                 <pre>const PHONEME_TABLE = [
   ["A", "G1"],                       // 一音一码
   ["nw", "W24", "U19"],              // 同音异形（W24 为主码）
