@@ -12029,9 +12029,17 @@ function splitLines(tree) {
 
                 // 自动换行：超过 pageWidth − leftMargin 时在 cadrat 边界断行
                 // （JSesh 由页面布局在 flushZone 处决定，我们按同一阈值贪心切分）
+                // 可用宽度（em）：显式页宽优先；未设页宽时退回"容器宽度"，
+                // 这样默认配置下也会按可视区域折行（JSesh 按页面宽度，行为等价）。
+                let limitEm = options.pageWidth;
+                if (!limitEm) {
+                    const cw = (el.getBoundingClientRect().width ||
+                        (el.parentElement ? el.parentElement.getBoundingClientRect().width : 0)) / fs;
+                    limitEm = cw > 1 ? cw : 0;
+                }
                 const wrapSource = function (src) {
-                    if (!options.pageWidth) return [src];
-                    const limit = Math.max(0.5, options.pageWidth - leftMargin);
+                    if (!limitEm) return [src];
+                    const limit = Math.max(0.5, limitEm - leftMargin);
                     const toks = C2.splitTop(src, ["-", " "]);
                     const out = [];
                     let acc = "";
