@@ -825,3 +825,17 @@ width/height 只在 Layout.visitHieroglyph 里由 getBBox() 反推出来（s.get
 aturalW*sx 铺，而不是把盒宽当成字形宽。
 
 这也解释了为什么 	*t*t:z 里 z 被拉宽后**高度不变** —— scaleToWidth 只碰 xScale。
+
+### 14.4 文本基线的落地条件（实测记录）
+
+`Layout:265-266` 的 `deltaBaseY = maxCadratHeight − alphabeticTextBaseline − ascent` 只在
+下面两条同时成立时才等价于我们的实现：
+
+1. `alphabeticTextBaseline = 4`（`GeometrySpecification.DEFAULT`，单位 1/18em）；
+2. 文本视图高度恰好是 `ascent + descent` —— 我们是 CSS 排版，必须显式
+   `line-height: (ascent+descent)px`，否则浏览器按 `(lineHeight−(asc+desc))/2 + asc`
+   放基线，偏差随字号变化，此时无论常量取几都对不上（曾误调 5/18、7/18）。
+
+另外：JSesh 的文本字体是 **Times New Roman（serif）**，CHEAV 用 `sans-serif`，
+`ascent` 口径本来就不同，因此不按 JSesh 截图做像素级对齐，一律取原值 4。
+需要临时对照时用 `index.html?tb=N`（N 为 1/18em 的倍数）。
