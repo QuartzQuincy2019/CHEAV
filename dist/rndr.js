@@ -11131,6 +11131,12 @@ function protectCompounds(text) {
 
 /** 把一个写法（Gardiner 码或转写）解析成 Gardiner 码：与 expandUnit 同一套规则。 */
 function resolveTranslitCode(c) {
+    // JSesh 里 "3"、"2" 这类数字既是数字，也是**字形码**（glyfs/jseshGlyphs/3.svg）。
+    // 解析顺序与 JSesh 一致：先按码查，命中就是它；否则才走转写表。
+    // （把 3 映射成 Z2 会让它变成 1.01em 宽的三长笔，而 3.svg 只有 0.526em。）
+    // 但只对**纯数字**这样做：w/h 这类单字母在 SVG_BOXES 里也恰好有同名条目，
+    // 放开就会把转写 w→G43 覆盖掉，所以只认数字码（2/3/4/5/20/100…）。
+    if (/^\d+$/.test(c) && typeof SVG_BOXES !== "undefined" && SVG_BOXES && SVG_BOXES[c]) return c;
     if (typeof MAIN_SIGNS !== "undefined" && MAIN_SIGNS[c]) return MAIN_SIGNS[c];
     if (typeof TRANSLIT_SIGNS !== "undefined" && TRANSLIT_SIGNS[c] && TRANSLIT_SIGNS[c].length) return TRANSLIT_SIGNS[c][0];
     return c;
@@ -11506,6 +11512,12 @@ function parseInput(text) {
                     if (visuHeight[key] || visuWidth[key]) return { type: "char", code: u };
                 }
                 return { type: "unsup", code: u };
+            }
+            // JSesh 的数字码（3 / 2 / 4 / 5 / 20 …）本身就是字形码，优先于转写表：
+            // 3 若走 MAIN_SIGNS 会变成 Z2（1.01em 三长笔），而 3.svg 是 0.526em 的三短笔。
+            if (/^\d+$/.test(u) && typeof SVG_BOXES !== "undefined" && SVG_BOXES[u]) {
+                const code = canonicalCode(u);
+                if (hg(code)) return { type: "char", code: code };
             }
             // 非码串：可能是 JSesh 的转写（如 mr、mA、Hr）→ 取其"主字符"码；
             // 没有登记主字符时取该转写的第一个候选（与音素匹配框里排在最前的一致）。
