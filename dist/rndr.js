@@ -11996,16 +11996,41 @@ function splitLines(tree) {
                     lineEl.style.left = "0";
                     lineEl.style.top = (y * fs) + "px";
                     if (!src.trim()) { y += 1 + skip; continue; }
-                    const laid = C2.renderLine(lineEl, src.trim(), fs, {
-                        parseElement: function (str) { return parseInput(str).tree; },
-                        renderUnit: function (unit, box, size) { renderCadratUnit(box, unit, size); },
-                        // 页宽模型：LineLayout.endLayout 用「最宽 zone 减 leftMargin」
-                        justifyWidth: options.pageWidth
-                            ? Math.max(0, options.pageWidth - (MDC.Cadrat.leftMargin || 0))
-                            : 0,
-                    });
-                    const h = laid ? (laid.maxH || laid.h || 1) : 1;
-                    const minY = laid ? (laid.minY || 0) : 0;
+                    // Tab 停位（LineLayoutAux.visitTabStop:364-369）：
+                    //   pos = stopPos × tabUnitWidth
+                    // tabUnitWidth 在 GeometrySpecification 里是 18/200；按“占正文宽的千分比”理解，
+                    // 一个 Tab 前进 (18/200) × textWidth ≈ 2.69em。可用 MDC.Cadrat.tabAdvance 覆盖。
+                    const tabAdv = (C2.tabAdvance !== undefined)
+                        ? C2.tabAdvance
+                        : (18 / 200) * (C2.textWidth || 538 / 18);
+                    const segs = src.split("\t");
+                    let x = 0;
+                    let maxH = 1, minY = 0;
+                    for (let si = 0; si < segs.length; si++) {
+                        const seg = segs[si].trim();
+                        if (seg) {
+                            const segEl = document.createElement("div");
+                            segEl.style.cssText = "position:absolute;left:" + (x * fs) + "px;top:0;";
+                            lineEl.appendChild(segEl);
+                            const laid = C2.renderLine(segEl, seg, fs, {
+                                parseElement: function (str) { return parseInput(str).tree; },
+                                renderUnit: function (unit, box, size) { renderCadratUnit(box, unit, size); },
+                                // 页宽模型：LineLayout.endLayout 用「最宽 zone 减 leftMargin」
+                                justifyWidth: options.pageWidth
+                                    ? Math.max(0, options.pageWidth - (MDC.Cadrat.leftMargin || 0))
+                                    : 0,
+                            });
+                            // renderLine 不返回宽度，直接量容器（em）
+                            const segW = segEl.getBoundingClientRect().width / fs;
+                            x += segW || 0;
+                            if (laid) {
+                                maxH = Math.max(maxH, laid.maxH || laid.h || 1);
+                                minY = Math.min(minY, laid.minY || 0);
+                            }
+                        }
+                        if (si < segs.length - 1) x += tabAdv;   // 段间插入 Tab 停位
+                    }
+                    const h = maxH;
                     y += h + minY + skip;
                 }
                 el.style.position = "relative";
