@@ -1211,3 +1211,34 @@ body.mode-vertical .App-canvas .RenderBox {
     top: auto !important;
     margin: 0 auto !important;
 }
+
+/* 预览内部字形也改回常规流：.vrg/.hie 是绝对定位的，行盒算不出宽度，
+   后面的 MdC 串就会压到字形上（"nfr 与 F35 重合"）。 */
+.IBPreview-render .vrg,
+.IBPreview-render .vrg-part,
+.IBPreview-render .hie,
+.IBPreview-render svg,
+.IBPreview-render img {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    display: inline-block !important;
+    vertical-align: middle;
+}
+
+/* 行盒改为 inline-flex：让字形与文字真正参与排布，而不是叠在一起 */
+.IBPreview-render .RenderLine {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 2px;
+    min-height: 0 !important;
+    height: auto !important;
+    width: auto !important;
+    line-height: 1 !important;
+}
+.IBPreview-render .vrg,
+.IBPreview-render .vrg-part {
+    width: auto !important;
+    height: auto !important;
+    line-height: 1 !important;
+}
