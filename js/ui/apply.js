@@ -1101,9 +1101,17 @@ function showParseErrors(list) {
         ["key", ["optionKeys", "GM", "next"], "settingsGmOptNext"],
         ["bool", ["picEnabled"], "settingsPic"],
         ["bool", ["watermark"], "settingsWatermark"],
+        ["pageWidth", ["pageWidth"], "settingsPageWidth"],
         ["glyph", ["glyphSource"], "settingsGlyphSource"],
         ["bool", ["keyCastEnabled"], "settingsKeyCast"],
     ];
+
+    // 把设置里的页宽同步给渲染器（启动与改动后都调用）
+    function syncPageWidth() {
+        if (typeof MdCRndr !== "undefined" && MdCRndr.setPageWidth) {
+            MdCRndr.setPageWidth(Number(SETTINGS.pageWidth) || 0);
+        }
+    }
 
     function buildSettings() {
         if (!settingsBody) return;
@@ -1156,6 +1164,23 @@ function showParseErrors(list) {
                     num.value = String(v);
                     saveSettings();
                     updateMatch();
+                    renderAll();
+                });
+                row.appendChild(num);
+            } else if (type === "pageWidth") {
+                const num = document.createElement("input");
+                num.type = "number";
+                num.className = "SettingNum";
+                num.min = "0";
+                num.max = "60";
+                num.step = "0.5";
+                num.value = String(getPath(path) || 0);
+                num.addEventListener("change", () => {
+                    const v = Math.max(0, Math.min(60, Number(num.value) || 0));
+                    setPath(path, v);
+                    num.value = String(v);
+                    saveSettings();
+                    if (typeof MdCRndr !== "undefined" && MdCRndr.setPageWidth) MdCRndr.setPageWidth(v);
                     renderAll();
                 });
                 row.appendChild(num);
@@ -1240,6 +1265,7 @@ function showParseErrors(list) {
             refresh();          // 恢复默认后重绘正文（含竖排开关复位）
         });
         settingsBody.appendChild(reset);
+        syncPageWidth();      // 面板与渲染器保持一致（含恢复默认之后）
     }
 
     // ============ 界面文字同步 ============
