@@ -395,6 +395,35 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
         }
         // 行层需要的两个量（LineLayoutAux.visitLineBreak:292-315）：
         //   maxH：行内最高元素；minY：行内最小上沿（可为负，符号可探出基线）
+        // Zone.justifyWidthTo:221-250（三分支）
+        //   ① 只有一个单位 → 居中
+        //   ② 剩余空间 > 0.5 * 最小单位宽 → 整行居中
+        //   ③ 否则等间隔铺开
+        const targetW = (ctx && ctx.justifyWidth) || 0;
+        if (targetW > w && places.length) {
+            const space = targetW - w;
+            let minUnitW = Infinity;
+            for (let i = 0; i < cs.length; i++) if (cs[i].w > 0 && cs[i].w < minUnitW) minUnitW = cs[i].w;
+            if (!isFinite(minUnitW)) minUnitW = w;
+            if (cs.length === 1 || space > 0.5 * minUnitW) {
+                const dx = space / 2;
+                for (let i = 0; i < places.length; i++) places[i].x += dx;
+            } else if (cs.length > 1) {
+                // 等间隔铺开：第 i 个 cadrat 及其后的 place 右移 i * gap
+                const gap = space / (cs.length - 1);
+                let acc = 0, ci = 0;
+                const bounds = [];
+                let bx = 0;
+                for (let i = 0; i < cs.length; i++) { bounds.push(bx); bx += cs[i].w + SMALL_SKIP; }
+                for (let i = 0; i < places.length; i++) {
+                    while (ci + 1 < bounds.length && places[i].x >= bounds[ci + 1] - 1e-9) ci++;
+                    acc = gap * ci;
+                    places[i].x += acc;
+                }
+            }
+            w = targetW;
+        }
+
         let minY = 0;
         for (let i = 0; i < places.length; i++) if (places[i].y < minY) minY = places[i].y;
         return { w: w, h: h, minY: minY, maxH: h, places: places };
@@ -424,7 +453,7 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
         const o = opts || {};
         const parseElement = o.parseElement || function (str) { return { type: "char", code: str }; };
         const cadrats = parse(text, parseElement);
-        const laid = layoutLine(cadrats, o);
+        const laid = layoutLine(cadrats, { justifyWidth: o.justifyWidth, centerSigns: o.centerSigns, embedded: o.embedded });
         const flat = flatten(laid);
         const box = document.createElement("span");
         box.className = "vrg";

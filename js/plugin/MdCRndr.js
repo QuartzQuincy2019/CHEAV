@@ -2156,6 +2156,7 @@ function splitLines(tree) {
                     const laid = C2.renderLine(lineEl, src.trim(), fs, {
                         parseElement: function (str) { return parseInput(str).tree; },
                         renderUnit: function (unit, box, size) { renderCadratUnit(box, unit, size); },
+                        justifyWidth: options.justifyWidth || 0,
                     });
                     const h = laid ? (laid.maxH || laid.h || 1) : 1;
                     const minY = laid ? (laid.minY || 0) : 0;
