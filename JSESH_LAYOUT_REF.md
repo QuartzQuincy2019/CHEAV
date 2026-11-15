@@ -625,3 +625,98 @@ deltaBaseY = maxCadratHeight - alphabeticTextBaseline - ascent
 
 SVG 模式下 ascent 取决于正文字体（CSS 字体栈），这也是 `+…+s` 与圣书体混排时
 必须先定死正文字体/字号，才能谈对齐的原因。
+
+## 十五、绘制层：视图树 + 两个坐标系（2026-11-15）
+
+这一节回答「盒子和绘制到底怎么合成」，也是 §11.6 四项未建模里第 ① 项的正解。
+
+### 15.1 drawView：三段式
+
+ender\draw\ViewDrawer.java:554-635 每次画一个视图都做同样三件事：
+
+    608  elementDrawer.drawElement(v, currentG, false);   // ① 元素本体（在父坐标系里画）
+    611  Graphics2D tmpG = (Graphics2D) currentG.create();
+    614  tmpG.transform(v.getAffineTransform());         // ② 本视图的 rotate + scale
+    617  drawSubViews(tmpG, ...);                        // ③ 子视图（位置用 internal 坐标）
+    622  elementDrawer.drawElement(v, currentG, true);    // ④ 收尾（阴影/线框）
+
+关键点：**① 在父坐标系里画，③ 在「父坐标系 × 本视图 scale」里画**。
+也就是说孩子的 position 是「本视图内部坐标」，会被本视图的 xScale/yScale 再放大一次。
+
+### 15.2 getAffineTransform 只含 rotate + scale
+
+ender\view\MDCView.java:263-290：
+
+`java
+if (xScale == 0 && yScale == 0 && angle == 0) return IDENTITY;
+AffineTransform t = new AffineTransform();
+if (angle != 0) t.rotate(angle);
+if (xScale != 1.0 || yScale != 1.0) t.scale(xScale, yScale);
+return t;
+`
+
+**不含平移**（注释写明「translation 由调用方处理」）。平移统一在 drawSubViews:671
+的 g.translate(subvx, subvy) 里做。
+
+### 15.3 子视图位置的镜像
+
+ViewDrawer.java:663-670：
+
+`java
+if (v.getDirection().isLeftToRight()) {
+    subvx = subv.getPosition().x;
+} else {
+    subvx = v.getInternalWidth() - subv.getPosition().x - subv.getWidth();   // 右到左镜像
+}
+subvy = subv.getPosition().y;
+`
+
+右到左时按 internalWidth 镜像，说明**布局算法内部一律用「从左到右」的坐标**，
+方向只在绘制时翻转。这也是我们该采用的策略：布局不算文本方向。
+
+### 15.4 两套尺寸（整个排版层的核心恒等式）
+
+`java
+width  = internalWidth  * xScale
+height = internalHeight * yScale
+`
+
+- setWidth/setHeight 只改**外部盒子**，不动 internal，也不动 scale；
+  于是 internalWidth = width/xScale 立刻跟着变 —— 即「格子变宽，内部可用空间变宽」。
+- scaleToWidth/scaleForMaxWidth/reScale 改 scale（reScale 同时按比例改外部盒子）。
+- 元素本体绘制时，SVGFontHieroglyphDrawer.draw 自己 	mpG.scale(view.getXScale(), view.getYScale())，
+  把墨迹铺进 internalWidth × internalHeight；外部再乘一次 scale 正好等于 width/height。
+  所以「字形永远铺满自己的格子」在 JSesh 里是恒等式，不是约定。
+
+### 15.5 由此解释的三个现象
+
+1. **setHeight 是「拔高格子」不是「拉伸图形」**：yScale 不变 → internalHeight 变大 →
+   ViewVerticalEnlarger 在 internal 空间里重新分布子视图 → 画出来时再乘回 yScale，
+   内容铺满更高的格子，而每个字形自身比例不变。（§11.6 第 ③ 项）
+2. **scaleToWidth 是「横向拉扁格子」**：只改 xScale → internalWidth 缩小 → 子视图仍按
+   internal 坐标排，绘制时横向乘 xScale → 视觉上横向压扁。	*t*t:z 里 z 铺满整行就是这条路。
+3. **父级看到的是外部盒子**：getMaximalWidthOfSubView、distributeHorizontally、
+   stickSubViewsTo 全用外部 width/height（对应 internal 的换算如 §11.5），
+   所以「先缩放再分布」与「先分布再缩放」结果不同 —— 顺序必须照 §11.4 的 11 步。
+
+### 15.6 对我们的实现意味着什么
+
+现在的 mdcCadrat.layoutCadrat 只产出 places[{x,y,w,h}]（外部盒子），
+enderLine 再按 w×h 把字形铺进盒子。这等价于「xScale 恒为 1」的特例。
+要完整复现 JSesh，place 需要三个字段而不是两个：
+
+`js
+{ x, y,                    // 外部位置（父坐标系）
+  cellW, cellH,            // 外部盒子（父级分布用这个）
+  drawW, drawH }           // 内部盒子（元素绘制用这个；= cell / scale）
+`
+
+对应 enderLine 里：部件盒用 cellW/cellH 定位，字形按 drawW×drawH 铺，
+超出 cell 的部分靠 overflow:visible 露出来（JSesh 也是不裁剪的）。
+
+### 15.7 尚未读的部分
+
+- DefaultElementDrawer（ender\draw\DefaultElementDrawer.java）里 drawElement 对
+  王名圈/组/文本 run 的分派细节，以及它如何使用 getXScale()；
+- PageCoordinateSystem（ender\draw\PageCoordinateSystem.java）在缩放/导出时的作用；
+- AbsoluteGroupBuilder（ender\view\AbsoluteGroupBuilder.java）对 -absolute 组的处理。
