@@ -9306,8 +9306,13 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
         } else {
             let width = 0;
             for (let k = 0; k < rows.length; k++) if (rows[k].w > width) width = rows[k].w;
-            if (honourMaxWidth && !embedded && width < GEOM.maxCadratWidth) width = GEOM.maxCadratWidth;
-            fitLoneSignsToColumnWidth(hboxes, rows, width);
+            // QuadratLayout:120-131：独字撑满列宽**只在 honourMaxWidth 且非 embedded 时**才做。
+            // 横排正文里 honourMaxWidth = false，所以这里不能无条件调用，
+            // 否则窄的独字会被拉宽、宽的独字会被压窄（t:3 / N36 的尺寸失真就来自这里）。
+            if (honourMaxWidth && !embedded && width < GEOM.maxCadratWidth) {
+                width = GEOM.maxCadratWidth;
+                fitLoneSignsToColumnWidth(hboxes, rows, width);
+            }
         }
 
         // QuadratLayout:133-150  高度 = Σ行高 + 行距，按需抬到 maxCadratHeight
