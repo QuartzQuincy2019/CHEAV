@@ -9183,7 +9183,11 @@
             // 文本 run（带 asc）按基线对齐：
             // JSesh 实测：文本在四开组里是**垂直居中**的（不是贴基线），见 m14162 对照图
             // JSesh deltaBaseY = 18 - 4 - ascent：文本基线在格底之上 4/18 em。
-            const __y = (ms[i].asc !== undefined) ? (h - 4 / 18 - ms[i].asc) : (h - inkH);
+            // JSesh: deltaBaseY = 18 - alphabeticTextBaseline - ascent，常量 4 来自
+            // GeometrySpecification.alphabeticTextBaseline。实测（m14359 对照图）
+            // CHEAV 比 JSesh 略低，故在基准上加 1 个设计单位（= 1/18em）补偿：
+            // 这是唯一的可调旋钮，若仍差一点就改这里的分子。
+            const __y = (ms[i].asc !== undefined) ? (h - 5 / 18 - ms[i].asc) : (h - inkH);
             places.push({
                 x: x, y: __y, w: w, h: inkH,
                 cellH: h,                            // ② 格子高 = 行高（绘制仍用 h）
