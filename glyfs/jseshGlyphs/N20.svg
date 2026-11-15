@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0.00 0.00 1.28 0.28" width="1.28" height="0.28">
+  <g transform="translate(0,0.28) scale(1,-1)">
+    <path d="M 12.84 2.82 L 10.26 2.82 L 7.68 2.65 L 4.75 2.65 L 1.48 2.48 C 0.62 2.46 -0.76 1.73 0.49 0.96 L 12.44 0.00 C 12.94 0.24 12.84 0.99 12.84 1.45 L 12.84 2.82 Z M 12.32 2.13 L 12.32 0.41 L 6.30 0.91 L 1.15 1.33 L 0.45 1.79 C 2.20 2.29 10.27 2.30 12.32 2.13 Z" fill="#000" fill-rule="evenodd"/>
+  </g>
+</svg>
