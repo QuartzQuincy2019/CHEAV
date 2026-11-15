@@ -1,0 +1,79 @@
+<!DOCTYPE html><meta charset="utf-8">
+<base href="../../">
+<title>文本排版判据</title>
+<style>
+body{font:13px/1.6 system-ui,sans-serif;margin:24px;max-width:900px}
+h1{font-size:18px;margin:0 0 6px}
+.note{color:#555;font-size:12px;margin-bottom:14px}
+.stage{font-size:100px;line-height:1.2;display:block;margin:8px 0 16px}
+.pass{color:#14561a;font-weight:600}.fail{color:#a31515;font-weight:600}
+.num{color:#666;font-family:ui-monospace,monospace;font-size:12px}
+.sum{padding:10px 14px;border-radius:6px;font-weight:600;margin:12px 0}
+.sum.ok{background:#e6f4ea;color:#14561a}.sum.bad{background:#fdecea;color:#a31515}
+td{padding:4px 10px;border-bottom:1px solid #eee;font-size:12px}
+</style>
+<h1>文本排版判据（+…+s）</h1>
+<div class="note">用例 <code>A1+hhello+sN35</code>：JSesh 会把它存成 <code>A1-+hhello+s-N35</code>，
+文本是独立四开组；文本部件落点 y = 1 − 4/18 − ascent（<code>Layout:265-266</code>）。</div>
+<div id="sum" class="sum">…</div>
+<table id="tbl"></table>
+<div id="stageHost"></div>
+<script src="js/database/mainSigns.js?v=202811"></script><script src="js/database/translit.js?v=202811"></script>
+<script src="js/database/glyphZones.js?v=202811"></script><script src="js/database/serekhTail.js?v=202811"></script>
+<script src="js/database/mdcGlyphTables.js?v=202811"></script><script src="js/database/ngMetrics.js?v=202811"></script>
+<script src="js/database/svgBoxes.js?v=202811"></script>
+<script src="js/plugin/mdcEncoding.js?v=202811"></script><script src="js/plugin/mdcMetrics.js?v=202811"></script>
+<script src="js/plugin/mdcView.js?v=202811"></script><script src="js/plugin/mdcEnclosure.js?v=202811"></script>
+<script src="js/plugin/mdcVrg.js?v=202811"></script><script src="js/plugin/mdcCadrat.js?v=202811"></script>
+<script src="js/plugin/mdcGlyphCore.js?v=202811"></script><script src="js/plugin/MdCRndr.js?v=202811"></script>
+<script src="js/ui/glyphs.js?v=202811"></script>
+<script>
+(async function () {
+    const EM = 100, TEXT = "A1+hhello+sN35";
+    await Glyphs.useSiteDir(); Glyphs.setRenderer(MdCRndr); Glyphs.setEnabled(true);
+    MdCRndr.setCadratMode(true);
+    await Glyphs.preload(["A1", "N35"]);
+    await new Promise(r => setTimeout(r, 900));
+
+    const cell = document.createElement("div");
+    cell.className = "stage";
+    document.getElementById("stageHost").appendChild(cell);
+    MdCRndr.renderText(cell, TEXT, EM);
+
+    const parts = cell.querySelectorAll(".vrg-part");
+    const vrg = cell.querySelector(".vrg");
+    const part1 = parts[1];
+    const txt = part1 && part1.querySelector(".txt");
+    const base = cell.getBoundingClientRect();
+    const em = (v) => v / EM;
+
+    const checks = [
+        ["三个部件（A1 / 文本 / N35）", parts.length === 3, "部件数 " + parts.length],
+        ["两个字形部件（A1、N35）", cell.querySelectorAll(".hie").length === 2,
+            "字形数 " + cell.querySelectorAll(".hie").length],
+        ["整组高度 = 1.00em（±0.03）",
+            vrg && Math.abs(em(vrg.getBoundingClientRect().height) - 1) <= 0.03,
+            vrg ? em(vrg.getBoundingClientRect().height).toFixed(3) + " em" : "无 .vrg"],
+        ["文本部件 y = 1 − 4/18 − asc（0.26–0.36em）",
+            part1 && (function () { const y = em(part1.getBoundingClientRect().top - base.top); return y >= 0.26 && y <= 0.36; })(),
+            part1 ? em(part1.getBoundingClientRect().top - base.top).toFixed(3) + " em" : "缺文本部件"],
+        ["文本不越出自身盒宽（≤1.05）",
+            txt && (function () { const w = txt.getBoundingClientRect().width, bw = part1.getBoundingClientRect().width; return bw > 0 && w <= bw * 1.05; })(),
+            txt ? (txt.getBoundingClientRect().width / part1.getBoundingClientRect().width).toFixed(2) : "无 .txt"]
+    ];
+
+    const tbl = document.getElementById("tbl");
+    let pass = 0;
+    checks.forEach(([label, ok, val]) => {
+        if (ok) pass++;
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td><span class='" + (ok ? "pass" : "fail") + "'>" + (ok ? "PASS" : "FAIL") +
+            "</span></td><td>" + label + "</td><td><span class='num'>→ " + val + "</span></td>";
+        tbl.appendChild(tr);
+    });
+    const s = document.getElementById("sum");
+    s.className = "sum " + (pass === checks.length ? "ok" : "bad");
+    s.textContent = "判据通过 " + pass + " / " + checks.length +
+        (pass === checks.length ? "　全部通过 ✅" : "　存在失败项 ❌");
+})();
+</script>
