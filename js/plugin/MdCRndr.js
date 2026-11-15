@@ -2265,7 +2265,9 @@ function splitLines(tree) {
     },
     preloadFor: function (text) {
         const codes = [];
-        const re = /[A-Za-z][A-Za-z0-9]{0,6}/g;
+        // 纯数字码（3 / 2 / 20 …）也是字形码（glyfs/jseshGlyphs/3.svg），必须一起预载，
+        // 否则 SVG 模式下没有背景图，渲染出来是空白。
+        const re = /[A-Za-z][A-Za-z0-9]{0,6}|\d+/g;
         let m;
         while ((m = re.exec(String(text)))) {
             const raw = m[0];

@@ -147,10 +147,13 @@
      */
     function renderGlyph(parent, code, fontSize, align, mirror) {
         const ch = decodeCode(code);
-        if (!ch) return null;
+        // 数字码（3 / 2 / 20 …）在 GARDINER 里没有 Unicode 字符，但有 3.svg 与墨迹度量，
+        // 这种情况仍要画（用空的占位文字 + SVG 覆盖层）。
+        const hasShape = !!(typeof window !== "undefined" && window.SVG_BOXES && window.SVG_BOXES[code]);
+        if (!ch && !hasShape) return null;
         const el = document.createElement("span");
         el.className = "hie";
-        el.textContent = ch;
+        el.textContent = ch || "";
         el.title = mirror ? code + "（水平镜像）" : code;
         el.style.fontSize = fontSize + "px";
         const tf = [];

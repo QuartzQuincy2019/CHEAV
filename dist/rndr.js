@@ -9759,10 +9759,13 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
      */
     function renderGlyph(parent, code, fontSize, align, mirror) {
         const ch = decodeCode(code);
-        if (!ch) return null;
+        // 数字码（3 / 2 / 20 …）在 GARDINER 里没有 Unicode 字符，但有 3.svg 与墨迹度量，
+        // 这种情况仍要画（用空的占位文字 + SVG 覆盖层）。
+        const hasShape = !!(typeof window !== "undefined" && window.SVG_BOXES && window.SVG_BOXES[code]);
+        if (!ch && !hasShape) return null;
         const el = document.createElement("span");
         el.className = "hie";
-        el.textContent = ch;
+        el.textContent = ch || "";
         el.title = mirror ? code + "（水平镜像）" : code;
         el.style.fontSize = fontSize + "px";
         const tf = [];
@@ -12086,7 +12089,9 @@ function splitLines(tree) {
     },
     preloadFor: function (text) {
         const codes = [];
-        const re = /[A-Za-z][A-Za-z0-9]{0,6}/g;
+        // 纯数字码（3 / 2 / 20 …）也是字形码（glyfs/jseshGlyphs/3.svg），必须一起预载，
+        // 否则 SVG 模式下没有背景图，渲染出来是空白。
+        const re = /[A-Za-z][A-Za-z0-9]{0,6}|\d+/g;
         let m;
         while ((m = re.exec(String(text)))) {
             const raw = m[0];
