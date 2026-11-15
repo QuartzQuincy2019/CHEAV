@@ -27,15 +27,16 @@
     const MAX_CADRAT_HEIGHT = 1;
 
 // JSesh: GeometrySpecification.alphabeticTextBaseline = 4（单位 1/18em）。
-// 浏览器 sans-serif 的 ascent 口径与 JSesh 排版字体不同，需要一点点经验补偿；
-// 用 ?tb=N 可在页面上直接试（N 是 1/18em 的倍数，默认 7）。
+// 默认取 JSesh 的原值 4。曾经为了对齐 JSesh 截图调到 7，后来确认那是
+// 字体差异（JSesh 用 Times New Roman，我们用 sans-serif），不再做补偿。
+// 仍保留 ?tb=N（1/18em 的倍数）供需要时临时对照，不改默认行为。
 const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
     try {
         const q = new URLSearchParams(location.search).get("tb");
         const n = q === null ? NaN : Number(q);
         if (isFinite(n) && n >= 0 && n <= 18) return n;
     } catch (e) { /* 非浏览器环境 */ }
-    return 7;
+    return 4;
 })();    // maxCadratHeight = 18/18
     const MAX_CADRAT_WIDTH = 22 / 18;
 
