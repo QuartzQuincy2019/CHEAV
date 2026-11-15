@@ -9187,7 +9187,7 @@
             // GeometrySpecification.alphabeticTextBaseline。实测（m14359 对照图）
             // CHEAV 比 JSesh 略低，故在基准上加 1 个设计单位（= 1/18em）补偿：
             // 这是唯一的可调旋钮，若仍差一点就改这里的分子。
-            const __y = (ms[i].asc !== undefined) ? (h - 5 / 18 - ms[i].asc) : (h - inkH);
+            const __y = (ms[i].asc !== undefined) ? (h - 7 / 18 - ms[i].asc) : (h - inkH);
             places.push({
                 x: x, y: __y, w: w, h: inkH,
                 cellH: h,                            // ② 格子高 = 行高（绘制仍用 h）
