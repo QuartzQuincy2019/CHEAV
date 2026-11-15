@@ -8683,6 +8683,8 @@
     function ligatureWidth(name) { return MDC.ligatureWidth ? MDC.ligatureWidth(name) : EM_SQUARE; }
 
     /** 单位度量（em） */
+    let __txtCtx = null;
+
     function measureUnitEm(u) {
         if (!u) return { w: 0.3, h: 0.3 };
         if (u.type === "vrg" && u.layers && u.layers.length) {
@@ -8729,7 +8731,24 @@
             }
             return { w: wEm, h: 1 };
         }
-        if (u.type === "text") return { w: 0.24 * (u.text || "").length, h: 0.4 };
+        if (u.type === "text") {
+            // JSesh：宽度用 TextLayout 的 advance、高度用 ascent+descent（Layout:258-266）；
+            // 这里用 canvas 取浏览器自己的字体度量，取不到再退回粗估。
+            const s2 = String(u.text || "");
+            if (s2 && typeof document !== "undefined") {
+                try {
+                    if (!__txtCtx) {
+                        __txtCtx = document.createElement("canvas").getContext("2d");
+                    }
+                    __txtCtx.font = "100px sans-serif";
+                    const mt = __txtCtx.measureText(s2);
+                    const w2 = (mt.width || 0) / 100;
+                    const h2 = (((mt.fontBoundingBoxAscent || 0) + (mt.fontBoundingBoxDescent || 0)) || (mt.width ? 40 : 0)) / 100;
+                    if (w2 > 0 && h2 > 0) return { w: w2, h: h2 };
+                } catch (e) { /* 退化到粗估 */ }
+            }
+            return { w: 0.24 * s2.length, h: 0.4 };
+        }
         if (u.type === "enc") {
             // 王名圈的自然尺寸 = visitCartouche 几何（内容尺寸 + 端头长度 / 副轴边距），
             // 再按“整框缩到 1em”缩一次（与 renderEnclosureJseth 同源）。
