@@ -9670,7 +9670,10 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
                 return { width: jm.w * emSquare(), height: jm.h * emSquare() };
             }
         }
-        const svgBox0 = (typeof window !== "undefined" && window.SVG_BOXES) ? window.SVG_BOXES[code] : null;
+        const __alias = (typeof window !== "undefined" && window.MDC_GLYPH_ALIAS && window.MDC_GLYPH_ALIAS[code]) || null;
+        const svgBox0 = (typeof window !== "undefined" && window.SVG_BOXES)
+            ? (window.SVG_BOXES[code] || (__alias ? window.SVG_BOXES[__alias] : null))
+            : null;
         if (svgBox0 && svgBox0.w > 0 && svgBox0.h > 0) {
             return { width: svgBox0.w * emSquare(), height: svgBox0.h * emSquare() };
         }
