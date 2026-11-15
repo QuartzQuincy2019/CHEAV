@@ -9126,7 +9126,13 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
         smallSkip: 2 / 18,               // smallSkip 2
         largeSignSizeRatio: 0.8,         // largeSignSizeRatio
         smallSignSizeRatio: 0.4,         // smallSignSizeRatio
-        heightOfA1: 18 / 18              // getHeightOfA1()：名义 A1 高 = 18 单位 = 1em
+        heightOfA1: 18 / 18,             // getHeightOfA1()：名义 A1 高 = 18 单位 = 1em
+        // —— 行层（Zone / LineLayoutAux）——
+        lineSkip: 6 / 18,                // lineSkip 6：换行时行与行之间的距离
+        tabUnitWidth: 18 / 200,          // tabUnitWidth 18/200 = 0.09em：一个 Tab 的宽度
+        leftMargin: 6 / 18,              // leftMargin 6：行首左边距
+        topMargin: 5 / 18,               // topMargin 5：首行上边距
+        justifyWidthTo: 0.75             // LineLayout.endLayout: 非末 zone 或宽度 ≥ 0.75×最宽 才拉满
     };
 
     /** MDCView.stickSubViewsTo(ViewSide.BOTTOM)：子视图贴底 */

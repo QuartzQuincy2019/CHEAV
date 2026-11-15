@@ -839,3 +839,46 @@ aturalW*sx 铺，而不是把盒宽当成字形宽。
 另外：JSesh 的文本字体是 **Times New Roman（serif）**，CHEAV 用 `sans-serif`，
 `ascent` 口径本来就不同，因此不按 JSesh 截图做像素级对齐，一律取原值 4。
 需要临时对照时用 `index.html?tb=N`（N 为 1/18em 的倍数）。
+
+
+---
+
+## 十七、行层（Zone / LineLayoutAux）的落地状态
+
+源码：`render/layout/Zone.java`（304 行）、`LineLayout.java`（397 行）、`LineLayoutAux.java`。
+
+### 17.1 对照表
+
+| 源码 | 我们的实现 | 状态 |
+|---|---|---|
+| `Zone.add(view)`：`position = currentPoint + view.getDeltaBaseX/Y` | `place.y` + 文本按 `deltaBaseY = 1 - 4/18 - asc` | 已对齐 |
+| `LineLayoutAux.visitDefault:383-394`：`dx = 宽 + smallSkip`（宽为 0 不加） | `layoutRow` 的 Σ + smallSkip | 已落地 |
+| `LineLayoutAux.visitTabStop:364-369`：`pos = stopPos * tabUnitWidth` | 未做 | 常量已进 GEOM |
+| `LineLayoutAux.visitLineBreak:292-315`：`verticalSkip = zone.height + zone.minY + lineSkip` | 未做（多行靠 CSS 行高堆叠） | 常量已进 GEOM |
+| `Zone.justifyWidthTo:221-250` 三分支 | 未做 | 阈值 0.75 已进 GEOM |
+| `LineLayout.endLayout:138-172` 取最宽 zone 减 leftMargin | 未做 | leftMargin 6/18 已进 GEOM |
+
+### 17.2 建议的落地顺序
+
+1. **行距**：`renderText` 的 cadrat 分支现在按换行符分行、用 CSS 堆叠；应改为
+   逐行按 `verticalSkip = max(h) + minY + lineSkip` 定位（`minY` 可为负，对应符号探出基线下方）。
+2. **Tab**：正文中的 Tab 走 `stopPos * 0.09em`，需要解析层保留 Tab 字符。
+3. **justifyWidthTo**：仅当「非末 zone」或「宽 >= 0.75 * 最宽 zone」时拉满，其余保持原宽 ——
+   这是 JSesh 排版"参差"的来源，不能无条件拉伸。
+4. **leftMargin / topMargin**：页面层，等行层稳定后再接。
+
+### 17.3 常量（已在 mdcCadrat.js 的 GEOM 中）
+
+```
+lineSkip       6/18   = 0.333em
+tabUnitWidth   18/200 = 0.09em
+leftMargin     6/18   = 0.333em
+topMargin      5/18   = 0.278em
+justifyWidthTo 0.75
+```
+
+### 17.4 与前一节的边界
+
+§11-16 讲的是「一个 cadrat 内部」的代数与绘制；本节讲「行如何组织 cadrat、行与行如何排布」。
+两层的交汇点只有一个：`Zone.add(view)` 用 `deltaBaseY` 把视图放到基线上，
+而 `deltaBaseY` 的生产者分别在 `Layout:265-266`（文本）、`Layout:456-460`（王名圈）、`ColumnLayout:98`（竖排列）。
