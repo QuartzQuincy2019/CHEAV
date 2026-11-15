@@ -92,15 +92,14 @@
             line.style.fontSize = fs + "px";
         }
 
-        // 字形还没载入时，触发一次预载，完成后重画（只重试一次，避免循环）
-        if (missing.length && global.Glyphs && typeof global.Glyphs.preload === "function" && !el.__thumbRetry) {
-            el.__thumbRetry = true;
+        // 字形还没载入时，触发一次预载，完成后重画（只重试一次，避免死循环）
+        if (missing.length && global.Glyphs && typeof global.Glyphs.preload === "function" && !el.__thumbTried) {
+            el.__thumbTried = true;
             try {
                 Promise.resolve(global.Glyphs.preload(missing)).then(function () {
-                    el.__thumbRetry = false;
                     render(el, text, sizeEm);
-                }, function () { el.__thumbRetry = false; });
-            } catch (e) { el.__thumbRetry = false; }
+                }, function () { /* 预载失败：保留占位，不再重试 */ });
+            } catch (e) { /* 同右 */ }
         }
         return el;
     }
