@@ -1184,3 +1184,30 @@ body.mode-vertical .App-canvas .RenderBox {
     margin-left: auto;
     margin-right: auto;
 }
+
+
+/* IB 预览：行一律常规流，避免绝对定位的行与 MdC 串重叠 */
+.IBPreview-render {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.IBPreview-render .RenderLine,
+.IBPreview-render > div,
+.IBPreview-render > span {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+}
+
+/* 单字符候选框：字形本身可能是绝对定位的 .vrg/.hie，改回常规流才能被 flex 居中 */
+.mcell-glyph .vrg,
+.mcell-glyph .vrg-part,
+.mcell-glyph .hie,
+.mcell-glyph svg,
+.mcell-glyph img {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    margin: 0 auto !important;
+}
