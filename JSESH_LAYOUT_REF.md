@@ -748,3 +748,48 @@ hieroglyphsDrawer.draw(..., currentView, HieroglyphBodySize.STANDARD) 把墨迹�
 - 我们现在用 ackground-size:100% 100% 铺盒子 —— 等价于 JSesh 的"铺满"，是对的；
 - 但缺了 xScale/yScale 这一层，所以 scaleToWidth（只横向）无法表达，
   只能靠"把盒子改宽"来近似 —— 这正是 §15.6 要补 drawW/drawH 的原因。
+
+## 十六、元素绘制分派（§15.7 三处的调查结果）
+
+### 16.1 DefaultElementDrawer 的各元素
+
+| 元素 | 位置 | 行为 |
+|---|---|---|
+| Hieroglyph | isitHieroglyph:131-232 | 按 SymbolCodes 分支；普通字形交给 hieroglyphsDrawer.draw(..., currentView, STANDARD)，铺满 currentView.getWidth()/getHeight() |
+| AlphabeticCharacter | isitAlphabeticCharacter:79-91 | TextLayout 画在 (0, ascent)；**必须与布局共用 FontRenderContext**，否则字符 advance 与视图宽度对不上 |
+| Cartouche | isitCartouche:110-123 | 按 c.getType() 委派 NormalCartoucheDrawer / SerekhDrawer / EnclosureDrawer(CASTLE) / HwtDrawer / CircularEnclosureDrawer |
+| Cadrat | isitCadrat:401-408 | 只画阴影（在子视图之前或之后取决于 ShadingMode） |
+| ComplexLigature | isitComplexLigature:541-542 | **空实现** —— 连字自身不画，全靠子视图 |
+| ZoneStart / OptionList | :545-551 | 空实现 |
+
+### 16.2 王名圈那段注释是旧的
+
+DefaultElementDrawer:93-108 有一段注释：
+
+> Cartouches are drawn larger than the typical cadrat Height, so that the signs in
+> the cartouche be as tall as the ones outside. The cartouche positioning is done
+> with setStartPoint(). If a Layout modifies the cartouche's startPoint, it won't work.
+
+但**全仓库只有这条注释提到 setStartPoint**，MDCView 里没有这个方法。
+当前版本的实际定位手段是 Layout.visitCartouche 里的 setDeltaBaseY(-dSmall)（§14），
+"画得比 cadrat 高"则由父级 QuadratLayout:194-195 的 eScale(1/h) 统一缩回 1em。
+
+也就是说：**框高 1.333em、内部符号随之变大、再由父级等比缩回** —— 这条链与我们
+enderEnclosureJseth 里 ESC = 1/max(g.h,1) 的做法一致，不必再引入 startPoint 概念。
+
+### 16.3 两处与排版无关的类（可以放心跳过）
+
+- PageCoordinateSystem（109 行）：只做"页面坐标 ↔ 当前 Graphics 坐标"的换算
+  （getTransformToPageCoordinates / moveAreaToPageReferenceSystem / moveBackToPageReferenceSystem），
+  供光标与阴影在页面空间里算完再画回去。与布局无关。
+- AbsoluteGroupBuilder（155 行）：只服务 UI 的"把选中的若干 top item 组成一个 -absolute 组"，
+  内部用 AbsoluteGroupComposer 重新计算相对位置。不在排版主链上。
+
+### 16.4 我们实现里的对应关系
+
+| JSesh | 我们 | 差异 |
+|---|---|---|
+| hieroglyphsDrawer.draw(..., currentView, …) | .hie + ackground-size:100% 100% | 等价（§15.8） |
+| TextLayout.draw(0, ascent) | +…+s 用 <span> 文本节点 | 缺 deltaBaseY 与 ascent 对齐（§14.3） |
+| isitCartouche 委派五种 Drawer | enderEnclosureJseth 内 kind 分支 | S/F 已走几何；CASTLE/HWT/CIRCULAR 端头仍是直线近似 |
+| isitCadrat 只画阴影 | 未实现 | 阴影 ShadingCode 四格位仍是待办 |
