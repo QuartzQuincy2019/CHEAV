@@ -9080,11 +9080,25 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
                         const inner = et.slice(1, -1);
                         return { type: "group", cadrats: parse(inner, parseElement) };
                     }
+                    // MdC 的 l 修饰符（Hieroglyph.java:239 getModifiers().getBoolean("l")）
+                    // 在 HBox 层表现为「这一行是 wide」（HBox.isWide），
+                    // QuadratLayout:107-119 只对 wide 的行做 scaleToWidth。
+                    if (et === "l") return { type: "wide" };
                     return { type: "unit", unit: parseElement(et), text: et };
                 });
                 return elems;
             });
-            return { hboxes: rows };
+            // 行内含 l 标记 → cadrat.wide（对应 Cadrat.isWide()）
+            let __wide = false;
+            for (let i = 0; i < rows.length; i++) {
+                const keep = [];
+                for (let j = 0; j < rows[i].length; j++) {
+                    if (rows[i][j].type === "wide") __wide = true;
+                    else keep.push(rows[i][j]);
+                }
+                if (keep.length) rows[i] = keep;
+            }
+            return { hboxes: rows, wide: __wide };
         });
     }
 
