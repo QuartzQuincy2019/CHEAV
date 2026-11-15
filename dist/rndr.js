@@ -9207,7 +9207,7 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
             places.push({
                 x: x, y: __y, w: w, h: inkH,
                 cellH: h,                            // ② 格子高 = 行高（绘制仍用 h）
-                elem: elems[i], asc: ms[i].asc
+                elem: elems[i], asc: ms[i].asc, nh: ms[i].h
             });
             x += w;
         }
@@ -9367,7 +9367,7 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
                     walk({ x: p.x + q.x * sx, y: p.y + q.y * sy, w: q.w * sx, h: q.h * sy, elem: q.elem });
                 });
             } else if (p.elem) {
-                out.push({ x: p.x, y: p.y, w: p.w, h: p.h, unit: p.elem.unit, text: p.elem.text, asc: p.asc });
+                out.push({ x: p.x, y: p.y, w: p.w, h: p.h, unit: p.elem.unit, text: p.elem.text, asc: p.asc, nh: p.nh });
             }
         }
         (laid.places || []).forEach(walk);
@@ -9396,6 +9396,16 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
             box.appendChild(el);
             if (p.unit && renderUnit) {
                 renderUnit(p.unit, el, fontSize);
+                // JSesh 里文本是 view，随 xScale/yScale 一起缩放；
+                // 我们的文本是绝对 px 字号，这里用「按 place 缩放比缩字号」等价实现。
+                if (p.nh > 0) {
+                    const k = p.h / p.nh;
+                    const txtEl = el.querySelector(".txt");
+                    if (txtEl && Math.abs(k - 1) > 0.001) {
+                        const cur = parseFloat(txtEl.style.fontSize) || 0;
+                        if (cur > 0) txtEl.style.fontSize = (cur * k) + "px";
+                    }
+                }
                 // 王名圈等"自带几何尺寸"的单元：按其自然尺寸与本格尺寸的比值整体缩放
                 // （JSesh 里 Cartouche 是 Cadrat 的一个 element，QuadratLayout:194-195 的
                 //   reScale 作用在整棵子树上，框与框内内容一起缩）
