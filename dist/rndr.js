@@ -9328,6 +9328,22 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
         for (let k = 0; k < rows.length; k++) if (rows[k].w > w) w = rows[k].w;
         if (honourMaxWidth && !embedded && w < GEOM.maxCadratWidth) w = GEOM.maxCadratWidth;
 
+        // QuadratLayout:178-192：算完 cadrat 宽 w 之后，把每行的**盒宽**补到 w，
+        // 再「单元素居中 / 多元素均分 + 贴底」。这一步只是盒子，不改墨迹大小。
+        for (let k = 0; k < rows.length; k++) {
+            const row = rows[k];
+            if (!row || !row.places || !row.places.length) continue;
+            if (row.w < w - 1e-9) {
+                if (row.places.length === 1) {
+                    row.places[0].x += (w - row.w) / 2;
+                } else {
+                    const gap = (w - row.w) / (row.places.length - 1);
+                    for (let i2 = 1; i2 < row.places.length; i2++) row.places[i2].x += gap * i2;
+                }
+                row.w = w;
+            }
+        }
+
         // QuadratLayout:164-172  行分布
         if (rows.length > 1) {
             distributeFromTopToBottom(rows, h);
