@@ -2177,6 +2177,9 @@ function splitLines(tree) {
                         ch = (typeof decodeCode === "function" && decodeCode(code)) || "";
                     }
                 } catch (e) { /* 忽略单字度量失败 */ }
+                // 度量可能给 em（0..1.x）也可能给码位单位（0..1000），统一成 em
+                if (w > 8) w = w / 1000;
+                if (h > 8) h = h / 1000;
                 if (!w || !h || !isFinite(w) || !isFinite(h)) { w = 1; h = 1; }
                 slot.style.width = (w * fs) + "px";
                 slot.style.height = (h * fs) + "px";

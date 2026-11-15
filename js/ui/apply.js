@@ -418,7 +418,7 @@ function showParseErrors(list) {
             // 竖排模式：预览与正文同向（自上而下成列）
             MdCRndr.renderVerticalText(previewRender, src, IB_PREVIEW_SIZE);
         } else if (typeof MdCRndr !== "undefined" && MdCRndr.getCadratMode && MdCRndr.getCadratMode() === "jsesh") {
-            MdCRndr.renderPreview(previewRender, src, IB_PREVIEW_SIZE);
+            MdCRndr.renderText(previewRender, src, IB_PREVIEW_SIZE);
         } else {
             for (const line of splitLines(tree)) {
                 const seg = document.createElement("span");
@@ -509,7 +509,7 @@ function showParseErrors(list) {
 
             const prev = document.createElement("span");
             prev.className = "c-preview";
-            MdCRndr.renderPreview(prev, c.glyph, PREVIEW_SIZE);   // c.glyph 为 MdC 渲染串
+            MdCRndr.renderText(prev, c.glyph, PREVIEW_SIZE);   // c.glyph 为 MdC 渲染串
             item.appendChild(prev);
 
             const wrap = document.createElement("span");
@@ -589,7 +589,7 @@ function showParseErrors(list) {
         const glyph = document.createElement("span");
         glyph.className = "mcell-glyph";
         cell.dataset.mdc = u.glyph || "";
-        MdCRndr.renderPreview(glyph, u.glyph, PREVIEW_SIZE);      // u.glyph 为 MdC 渲染串
+        MdCRndr.renderText(glyph, u.glyph, PREVIEW_SIZE);      // u.glyph 为 MdC 渲染串
         cell.appendChild(glyph);
         // 两行下标：定宽 wrap 内放不定宽标签 → 超长文本（如定符名）循环滚动
         const l1wrap = document.createElement("span");
