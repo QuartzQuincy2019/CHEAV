@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0.00 0.00 0.62 0.58" width="0.62" height="0.58">
   <g transform="translate(0,0.58) scale(1,-1)">
-    <path d="M 0.00 5.80 C 0.23 3.30 3.43 -0.77 6.19 0.12 L 5.17 1.68 L 3.99 4.45 L 1.79 5.01 L 0.00 5.80 Z M 1.03 4.77 L 3.38 4.02 L 5.16 0.64 C 3.79 0.77 0.57 3.27 1.03 4.77 Z" fill="#000" fill-rule="evenodd"/>
+    <path d="M 0.00 10.31 C 0.40 5.86 6.10 -1.36 11.01 0.22 L 9.20 2.99 L 7.09 7.92 L 3.19 8.91 L 0.00 10.31 Z M 1.84 8.47 L 6.01 7.14 L 9.18 1.13 C 6.73 1.38 1.01 5.81 1.84 8.47 Z" fill="#000" fill-rule="evenodd"/>
   </g>
 </svg>

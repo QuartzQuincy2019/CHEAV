@@ -125,8 +125,9 @@ function readMap() {
 
 // ---------- 生成 SVG 路径 ----------
 // .bzr 的坐标单位约为 1/14 em，而 svgBoxes 以 18 单位 = 1 em 记；
-// 实测按 ×10 落到 em 量级（Z3 → 0.04×0.70，N37 → 0.71×0.17）,与 JSesh 的观感一致。
-const BZR_SCALE = 10;
+// .bzr 的字形坐标本身就是 em 量级（A1 高约 1.0），而 svgBoxes 按 18 单位 = 1 em 记账，
+// 所以写入 SVG 时要乘 17.779，让 bbox 工具除回去正好还原成 em（×10 会小 1.78 倍）。
+const BZR_SCALE = 17.779;
 
 function toPathData(g) {
     const out = [];
