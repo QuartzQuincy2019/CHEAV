@@ -1242,3 +1242,25 @@ body.mode-vertical .App-canvas .RenderBox {
     height: auto !important;
     line-height: 1 !important;
 }
+
+/* 预览/候选：字形是绝对定位（left:0/top:0），在比它大的盒子里就贴在左上角。
+   统一改成"居中定位"：容器 position:relative + 字形 50% 再 translate 回半个身位。 */
+.mcell-glyph,
+.c-preview,
+.IBPreview-render {
+    position: relative !important;
+}
+.mcell-glyph > .vrg,
+.mcell-glyph > .hie,
+.mcell-glyph > svg,
+.mcell-glyph > img,
+.c-preview > .vrg,
+.c-preview > .hie,
+.c-preview > svg,
+.c-preview > img,
+.IBPreview-render .RenderLine > .vrg,
+.IBPreview-render .vrg {
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+}
