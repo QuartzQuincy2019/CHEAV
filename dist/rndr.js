@@ -9004,7 +9004,19 @@
     const MDC = global.MDC = global.MDC || {};
 
     const SMALL_SKIP = 2 / 18;      // GeometrySpecification.smallSkip
-    const MAX_CADRAT_HEIGHT = 1;    // maxCadratHeight = 18/18
+    const MAX_CADRAT_HEIGHT = 1;
+
+// JSesh: GeometrySpecification.alphabeticTextBaseline = 4（单位 1/18em）。
+// 浏览器 sans-serif 的 ascent 口径与 JSesh 排版字体不同，需要一点点经验补偿；
+// 用 ?tb=N 可在页面上直接试（N 是 1/18em 的倍数，默认 7）。
+const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
+    try {
+        const q = new URLSearchParams(location.search).get("tb");
+        const n = q === null ? NaN : Number(q);
+        if (isFinite(n) && n >= 0 && n <= 18) return n;
+    } catch (e) { /* 非浏览器环境 */ }
+    return 7;
+})();    // maxCadratHeight = 18/18
     const MAX_CADRAT_WIDTH = 22 / 18;
 
     function measure(u) {
@@ -9187,7 +9199,7 @@
             // GeometrySpecification.alphabeticTextBaseline。实测（m14359 对照图）
             // CHEAV 比 JSesh 略低，故在基准上加 1 个设计单位（= 1/18em）补偿：
             // 这是唯一的可调旋钮，若仍差一点就改这里的分子。
-            const __y = (ms[i].asc !== undefined) ? (h - 7 / 18 - ms[i].asc) : (h - inkH);
+            const __y = (ms[i].asc !== undefined) ? (h - ALPHABETIC_TEXT_BASELINE_UNITS / 18 - ms[i].asc) : (h - inkH);
             places.push({
                 x: x, y: __y, w: w, h: inkH,
                 cellH: h,                            // ② 格子高 = 行高（绘制仍用 h）
