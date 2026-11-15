@@ -12029,13 +12029,32 @@ function splitLines(tree) {
 
                 // 自动换行：超过 pageWidth − leftMargin 时在 cadrat 边界断行
                 // （JSesh 由页面布局在 flushZone 处决定，我们按同一阈值贪心切分）
-                // 可用宽度（em）：显式页宽优先；未设页宽时退回"容器宽度"，
-                // 这样默认配置下也会按可视区域折行（JSesh 按页面宽度，行为等价）。
+                // 折行只发生在"画板固定了宽度"的时候：
+                //   1) 调用方给了页宽（options.pageWidth，UI 里的「页宽」）
+                //   2) 画板元素本身显式设了宽度（style="width:600px" / 类里定了宽）
+                //      或用 data-fixed-width 显式标记
+                // 自动宽度（撑满父级、随内容伸缩）的画板不折行 —— 这与 CHEAV
+                // "粘到哪儿都按块排"的用法一致。
                 let limitEm = options.pageWidth;
                 if (!limitEm) {
-                    const cw = (el.getBoundingClientRect().width ||
-                        (el.parentElement ? el.parentElement.getBoundingClientRect().width : 0)) / fs;
-                    limitEm = cw > 1 ? cw : 0;
+                    // 画板宽度是"给定的"就会有宽度：block 元素撑满父级、或 CSS 里写了宽度。
+                    // 收缩自适应的画板（inline-block / inline，内容为空时宽为 0）则视为
+                    // "没有固定宽度" —— 不折行，让整块随内容延展。
+                    // 也支持用 data-fixed-width 显式指定。
+                    let fixed = false;
+                    let node = el;
+                    for (let d = 0; d < 3 && node && node.getAttribute; d++) {
+                        if (node.hasAttribute && (node.hasAttribute("data-fixed-width") || node.hasAttribute("data-width"))) { fixed = true; break; }
+                        node = node.parentElement;
+                    }
+                    if (!fixed) {
+                        const cw0 = el.getBoundingClientRect().width;
+                        if (cw0 > fs) fixed = true;          // 空内容时已有宽度 → 宽度是给定的
+                    }
+                    if (fixed) {
+                        const cw = el.getBoundingClientRect().width / fs;
+                        limitEm = cw > 1 ? cw : 0;
+                    }
                 }
                 const wrapSource = function (src) {
                     if (!limitEm) return [src];
