@@ -2141,14 +2141,28 @@ function splitLines(tree) {
                     el.appendChild(lineEl);
                     return lineEl;
                 };
+                // 行层（LineLayoutAux.visitLineBreak:292-315）：
+                //   verticalSkip = 行高 + 行最小上沿(minY) + lineSkip
+                // 每行显式给绝对 y，行距不再依赖 CSS 流。
+                const C2 = MDC.Cadrat;
+                const skip = (C2.lineSkip !== undefined) ? C2.lineSkip : 6 / 18;
+                let y = (C2.topMargin !== undefined) ? C2.topMargin : 5 / 18;
                 for (const src of raw.split(/\$|\r?\n/)) {
                     const lineEl = mkLine();
-                    if (!src.trim()) continue;
-                    MDC.Cadrat.renderLine(lineEl, src.trim(), fs, {
+                    lineEl.style.position = "absolute";
+                    lineEl.style.left = "0";
+                    lineEl.style.top = (y * fs) + "px";
+                    if (!src.trim()) { y += 1 + skip; continue; }
+                    const laid = C2.renderLine(lineEl, src.trim(), fs, {
                         parseElement: function (str) { return parseInput(str).tree; },
                         renderUnit: function (unit, box, size) { renderCadratUnit(box, unit, size); },
                     });
+                    const h = laid ? (laid.maxH || laid.h || 1) : 1;
+                    const minY = laid ? (laid.minY || 0) : 0;
+                    y += h + minY + skip;
                 }
+                el.style.position = "relative";
+                el.style.height = (y * fs) + "px";
                 return { tree: null };
             }
             const r = parseInput(text);

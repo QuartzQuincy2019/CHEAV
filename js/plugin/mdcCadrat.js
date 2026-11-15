@@ -393,7 +393,11 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
             }
             x += cs[i].w + SMALL_SKIP;
         }
-        return { w: w, h: h, places: places };
+        // 行层需要的两个量（LineLayoutAux.visitLineBreak:292-315）：
+        //   maxH：行内最高元素；minY：行内最小上沿（可为负，符号可探出基线）
+        let minY = 0;
+        for (let i = 0; i < places.length; i++) if (places[i].y < minY) minY = places[i].y;
+        return { w: w, h: h, minY: minY, maxH: h, places: places };
     }
 
     // 把 places 压平成绝对定位（em 口径）；内嵌括号组递归展开
@@ -494,6 +498,7 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
             }
         });
         return box;
+        return laid;
     }
 
     /**
@@ -545,6 +550,9 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
 
     MDC.Cadrat = {
         SMALL_SKIP: SMALL_SKIP,
+        lineSkip: GEOM.lineSkip,
+        topMargin: GEOM.topMargin,
+        leftMargin: GEOM.leftMargin,
         MAX_CADRAT_HEIGHT: MAX_CADRAT_HEIGHT,
         MAX_CADRAT_WIDTH: MAX_CADRAT_WIDTH,
         parse: parse,
