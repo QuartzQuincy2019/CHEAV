@@ -17,7 +17,7 @@
     "use strict";
 
     // 构建标记：控制台执行 Glyphs.debug().build 即可确认当前加载的是哪一版
-    const BUILD = "glyphs-202611142206";
+    const BUILD = "glyphs-202611142205";
     const DB_NAME = "CHEAV_FS";
     const STORE = "files";
     const KEY = "jseshGlyphs";
@@ -420,20 +420,6 @@ function setViewBox(svgText, vb) {
                 for (const v of variants) {
                     resp = await fetch(siteDir + v + ".svg", { cache: "force-cache" });
                     if (resp.ok) break;
-                }
-                // JSesh 的字形文件名不总等于码：池塘 N37 只有 N37A.svg。
-                // 精确名取不到时再试 code+单个字母 的变体，并记下别名供度量表使用。
-                if (!resp || !resp.ok) {
-                    const S = "ABCDEFGH";
-                    for (const suf of S) {
-                        const v = variants[0] + suf;
-                        const r2 = await fetch(siteDir + v + ".svg", { cache: "force-cache" });
-                        if (r2.ok) {
-                            resp = r2;
-                            (window.MDC_GLYPH_ALIAS = window.MDC_GLYPH_ALIAS || {})[code] = v;
-                            break;
-                        }
-                    }
                 }
                 if (!resp || !resp.ok) { urls.set(code, null); return null; }
                 bytes = new TextEncoder().encode(await resp.text());
