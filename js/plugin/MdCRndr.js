@@ -2156,7 +2156,10 @@ function splitLines(tree) {
                     const laid = C2.renderLine(lineEl, src.trim(), fs, {
                         parseElement: function (str) { return parseInput(str).tree; },
                         renderUnit: function (unit, box, size) { renderCadratUnit(box, unit, size); },
-                        justifyWidth: options.justifyWidth || 0,
+                        // 页宽模型：LineLayout.endLayout 用「最宽 zone 减 leftMargin」
+                        justifyWidth: options.pageWidth
+                            ? Math.max(0, options.pageWidth - (MDC.Cadrat.leftMargin || 0))
+                            : 0,
                     });
                     const h = laid ? (laid.maxH || laid.h || 1) : 1;
                     const minY = laid ? (laid.minY || 0) : 0;
@@ -2273,6 +2276,9 @@ function splitLines(tree) {
         },
     /** 切换正文排版引擎：true = 四开组（Cadrat/HBox/Line），false = 旧的 layers/parts */
     setCadratMode: function (on) { options.cadratMode = on ? "jsesh" : "flow"; return MdCRndr; },
+    /** 设置页宽（em，0 = 不启用）。启用后每行按 endLayout 右边界拉满。 */
+    setPageWidth: function (em) { options.pageWidth = (typeof em === "number" && em > 0) ? em : 0; },
+    getPageWidth: function () { return options.pageWidth || 0; },
     getCadratMode: function () { return options.cadratMode === "jsesh" ? "jsesh" : "flow"; },
 
         setGlyphBoxProvider: function (fn) {

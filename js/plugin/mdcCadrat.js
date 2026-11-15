@@ -148,6 +148,7 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
         lineSkip: 6 / 18,                // lineSkip 6：换行时行与行之间的距离
         tabUnitWidth: 18 / 200,          // tabUnitWidth 18/200 = 0.09em：一个 Tab 的宽度
         leftMargin: 6 / 18,              // leftMargin 6：行首左边距
+        textWidth: 538 / 18,             // textWidth 538：正文栏宽（em）
         topMargin: 5 / 18,               // topMargin 5：首行上边距
         justifyWidthTo: 0.75             // LineLayout.endLayout: 非末 zone 或宽度 ≥ 0.75×最宽 才拉满
     };
@@ -582,6 +583,7 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
         lineSkip: GEOM.lineSkip,
         topMargin: GEOM.topMargin,
         leftMargin: GEOM.leftMargin,
+        textWidth: GEOM.textWidth,
         MAX_CADRAT_HEIGHT: MAX_CADRAT_HEIGHT,
         MAX_CADRAT_WIDTH: MAX_CADRAT_WIDTH,
         parse: parse,

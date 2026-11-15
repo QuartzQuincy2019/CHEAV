@@ -9131,6 +9131,7 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
         lineSkip: 6 / 18,                // lineSkip 6：换行时行与行之间的距离
         tabUnitWidth: 18 / 200,          // tabUnitWidth 18/200 = 0.09em：一个 Tab 的宽度
         leftMargin: 6 / 18,              // leftMargin 6：行首左边距
+        textWidth: 538 / 18,             // textWidth 538：正文栏宽（em）
         topMargin: 5 / 18,               // topMargin 5：首行上边距
         justifyWidthTo: 0.75             // LineLayout.endLayout: 非末 zone 或宽度 ≥ 0.75×最宽 才拉满
     };
@@ -9565,6 +9566,7 @@ const ALPHABETIC_TEXT_BASELINE_UNITS = (function () {
         lineSkip: GEOM.lineSkip,
         topMargin: GEOM.topMargin,
         leftMargin: GEOM.leftMargin,
+        textWidth: GEOM.textWidth,
         MAX_CADRAT_HEIGHT: MAX_CADRAT_HEIGHT,
         MAX_CADRAT_WIDTH: MAX_CADRAT_WIDTH,
         parse: parse,
@@ -11947,7 +11949,10 @@ function splitLines(tree) {
                     const laid = C2.renderLine(lineEl, src.trim(), fs, {
                         parseElement: function (str) { return parseInput(str).tree; },
                         renderUnit: function (unit, box, size) { renderCadratUnit(box, unit, size); },
-                        justifyWidth: options.justifyWidth || 0,
+                        // 页宽模型：LineLayout.endLayout 用「最宽 zone 减 leftMargin」
+                        justifyWidth: options.pageWidth
+                            ? Math.max(0, options.pageWidth - (MDC.Cadrat.leftMargin || 0))
+                            : 0,
                     });
                     const h = laid ? (laid.maxH || laid.h || 1) : 1;
                     const minY = laid ? (laid.minY || 0) : 0;
@@ -12064,6 +12069,9 @@ function splitLines(tree) {
         },
     /** 切换正文排版引擎：true = 四开组（Cadrat/HBox/Line），false = 旧的 layers/parts */
     setCadratMode: function (on) { options.cadratMode = on ? "jsesh" : "flow"; return MdCRndr; },
+    /** 设置页宽（em，0 = 不启用）。启用后每行按 endLayout 右边界拉满。 */
+    setPageWidth: function (em) { options.pageWidth = (typeof em === "number" && em > 0) ? em : 0; },
+    getPageWidth: function () { return options.pageWidth || 0; },
     getCadratMode: function () { return options.cadratMode === "jsesh" ? "jsesh" : "flow"; },
 
         setGlyphBoxProvider: function (fn) {
