@@ -1233,3 +1233,22 @@ body.mode-vertical .App-canvas .RenderBox {
 .thumb-box .thumb-sign { display: inline-block; flex: 0 0 auto; }
 .thumb-box .thumb-missing { background: repeating-linear-gradient(45deg,#eee,#eee 4px,#f7f7f7 4px,#f7f7f7 8px); }
 .IBPreview-render .thumb-box { justify-content: flex-start; }
+
+/* 关键：渲染器给单元格里的行盒写死了 width:0px（单符号时 m.w 算成 0），
+   行盒 0 宽 + 内部 .vrg 是 inline-block → 字形从行首往右溢，父级再怎么居中都没用。
+   这里把行盒宽度交回内容，并让外层 flex 居中生效。 */
+.mcell-glyph .RenderLine {
+    width: auto !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    position: static !important;
+}
+.mcell-glyph .RenderLine > div {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+}
+.mcell-glyph .RenderLine .vrg {
+    position: static !important;
+    display: inline-block !important;
+}
