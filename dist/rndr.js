@@ -12027,10 +12027,34 @@ function splitLines(tree) {
                     return { w: x, maxH: maxH, minY: minY };
                 };
 
+                // 自动换行：超过 pageWidth − leftMargin 时在 cadrat 边界断行
+                // （JSesh 由页面布局在 flushZone 处决定，我们按同一阈值贪心切分）
+                const wrapSource = function (src) {
+                    if (!options.pageWidth) return [src];
+                    const limit = Math.max(0.5, options.pageWidth - leftMargin);
+                    const toks = C2.splitTop(src, ["-", " "]);
+                    const out = [];
+                    let acc = "";
+                    for (let i = 0; i < toks.length; i++) {
+                        const t = String(toks[i]).trim();
+                        if (!t) continue;
+                        const cand = acc ? (acc + "-" + t) : t;
+                        const w = C2.layoutLine(C2.parse(cand, parseEl), {}).w;
+                        if (acc && w > limit) { out.push(acc); acc = t; }
+                        else acc = cand;
+                    }
+                    if (acc) out.push(acc);
+                    return out.length ? out : [src];
+                };
+
                 // 第一遍：按自然宽度排好并记录每行宽度（LineLayout 的 Zone 就是一个行）
                 let y = (C2.topMargin !== undefined) ? C2.topMargin : 5 / 18;
                 const zones = [];
-                for (const src of raw.split(/\$|\r?\n/)) {
+                const srcLines = [];
+                for (const one of raw.split(/\$|\r?\n/)) {
+                    for (const w of wrapSource(one)) srcLines.push(w);
+                }
+                for (const src of srcLines) {
                     const lineEl = mkLine();
                     lineEl.style.position = "absolute";
                     lineEl.style.left = (leftMargin * fs) + "px";   // flushZone：zone 起点在 leftMargin
