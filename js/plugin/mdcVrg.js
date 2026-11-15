@@ -102,7 +102,7 @@
                     const mt = __txtCtx.measureText(s2);
                     const w2 = (mt.width || 0) / 100;
                     const h2 = (((mt.fontBoundingBoxAscent || 0) + (mt.fontBoundingBoxDescent || 0)) || (mt.width ? 40 : 0)) / 100;
-                    if (w2 > 0 && h2 > 0) return { w: w2, h: h2 };
+                    if (w2 > 0 && h2 > 0) return { w: w2, h: h2, asc: (mt.fontBoundingBoxAscent || 0) / 100 };
                 } catch (e) { /* 退化到粗估 */ }
             }
             return { w: 0.24 * s2.length, h: 0.4 };

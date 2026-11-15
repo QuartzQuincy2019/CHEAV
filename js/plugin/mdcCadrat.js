@@ -196,10 +196,13 @@
                 const k = h / inkH;                 // ① 单符号拉满行高
                 w *= k; inkH *= k;
             }
+            // 文本 run（带 asc）按基线对齐：
+            // JSesh deltaBaseY = maxCadratHeight - alphabeticTextBaseline - ascent = 14/18 - ascent
+            const __y = (ms[i].asc !== undefined) ? (h - ms[i].asc) : (h - inkH);
             places.push({
-                x: x, y: h - inkH, w: w, h: inkH,
+                x: x, y: __y, w: w, h: inkH,
                 cellH: h,                            // ② 格子高 = 行高（绘制仍用 h）
-                elem: elems[i]
+                elem: elems[i], asc: ms[i].asc
             });
             x += w;
         }

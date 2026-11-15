@@ -8744,7 +8744,7 @@
                     const mt = __txtCtx.measureText(s2);
                     const w2 = (mt.width || 0) / 100;
                     const h2 = (((mt.fontBoundingBoxAscent || 0) + (mt.fontBoundingBoxDescent || 0)) || (mt.width ? 40 : 0)) / 100;
-                    if (w2 > 0 && h2 > 0) return { w: w2, h: h2 };
+                    if (w2 > 0 && h2 > 0) return { w: w2, h: h2, asc: (mt.fontBoundingBoxAscent || 0) / 100 };
                 } catch (e) { /* 退化到粗估 */ }
             }
             return { w: 0.24 * s2.length, h: 0.4 };
@@ -9168,10 +9168,13 @@
                 const k = h / inkH;                 // ① 单符号拉满行高
                 w *= k; inkH *= k;
             }
+            // 文本 run（带 asc）按基线对齐：
+            // JSesh deltaBaseY = maxCadratHeight - alphabeticTextBaseline - ascent = 14/18 - ascent
+            const __y = (ms[i].asc !== undefined) ? (h - ms[i].asc) : (h - inkH);
             places.push({
-                x: x, y: h - inkH, w: w, h: inkH,
+                x: x, y: __y, w: w, h: inkH,
                 cellH: h,                            // ② 格子高 = 行高（绘制仍用 h）
-                elem: elems[i]
+                elem: elems[i], asc: ms[i].asc
             });
             x += w;
         }
