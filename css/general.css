@@ -1207,3 +1207,9 @@ body.mode-vertical .App-canvas .RenderBox {
 .c-preview {
     position: relative;
 }
+
+/* 预览渲染出口（renderPreview）：按墨迹盒输出 inline-block，天然居中且不重叠 */
+.pv-box { display: flex; align-items: center; justify-content: center; }
+.pv-box .pv-line { display: inline-flex; align-items: center; gap: 2px; line-height: 1; }
+.pv-box .pv-sign { display: inline-block; flex: 0 0 auto; }
+.IBPreview-render .pv-box { justify-content: flex-start; }
