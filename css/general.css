@@ -334,9 +334,22 @@ body.wm-off .Watermark {
 .mcell-glyph {
     display: flex;
     align-items: flex-end;
+    justify-content: center;
+    /* 关键：占满单元格宽度。渲染器输出的 .vrg 是绝对定位、自身宽度可能为 0，
+       父级若也收缩成 0 宽，"居中"就无从谈起 —— 这就是字形一直偏左的原因。 */
+    width: 100%;
+    position: relative;
     font-size: 26px;
     line-height: 1;
     min-height: 30px;
+}
+
+/* 单字符：四开组盒与墨迹都在父级里水平居中（纵向交回渲染器，避免越行） */
+.mcell-glyph .vrg,
+.mcell-glyph .hie,
+.mcell-glyph > span {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
 }
 
 /* 下标两行的定宽容器：溢出时内部元素循环滚动。
