@@ -34,6 +34,7 @@ const SETTINGS_DEFAULTS = {
     watermark: false,
     glyphSource: "font",     // 字形来源："font" = 内置 NewGardiner 字体；"svg" = 本机 JSesh SVG        // 演示水印：整屏平铺背景文字（默认关闭，可在设置中开启）
     keyCastEnabled: false,   // 按键展示（录屏演示用；仅电脑端显示）
+    justify: false,          // 两端对齐（JSesh 的 jseshStyle.options().justified()）
     pageWidth: 0,            // 页宽（em）：0 = 不限制；>0 时每行按 pageWidth − leftMargin 对齐
 };
 

@@ -1101,10 +1101,18 @@ function showParseErrors(list) {
         ["key", ["optionKeys", "GM", "next"], "settingsGmOptNext"],
         ["bool", ["picEnabled"], "settingsPic"],
         ["bool", ["watermark"], "settingsWatermark"],
+        ["bool", ["justify"], "settingsJustify"],
         ["pageWidth", ["pageWidth"], "settingsPageWidth"],
         ["glyph", ["glyphSource"], "settingsGlyphSource"],
         ["bool", ["keyCastEnabled"], "settingsKeyCast"],
     ];
+
+    // 把设置里的「两端对齐」同步给渲染器
+    function syncJustify() {
+        if (typeof MdCRndr !== "undefined" && MdCRndr.setJustify) {
+            MdCRndr.setJustify(!!SETTINGS.justify);
+        }
+    }
 
     // 把设置里的页宽同步给渲染器（启动与改动后都调用）
     function syncPageWidth() {
@@ -1237,6 +1245,7 @@ function showParseErrors(list) {
                 cb.addEventListener("change", () => {
                     setPath(path, cb.checked);
                     saveSettings();
+                    syncJustify();
                     updateMatch();
                     updateIBPreview();
                     updateKeyCast();
@@ -1266,6 +1275,7 @@ function showParseErrors(list) {
         });
         settingsBody.appendChild(reset);
         syncPageWidth();      // 面板与渲染器保持一致（含恢复默认之后）
+        syncJustify();
     }
 
     // ============ 界面文字同步 ============

@@ -12033,7 +12033,7 @@ function splitLines(tree) {
                 for (const src of raw.split(/\$|\r?\n/)) {
                     const lineEl = mkLine();
                     lineEl.style.position = "absolute";
-                    lineEl.style.left = "0";
+                    lineEl.style.left = (leftMargin * fs) + "px";   // flushZone：zone 起点在 leftMargin
                     lineEl.style.top = (y * fs) + "px";
                     if (!src.trim()) { zones.push({ lineEl: lineEl, src: "", w: 0, maxH: 1, minY: 0 }); y += 1 + skip; continue; }
                     const m = paintLine(lineEl, src, 0);
