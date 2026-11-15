@@ -1190,8 +1190,15 @@ function syncJustify() {
                     return b;
                 };
                 const cur = getPath(path);
-                wrap.appendChild(mk(t("glyphFont"), cur !== "svg", () => setGlyphSource("font")));
-                wrap.appendChild(mk(t("glyphSvg"), cur === "svg", () => setGlyphSource("svg")));
+                // ud3.0.0-a2d：暂时只开放 JSesh SVG，内置字体（NewGardiner）禁用但仍显示
+                const fontBtn = mk(t("glyphFont"), cur !== "svg", () => setGlyphSource("font"));
+                fontBtn.disabled = true;
+                fontBtn.title = "暂时禁用：当前版本只使用 JSesh SVG 字形";
+                fontBtn.classList.add("is-disabled");
+                wrap.appendChild(fontBtn);
+                const svgBtn = mk(t("glyphSvg"), cur === "svg", () => setGlyphSource("svg"));
+                svgBtn.classList.add("active");
+                wrap.appendChild(svgBtn);
 
                 const pickDirBtn = document.createElement("button");
                 pickDirBtn.type = "button";

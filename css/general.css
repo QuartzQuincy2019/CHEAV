@@ -1276,3 +1276,12 @@ body.mode-vertical .App-canvas .RenderBox {
     position: static !important;
     display: inline-block !important;
 }
+
+/* 按钮禁用态（ud3.0.0-a2d：竖排与内置字体暂时不可选） */
+.ModeBtn:disabled,
+.SettingKey:disabled,
+.SettingKey.is-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}

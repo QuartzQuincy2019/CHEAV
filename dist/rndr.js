@@ -11975,6 +11975,80 @@ function splitLines(tree) {
         render: function (el, tree, fontSize) {
             return render(el, tree, fontSize === undefined ? options.fontSize : fontSize);
         },
+        // ---- 预览专用出口 ----
+        // 候选格 / 词汇列表 / IB 预览都走这里：按字形「墨迹盒」输出 inline-block，
+        // 不生成 .vrg / .vrg-part / .hie 那套绝对定位包装，因此天然可居中、不会互相重叠。
+        // 遇到非单字单元（连字、包围、组）时回退到普通渲染。
+        renderPreview: function (el, text, fontSize) {
+            if (!el) return null;
+            const fs = (fontSize === undefined) ? options.fontSize : fontSize;
+            el.innerHTML = "";
+            el.classList.add("pv-box");
+
+            const host = document.createElement("span");
+            host.className = "pv-line";
+            el.appendChild(host);
+
+            const put = function (code) {
+                const slot = document.createElement("span");
+                slot.className = "pv-sign";
+                let w = 1, h = 1, url = null, ch = "";
+                try {
+                    const m = (typeof Glyphs !== "undefined" && Glyphs.metrics) ? Glyphs.metrics(code) : null;
+                    if (m) {
+                        w = (m.w !== undefined) ? m.w : (m.width || 0);
+                        h = (m.h !== undefined) ? m.h : (m.height || 0);
+                    }
+                    if (typeof Glyphs !== "undefined") {
+                        url = (Glyphs.urlFor && Glyphs.urlFor(code)) || null;
+                        ch = (typeof decodeCode === "function" && decodeCode(code)) || "";
+                    }
+                } catch (e) { /* 忽略单字度量失败 */ }
+                // 度量可能给 em（0..1.x）也可能给码位单位（0..1000），统一成 em
+                if (w > 8) w = w / 1000;
+                if (h > 8) h = h / 1000;
+                if (!w || !h || !isFinite(w) || !isFinite(h)) { w = 1; h = 1; }
+                slot.style.width = (w * fs) + "px";
+                slot.style.height = (h * fs) + "px";
+                if (url) {
+                    slot.style.backgroundImage = "url(\"" + url + "\")";
+                    slot.style.backgroundSize = "100% 100%";
+                    slot.style.backgroundRepeat = "no-repeat";
+                } else if (ch) {
+                    slot.textContent = ch;
+                    slot.style.fontSize = (h * fs) + "px";
+                    slot.style.lineHeight = (h * fs) + "px";
+                }
+                host.appendChild(slot);
+            };
+
+            let units = [];
+            try {
+                const tree = parseInput(String(text === undefined || text === null ? "" : text)).tree;
+                units = (tree && tree.units) ? tree.units.slice() : (tree ? [tree] : []);
+            } catch (e) { units = []; }
+
+            const flat = [];
+            (function walk(list) {
+                list.forEach(function (u) {
+                    if (!u) return;
+                    if (u.type === "seq" && u.units) { walk(u.units); return; }
+                    flat.push(u);
+                });
+            })(units);
+
+            flat.forEach(function (u) {
+                if (u.type === "char" || u.code) { put(u.code); }
+                else { put(u.name || u.text || ""); }
+            });
+
+            if (!flat.length) {
+                host.textContent = String(text || "");
+                host.style.fontSize = fs + "px";
+            }
+            return el;
+        },
+
         /** 解析纯 MdC 渲染串并渲染到元素（横排；输入框、预览、候选用它）。 */
         renderText: function (el, text, fontSize) {
             if (typeof Glyphs !== "undefined" && Glyphs.beginZoneBudget) Glyphs.beginZoneBudget(8);
@@ -12090,7 +12164,9 @@ function splitLines(tree) {
                         continue;
                     }
                     const m = paintLine(lineEl, src, 0);
-                    lineEl.style.width = (m.w * fs) + "px";
+                    // m.w 可能是 0（度量缺失或单符号被算成 0）：此时不要写死宽度，
+            // 让行盒由内容撑开，否则父级居中会以"0 宽的盒"为参照系而失效。
+            if (m.w > 0) lineEl.style.width = (m.w * fs) + "px";
                     lineEl.style.height = ((m.maxH + Math.abs(m.minY || 0)) * fs) + "px";
                     zones.push({ lineEl: lineEl, src: src, w: m.w, maxH: m.maxH, minY: m.minY });
                 }

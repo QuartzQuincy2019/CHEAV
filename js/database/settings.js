@@ -29,8 +29,8 @@ const SETTINGS_DEFAULTS = {
     },
     verticalText: false,     // 正文渲染区竖排（自上而下成列；输入框与预览始终横排）
     verticalDock: "right",   // 竖排模式渲染区靠哪侧："right" | "left"（占 1/3 屏宽）
-    watermark: false,
-    glyphSource: "font",     // 字形来源："font" = 内置 NewGardiner 字体；"svg" = 本机 JSesh SVG        // 演示水印：整屏平铺背景文字（默认关闭，可在设置中开启）
+    watermark: false,        // 演示水印：整屏平铺背景文字（默认关闭，可在设置中开启）
+    glyphSource: "svg",      // 字形来源："svg" = 本机 JSesh SVG（ud3.0.0-a2d 默认；font 选项暂时禁用）
     keyCastEnabled: false,   // 按键展示（录屏演示用；仅电脑端显示）
     justify: false,
         autoWrap: false,          // 自动换行（画板定宽时按宽度折行；关闭则允许内容撑宽）
