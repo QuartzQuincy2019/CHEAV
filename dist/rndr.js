@@ -11203,6 +11203,11 @@ function parseInput(text) {
         if (!(/[a-rt-z]/.test(c0) || c0 === "+")) {
             invalid.push("+ 后面必须跟小写字母（a–r / t–z，不含 s）；大写或中文请改写）");
         }
+        // JSesh 的 alphabeticText 规则里，"+" 后面那个字母是**类型标记**，
+        // 不算正文：MdcLexicon:213-221 只把它当作匹配的一部分。
+        // 所以 "+hello+s" 在 JSesh 里显示的是 "ello"（首字母被吞）。
+        // 想要 "hello" 得写 "+hhello+s"。这里照做。
+        if (/[a-rt-z]/.test(s[pos] || "")) pos++;   // 跳过类型标记
         let t = "";
         while (pos < s.length) {
             if (s[pos] === "\\" && s[pos + 1] === "+") { t += "+"; pos += 2; continue; }
