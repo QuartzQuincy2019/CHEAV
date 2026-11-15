@@ -2337,7 +2337,9 @@ function splitLines(tree) {
                         continue;
                     }
                     const m = paintLine(lineEl, src, 0);
-                    lineEl.style.width = (m.w * fs) + "px";
+                    // m.w 可能是 0（度量缺失或单符号被算成 0）：此时不要写死宽度，
+            // 让行盒由内容撑开，否则父级居中会以"0 宽的盒"为参照系而失效。
+            if (m.w > 0) lineEl.style.width = (m.w * fs) + "px";
                     lineEl.style.height = ((m.maxH + Math.abs(m.minY || 0)) * fs) + "px";
                     zones.push({ lineEl: lineEl, src: src, w: m.w, maxH: m.maxH, minY: m.minY });
                 }
