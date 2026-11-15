@@ -1186,81 +1186,25 @@ body.mode-vertical .App-canvas .RenderBox {
 }
 
 
-/* IB 预览：行一律常规流，避免绝对定位的行与 MdC 串重叠 */
-.IBPreview-render {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-.IBPreview-render .RenderLine,
-.IBPreview-render > div,
-.IBPreview-render > span {
-    position: static !important;
-    left: auto !important;
-    top: auto !important;
-}
 
-/* 单字符候选框：字形本身可能是绝对定位的 .vrg/.hie，改回常规流才能被 flex 居中 */
+/* 关键澄清：.vrg 是"四开组盒子"（通常 1em×1em），.hie 才是字形墨迹，
+   渲染器把 .hie 钉在 .vrg 的 left:0/top:0 —— 所以字形在盒内偏左上。
+   要居中就得**在 .vrg 内居中的是 .hie**，而不是把整个 .vrg 挪走（那会出框）。 */
 .mcell-glyph .vrg,
-.mcell-glyph .vrg-part,
-.mcell-glyph .hie,
-.mcell-glyph svg,
-.mcell-glyph img {
+.c-preview .vrg {
     position: static !important;
-    left: auto !important;
-    top: auto !important;
+    display: block !important;
     margin: 0 auto !important;
-}
-
-/* 预览内部字形也改回常规流：.vrg/.hie 是绝对定位的，行盒算不出宽度，
-   后面的 MdC 串就会压到字形上（"nfr 与 F35 重合"）。 */
-.IBPreview-render .vrg,
-.IBPreview-render .vrg-part,
-.IBPreview-render .hie,
-.IBPreview-render svg,
-.IBPreview-render img {
-    position: static !important;
     left: auto !important;
     top: auto !important;
-    display: inline-block !important;
-    vertical-align: middle;
 }
-
-/* 行盒改为 inline-flex：让字形与文字真正参与排布，而不是叠在一起 */
-.IBPreview-render .RenderLine {
-    display: inline-flex !important;
-    align-items: center;
-    gap: 2px;
-    min-height: 0 !important;
-    height: auto !important;
-    width: auto !important;
-    line-height: 1 !important;
-}
-.IBPreview-render .vrg,
-.IBPreview-render .vrg-part {
-    width: auto !important;
-    height: auto !important;
-    line-height: 1 !important;
-}
-
-/* 预览/候选：字形是绝对定位（left:0/top:0），在比它大的盒子里就贴在左上角。
-   统一改成"居中定位"：容器 position:relative + 字形 50% 再 translate 回半个身位。 */
-.mcell-glyph,
-.c-preview,
-.IBPreview-render {
-    position: relative !important;
-}
-.mcell-glyph > .vrg,
-.mcell-glyph > .hie,
-.mcell-glyph > svg,
-.mcell-glyph > img,
-.c-preview > .vrg,
-.c-preview > .hie,
-.c-preview > svg,
-.c-preview > img,
-.IBPreview-render .RenderLine > .vrg,
-.IBPreview-render .vrg {
+.mcell-glyph .hie,
+.c-preview .hie {
     left: 50% !important;
     top: 50% !important;
     transform: translate(-50%, -50%) !important;
+}
+.mcell-glyph,
+.c-preview {
+    position: relative;
 }
