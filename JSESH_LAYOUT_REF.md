@@ -720,3 +720,31 @@ height = internalHeight * yScale
   王名圈/组/文本 run 的分派细节，以及它如何使用 getXScale()；
 - PageCoordinateSystem（ender\draw\PageCoordinateSystem.java）在缩放/导出时的作用；
 - AbsoluteGroupBuilder（ender\view\AbsoluteGroupBuilder.java）对 -absolute 组的处理。
+### 15.8 两处独立证据（验证 §15.4 的恒等式）
+
+**证据一：视差要除以 xScale。** DefaultElementDrawer.java:487-499 画相邻两 cadrat 之间的阴影：
+
+`java
+double outerWidth = nextView.getPosition().x - currentView.getPosition().x - currentView.getWidth();
+r.width = outerWidth / currentView.getXScale();   // ← 换成"本视图内部坐标"
+`
+
+这段矩形是在 	mpG（已乘本视图 scale）里画的，所以外部的间隙必须先除以 xScale 转成内部长度。
+position 与 width 都是外部量，只有 xScale 是换算因子 —— 与 internalWidth = width/xScale 完全一致。
+
+**证据二：字形铺满自己的视图盒子。** DefaultElementDrawer.java:183-190 画整格阴影：
+
+`java
+Rectangle2D.Float r = new Rectangle2D.Float(0, 0, currentView.getWidth(), currentView.getHeight());
+`
+
+用的是 currentView 的外部宽高；isitHieroglyph:131 最终也是借用 currentView 让
+hieroglyphsDrawer.draw(..., currentView, HieroglyphBodySize.STANDARD) 把墨迹铺进这个盒子。
+所以「字形 = 铺满自己的格子」在 JSesh 里是绘制层的恒等式：
+盒子多大，字形就画多大；要让字形"不变形地变大"，只能改 scale（reScale），
+要让字形"变形"，就只改盒子的一边（scaleToWidth）。
+
+这也给我们的实现划了界线：
+- 我们现在用 ackground-size:100% 100% 铺盒子 —— 等价于 JSesh 的"铺满"，是对的；
+- 但缺了 xScale/yScale 这一层，所以 scaleToWidth（只横向）无法表达，
+  只能靠"把盒子改宽"来近似 —— 这正是 §15.6 要补 drawW/drawH 的原因。
