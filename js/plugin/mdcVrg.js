@@ -120,7 +120,10 @@
             // 再按“整框缩到 1em”缩一次（与 renderEnclosureJseth 同源）。
             // 这里一定要用缩放后的宽高回去，否则四开组会把框塞进 1em 方块里。
             const E = MDC.Enclosure;
-            if (E && MDC.Cadrat && MDC.Cadrat.layoutLine && u.source) {
+            // JSesh 里王名圈的内容尺寸来自「内容视图已布局后的宽高」（visitCartouche 取 subView），
+            // 对应到我们这边就是 layoutLine 的结果；既可以是 source 字符串，
+            // 也可以是已经 parse 好的 cadrats（flow 分支走这条）。
+            if (E && MDC.Cadrat && MDC.Cadrat.layoutLine && (u.source || (u.cadrats && u.cadrats.length))) {
                 try {
                     // u.source 是字符串，必须先 parse 成 cadrat 列表；
                     // 直接丢给 layoutLine 会报 "cadrats.map is not a function"，

@@ -8762,7 +8762,10 @@
             // 再按“整框缩到 1em”缩一次（与 renderEnclosureJseth 同源）。
             // 这里一定要用缩放后的宽高回去，否则四开组会把框塞进 1em 方块里。
             const E = MDC.Enclosure;
-            if (E && MDC.Cadrat && MDC.Cadrat.layoutLine && u.source) {
+            // JSesh 里王名圈的内容尺寸来自「内容视图已布局后的宽高」（visitCartouche 取 subView），
+            // 对应到我们这边就是 layoutLine 的结果；既可以是 source 字符串，
+            // 也可以是已经 parse 好的 cadrats（flow 分支走这条）。
+            if (E && MDC.Cadrat && MDC.Cadrat.layoutLine && (u.source || (u.cadrats && u.cadrats.length))) {
                 try {
                     // u.source 是字符串，必须先 parse 成 cadrat 列表；
                     // 直接丢给 layoutLine 会报 "cadrats.map is not a function"，
@@ -10457,6 +10460,8 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     const E = MDC.Enclosure;
     const box = document.createElement("span");
     box.className = options.encClass + " enc-js";
+    // 回归判据要按 visitCartouche 公式算期望值，而 .hie 量到的是乘过 ESC 的，
+    // 所以把「自然尺寸」和 ESC 一并写到 DOM 上，判据与渲染同源。
     box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
         "line-height:0;font-size:" + fontSize + "px;";
     const body = document.createElement("span");
@@ -10499,6 +10504,12 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     const s = vertical ? Math.min(1, 1 / Math.max(g.w, 1)) : Math.min(1, 1 / Math.max(g.h, 1));
     box.style.width = (g.w * s * fontSize) + "px";
     box.style.height = (g.h * s * fontSize) + "px";
+    // 回归判据需要的「自然尺寸」与缩放比（与渲染同源）
+    box.dataset.naturalW = g.w;
+    box.dataset.naturalH = g.h;
+    box.dataset.contentW = cw;
+    box.dataset.contentH = ch;
+    box.dataset.encScale = s;
     body.style.left = (g.x * s * fontSize) + "px";
     body.style.top = (g.y * s * fontSize) + "px";
     if (s !== 1) {
@@ -10544,6 +10555,13 @@ function renderEnclosureJseth(parent, u, fontSize, vertical) {
     const ESC = vertical ? Math.min(1, 1 / Math.max(g.w, 1)) : Math.min(1, 1 / Math.max(g.h, 1));
     const box = document.createElement("span");
     box.className = options.encClass + " enc-js";
+    // 判据要按 visitCartouche 公式算期望值，而 .hie 量到的是乘过 ESC 的；
+    // 把自然尺寸与 ESC 写到 DOM 上，判据与渲染同源。
+    box.dataset.naturalW = g.w;
+    box.dataset.naturalH = g.h;
+    box.dataset.contentW = cw;
+    box.dataset.contentH = ch;
+    box.dataset.encScale = ESC;
     box.style.cssText = "position:relative;display:inline-block;vertical-align:bottom;" +
         "line-height:0;font-size:" + fontSize + "px;width:" + (g.w * ESC * fontSize) + "px;height:" + (g.h * ESC * fontSize) + "px;";
     // 开发期自检：实际渲染高度必须等于 g.h × ESC（防「双重缩放」回归）

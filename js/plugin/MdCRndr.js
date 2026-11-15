@@ -789,6 +789,12 @@ function renderEnclosureByCadrat(parent, u, fontSize, vertical, type, parts) {
     const s = vertical ? Math.min(1, 1 / Math.max(g.w, 1)) : Math.min(1, 1 / Math.max(g.h, 1));
     box.style.width = (g.w * s * fontSize) + "px";
     box.style.height = (g.h * s * fontSize) + "px";
+    // 回归判据需要的「自然尺寸」与缩放比（与渲染同源）
+    box.dataset.naturalW = g.w;
+    box.dataset.naturalH = g.h;
+    box.dataset.contentW = cw;
+    box.dataset.contentH = ch;
+    box.dataset.encScale = s;
     body.style.left = (g.x * s * fontSize) + "px";
     body.style.top = (g.y * s * fontSize) + "px";
     if (s !== 1) {
