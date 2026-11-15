@@ -8740,14 +8740,19 @@
                     if (!__txtCtx) {
                         __txtCtx = document.createElement("canvas").getContext("2d");
                     }
-                    __txtCtx.font = "100px sans-serif";
+                    // 关键：量的字号必须与画的字号一致。
+                    // JSesh 里两边都用 jseshStyle.fonts().getFont(script) 同一个 Font
+                    // （Layout:255/量，DefaultElementDrawer:85/画），所以永远不会错位。
+                    // 我们的渲染字号 = textScale × 基准字号，因此量时也要用这个字号。
+                    const __ts = (MDC.host && MDC.host.options && MDC.host.options.textScale) || 0.4;
+                    __txtCtx.font = (100 * __ts) + "px sans-serif";
                     const mt = __txtCtx.measureText(s2);
                     const w2 = (mt.width || 0) / 100;
                     const h2 = (((mt.fontBoundingBoxAscent || 0) + (mt.fontBoundingBoxDescent || 0)) || (mt.width ? 40 : 0)) / 100;
                     // 浏览器度量按 100px 字号；渲染时字号 = textScale × 基准字号，
                     // 所以宽高都要乘 textScale，否则会留下一大截空隙。
-                    const __ts = (MDC.host && MDC.host.options && MDC.host.options.textScale) || 0.4;
-                    if (w2 > 0 && h2 > 0) return { w: w2 * __ts, h: h2, asc: (mt.fontBoundingBoxAscent || 0) / 100 };
+                    // __ts 已在上面定义
+                    if (w2 > 0 && h2 > 0) return { w: w2, h: h2, asc: (mt.fontBoundingBoxAscent || 0) / 100 };
                 } catch (e) { /* 退化到粗估 */ }
             }
             return { w: 0.24 * s2.length, h: 0.4 };
@@ -9176,7 +9181,8 @@
             }
             // 文本 run（带 asc）按基线对齐：
             // JSesh 实测：文本在四开组里是**垂直居中**的（不是贴基线），见 m14162 对照图
-            const __y = (ms[i].asc !== undefined) ? ((h - inkH) / 2) : (h - inkH);
+            // JSesh deltaBaseY = 18 - 4 - ascent：文本基线在格底之上 4/18 em。
+            const __y = (ms[i].asc !== undefined) ? (h - 4 / 18 - ms[i].asc) : (h - inkH);
             places.push({
                 x: x, y: __y, w: w, h: inkH,
                 cellH: h,                            // ② 格子高 = 行高（绘制仍用 h）

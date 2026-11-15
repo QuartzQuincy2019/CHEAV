@@ -201,7 +201,8 @@
             }
             // 文本 run（带 asc）按基线对齐：
             // JSesh 实测：文本在四开组里是**垂直居中**的（不是贴基线），见 m14162 对照图
-            const __y = (ms[i].asc !== undefined) ? ((h - inkH) / 2) : (h - inkH);
+            // JSesh deltaBaseY = 18 - 4 - ascent：文本基线在格底之上 4/18 em。
+            const __y = (ms[i].asc !== undefined) ? (h - 4 / 18 - ms[i].asc) : (h - inkH);
             places.push({
                 x: x, y: __y, w: w, h: inkH,
                 cellH: h,                            // ② 格子高 = 行高（绘制仍用 h）
