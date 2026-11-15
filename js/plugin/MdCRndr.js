@@ -1220,7 +1220,19 @@ function render(parent, tree, fontSize) {
         const txt = document.createElement("span");
         txt.className = "txt";
         txt.textContent = tree.text;
-        txt.style.fontSize = px(options.textScale * fontSize) + "px";
+        const __size = options.textScale * fontSize;
+        txt.style.fontSize = px(__size) + "px";
+        // line-height 必须是字体的 ascent+descent，否则浏览器会把基线放在
+        // (lineHeight − (asc+desc))/2 + asc，比 ascent 更靠上/更靠下，
+        // 我们在布局里按 ascent 算的 deltaBaseY 就对不上了。
+        try {
+            const __cv = document.createElement("canvas").getContext("2d");
+            __cv.font = px(__size) + "sans-serif";
+            const __m2 = __cv.measureText(tree.text || "");
+            const __a = __m2.fontBoundingBoxAscent || __size * 0.8;
+            const __d = __m2.fontBoundingBoxDescent || __size * 0.2;
+            txt.style.lineHeight = px(__a + __d) + "px";
+        } catch (e) { /* 取不到度量就保持默认 */ }
         parent.appendChild(txt);
     } else if (tree.type === "enc") {
         renderEnclosure(parent, tree, fontSize, !!options.vertical);
