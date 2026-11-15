@@ -793,3 +793,35 @@ DefaultElementDrawer:93-108 有一段注释：
 | TextLayout.draw(0, ascent) | +…+s 用 <span> 文本节点 | 缺 deltaBaseY 与 ascent 对齐（§14.3） |
 | isitCartouche 委派五种 Drawer | enderEnclosureJseth 内 kind 分支 | S/F 已走几何；CASTLE/HWT/CIRCULAR 端头仍是直线近似 |
 | isitCadrat 只画阴影 | 未实现 | 阴影 ShadingCode 四格位仍是待办 |
+### 15.9 更正：字形不是"铺满盒子"，而是"墨迹 × xScale/yScale"
+
+上面 15.8 的证据二只证明了**阴影矩形**用 currentView.getWidth()/getHeight()，
+不能推出"字形铺满盒子"。看到真正的绘制代码后要更正：
+
+ender\elements\SVGFontHieroglyphDrawer.java:110-112
+
+`java
+tmpG.scale(view.getXScale(), view.getYScale());
+glyph.draw(tmpG, 0, 0, 1.0, 1.0, angle);      // xscale=1, yscale=1 → 按墨迹原尺寸画
+`
+
+字形是按**墨迹原尺寸 × 视图的 (xScale, yScale)** 画的，和 width/height 没有直接关系。
+width/height 只在 Layout.visitHieroglyph 里由 getBBox() 反推出来（s.getWidth()*computeScale()），
+两者在"正常"情况下相等，但机制不同。
+
+这条更正很重要，因为它把"盒子"和"绘制"彻底分开了：
+
+| 操作 | 改动 | 字形视觉结果 |
+|---|---|---|
+| setWidth/setHeight | 只改 width/height | **不变形、不放大**，字形仍在原位按原尺寸画（盒子变大只是布局空间变大） |
+| scaleToWidth | 改 xScale（width 同步） | 横向拉伸 |
+| eScale / itLoneSigns | 等比改 (xScale,yScale) 与 width/height | 等比放大/缩小 |
+| scaleForMaxWidth | 同上，只缩不放 | 同上 |
+
+所以 §15.6 的 "三个盒子" 只需要两个量：**单元格（布局用）** 与 **绘制比例（scale）**。
+我们已经在 i*i:Z2 那次把 cellH 与绘制高 h 分开（提交 ef2af0f），方向是对的；
+剩下要补的是"横向"那半：当某行被 scaleToWidth 拉宽时，place 要同时带上 sx，
+绘制时按 
+aturalW*sx 铺，而不是把盒宽当成字形宽。
+
+这也解释了为什么 	*t*t:z 里 z 被拉宽后**高度不变** —— scaleToWidth 只碰 xScale。
