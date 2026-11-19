@@ -59,11 +59,16 @@ function showParseErrors(list) {
         if (typeof Glyphs !== "undefined" && Glyphs.ready) return false;
         if (typeof JseshRender === "undefined" || !mdc) return false;
         const token = (host.__jseshTok = (host.__jseshTok || 0) + 1);
-        JseshRender.svgFor(mdc, size).then(function (svg) {
-            if (host.__jseshTok !== token) return;
+        (async function () {
+            let svg = null;
+            // 单码 → 直接取字形路径（快，约 1–2 ms/码）；多码/失败 → 走完整渲染
+            const single = /^[A-Za-z][A-Za-z0-9]*$/.test(String(mdc).trim());
+            try { if (single && JseshRender.glyphSvg) svg = await JseshRender.glyphSvg(mdc, size); } catch (e) { /* ignore */ }
+            if (!svg) { try { svg = await JseshRender.svgFor(mdc, size); } catch (e) { /* ignore */ } }
+            if (!svg || host.__jseshTok !== token) return;
             host.innerHTML = svg;
             fitSvg(host);
-        }).catch(function () { /* 忽略：保持空白，不影响主渲染 */ });
+        })();
         return true;
     }
 

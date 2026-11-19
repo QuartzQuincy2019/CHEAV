@@ -29,6 +29,9 @@
     let loading = null;
     let lastError = null;
     let avail = null;             // Set of codes present in jsesh's glyph data
+    let provider = null;          // jsesh glyph provider (single-glyph fast path)
+    let providerLoading = null;
+    const glyphCache = new Map(); // "code@cadratHeight" → <svg> string
 
     // jsesh 数据里没有的少数写法：按 JSesh 的正式码修正
     const SPECIAL = {
@@ -69,6 +72,49 @@
         return parts.join("");
     }
 
+    /** 单字形快速通道：只取该码的路径，不跑整篇 MdC 的排版引擎。 */
+    function glyphProvider() {
+        if (!providerLoading) {
+            providerLoading = mod.loadGlyphProvider(GLYPHS_URL).then(function (p) {
+                provider = p;
+                return p;
+            }).catch(function () {
+                providerLoading = null;
+                return null;
+            });
+        }
+        return providerLoading;
+    }
+
+    /**
+     * 直接输出一个码的 <svg>（候选格缩略图用）。
+     * 与 renderMdc 相比跳过了文档排版/字体加载，实测 7 个码约 10 ms。
+     * 字形不存在时返回 null，由调用方回退到完整渲染。
+     */
+    async function glyphSvg(code, cadratHeight) {
+        await init();
+        if (!ready) throw new Error("jsesh-js unavailable");
+        const c = fixCode(String(code).trim());
+        if (avail && !avail.has(c)) return null;
+        const size = cadratHeight || 26;
+        const key = c + "@" + size;
+        if (glyphCache.has(key)) return glyphCache.get(key);
+        const p = await glyphProvider();
+        if (!p) return null;
+        await p.loadShapes([c]);
+        const sh = p.shape(c);
+        const sz = p.size(c);
+        if (!sh || !sh.d || !sz || !sz.width) return null;
+        const k = size / 18;                      // 1 quadrat = 18 units
+        const w = (sz.width * k).toFixed(2);
+        const h = (sz.height * k).toFixed(2);
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + sz.width + ' ' + sz.height +
+            '" width="' + w + '" height="' + h + '" aria-hidden="true">' +
+            '<path d="' + sh.d + '" fill="#000000"/></svg>';
+        glyphCache.set(key, svg);
+        return svg;
+    }
+
     // jsesh-js 已实现 `&` 连字（Ligature 节点 + 字形自带 ligature zone）与
     // 王名圈/塞拉赫/HWT/堡垒框（`<-`、`<S-`、`<h-`、`<F-`、`<g-`）。
     // 未实现的只有 %insert（源码显式 throw）与 %hkern / %vkern。
@@ -91,6 +137,8 @@
                     }
                 } catch (e) { /* 索引拿不到：fixCode 退化为静态规则 */ }
                 ready = true;
+                // 预热单字形通道（候选格缩略图用），避免第一次输入时等索引
+                glyphProvider();
             } catch (e) {
                 lastError = String(e && e.message || e);
                 console.warn("[JseshRender] jsesh-js 初始化失败，将回退 MdCRndr：", e);
@@ -144,6 +192,7 @@
         render: render,
         svgFor: svgFor,
         supports: supports,
+        glyphSvg: glyphSvg,
         normalize: normalize,
         fixCode: fixCode,
         get ready() { return ready; },
