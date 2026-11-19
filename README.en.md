@@ -9,13 +9,26 @@ open `index.html` and you are ready to go.
 > **Try it online: <https://quartzquincy2019.github.io/CHEAV/>**
 > (hosted on GitHub Pages; see below for local use)
 
-- Version: **2.0.0** (since 2025-12-27)
-- Latest: **2.0.0** (2026-11-07)
+- Version: **3.0.0** (since 2025-12-27)
+- Latest: **3.0.0** (2026-11-19)
 - Author: **Quincy K. / Quartz Studio ©2019-2026**
 - The rendering engine is a single-file plugin, [`js/plugin/MdCRndr.js`](js/plugin/MdCRndr.js), that can be
   embedded in other projects on its own
 
 ---
+
+## Version 3.0.0 (2026-11-19)
+
+- Rendering now uses **jsesh-js** (the official JSesh TypeScript port under CeCILL-C) for the body,
+  previews and candidate thumbnails; the built-in MdCRndr remains as a fallback.
+  Unavailable glyphs are drawn as red code text.
+- The vocabulary includes the Dickson-derived word list (7,460 entries, `data/dickson/`,
+  CC BY-NC-SA 2.5), about 7,687 candidates in total. Candidates are capped at 200, input is
+  debounced by 50 ms and thumbnails use the direct glyph path (0 ms per keystroke at 8,000 entries).
+
+History: 2025-12-27 `[hyp1]` start · 2026-01-01 `[hyp2]` VRG quadrats · 2026-10 `[1.0.0]`
+VRG-based rendering · 2026-11-09 `[2.0.0]` JSesh Cadrat engine with free ligatures ·
+2026-11-19 `[3.0.0]` jsesh-js with 7,000+ vocabulary candidates.
 
 ## Quick start
 

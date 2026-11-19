@@ -7,8 +7,8 @@
 > **在线使用：<https://quartzquincy2019.github.io/CHEAV/>**
 > （GitHub Pages，无需安装；本地使用见下）
 
-- 版本：**2.0.0**（2025-12-27 起）
-- 最新：**2.0.0**（2026-11-07）
+- 版本：**3.0.0**（2025-12-27 起）
+- 最新：**3.0.0**（2026-11-19）
 - 作者：**Quincy K. / Quartz Studio ©2019-2026**
 - **渲染引擎（本版）**：正文与 IB 预览改用 [jsesh-js](lib/jsesh/README.md)（JSesh 官方 TypeScript 移植，
   `lib/jsesh/jsesh.js` + `lib/jsesh/data/`，CeCILL-C）；字形一律使用 JSesh 官方 SVG，**不再支持 NewGardiner 字体渲染**。
@@ -18,6 +18,14 @@
 - 内置渲染引擎仍为单文件插件 [`js/plugin/MdCRndr.js`](js/plugin/MdCRndr.js)，可独立嵌入其它项目
 
 ---
+
+## 版本 3.0.0（2026-11-19）
+
+- **渲染**：正文、预览、候选缩略图统一用 jsesh-js（JSesh 官方 TS 移植，CeCILL-C）；内置 MdCRndr 仅作回退。缺字形显示红色码文本。
+- **词汇**：并入 Dickson 词典派生词表 7,460 条（`data/dickson/`，CC BY-NC-SA 2.5），VM 候选约 7,687 条；候选封顶 200、输入防抖 50 ms、缩略图直取字形，8,000 词条下单键 0 ms。
+- **细节**：长词预览等比缩放；PDM/GM 单字格居中；预览字形不抢鼠标。
+
+版本历史：2025-12-27 `[hyp1]` 立项 · 2026-01-01 `[hyp2]` VRG 渲染四方组 · 2026-10 `[1.0.0]` 基于 VRG · 2026-11-09 `[2.0.0]` JSesh Cadrat 系统，支持自由连字 · 2026-11-19 `[3.0.0]` 基于 jsesh-js，支持 7,000+ 词汇候选
 
 ## 快速开始
 
