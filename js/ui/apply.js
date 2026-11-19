@@ -937,7 +937,28 @@ function showParseErrors(list) {
                     };
                 });
             }
-            return PharaohMatch.search(String(ib.value || "").trim()).map(k => {
+            const kings = PharaohMatch.search(String(ib.value || "").trim());
+            // 指定了 ~n 类别且只命中一位国王 → 直接展开该国王这一类的全部王名
+            if (pharaoh.category && kings.length === 1) {
+                const only = kings[0];
+                const list = PharaohMatch.namesFor(only.id)
+                    .filter(n => n.s === pharaoh.category)
+                    .map(n => {
+                        const framed = pharaohFrame(n.s, n.m);
+                        return {
+                            kind: "pharaoh",
+                            useSvg: true,
+                            pron: pharaohReading(n),
+                            glyph: framed,
+                            MdC: framed,
+                            mean: pharaohNameInfo(only, n.s, n.m) + (n.g ? " · " + n.g : ""),
+                            entry: n,
+                            king: only
+                        };
+                    });
+                if (list.length) return list;
+            }
+            return kings.map(k => {
                 const pre = pharaohFirstPrenomen(k);
                 return {
                     kind: "pharaoh",
