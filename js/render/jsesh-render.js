@@ -67,9 +67,17 @@
         if (opts && opts.vertical) options.style = { options: { textOrientation: "VERTICAL" } };
         try {
             const svg = await mod.renderMdc(normalize(mdc), options);
-            // jsesh-js 对不认识的语法不抛异常，而是画一行红/黑字 "Error in file: …"。
-            // 这种输出必须当作失败，交给 MdCRndr 回退（例如旧版 {连字名} 文本）。
-            if (/Error in file/i.test(svg)) throw new Error("jsesh parse error");
+            // jsesh-js 对不认识的语法不抛异常，而是把 "Error in file: …" **逐字符**
+            // 画成一堆 <text>，字与字之间连空格都没有（"Errorinfile:unexpected…"）。
+            // 判断时去掉标签与所有空白，再匹配压缩后的串。
+            const squashed = svg.replace(/<[^>]*>/g, "").replace(/\s+/g, "");
+            if (/errorinfile/i.test(squashed)) {
+                const m = squashed.match(/line(\d+)char(\d+)attoken/i);
+                const msg = "jsesh 无法解析该 MdC 串" +
+                    (m ? "（第 " + m[1] + " 行第 " + m[2] + " 个字符附近）" : "");
+                lastError = msg;
+                throw new Error(msg);
+            }
             return svg;
         } catch (e) {
             lastError = String(e && e.message || e);

@@ -389,6 +389,7 @@ function showParseErrors(list) {
             return;                     // 非法 → 中止渲染
         }
         input.classList.remove("invalid");
+        showParseErrors([]);            // 本次合法：清掉上一次的错误提示
         // 渲染前先把本段用到的 JSesh 字形备齐（首次输入也就能直接出 SVG，不必删改重输）
         // 自愈：首次初始化时站点目录可能还没探到，Glyphs.ready 会是 false，
         // 之后就一直当作字体模式（表现为「选了 JSech SVG 但实际没生效」）。
@@ -404,7 +405,6 @@ function showParseErrors(list) {
             // 会退化成字体字形被塞进 SVG 布局里（重叠）。
             if (typeof MdCRndr !== "undefined" && MdCRndr.preloadFor) await MdCRndr.preloadFor(input.value);
         }
-        box.innerHTML = "";
         if (SETTINGS.verticalText) {
             // 竖排：$ 分段为列（适配层换成 jsesh 的 !）；同样按栏宽与列数折算字号
             const size = verticalFontSize();
@@ -419,11 +419,14 @@ function showParseErrors(list) {
                     fitSvg(box);
                     return;
                 } catch (e) {
-                    console.warn("[CHEAV] jsesh-js 竖排失败，回退 MdCRndr：", e);
-                    box.innerHTML = "";
+                    console.warn("[CHEAV] jsesh-js 竖排失败：", e);
+                    input.classList.add("invalid");
+                    showParseErrors([String(e && e.message || "jsesh 解析失败")]);
+                    return;                       // 保留上一次正确的画面
                 }
             }
             box.dataset.engine = "mdcrndr";
+            box.innerHTML = "";                   // 回退引擎才清空重画
             MdCRndr.renderVerticalText(box, input.value, size);
             return;
         }
@@ -443,11 +446,15 @@ function showParseErrors(list) {
                 fitSvg(box);
                 return;
             } catch (e) {
-                console.warn("[CHEAV] jsesh-js 渲染失败，回退 MdCRndr：", e);
-                box.innerHTML = "";
+                // 解析失败：错误进「解析错误」栏，渲染区保持上一次正确画面
+                console.warn("[CHEAV] jsesh-js 渲染失败：", e);
+                input.classList.add("invalid");
+                showParseErrors([String(e && e.message || "jsesh 解析失败")]);
+                return;
             }
         }
         box.dataset.engine = "mdcrndr";
+        box.innerHTML = "";
         if (typeof MdCRndr !== "undefined" && MdCRndr.getCadratMode && MdCRndr.getCadratMode() === "jsesh") {
             // 四开组排版：整段交给 renderText（它自己按 $ / 换行分段）
             MdCRndr.renderText(box, input.value, SIZE);
