@@ -868,9 +868,11 @@ function showParseErrors(list) {
         return folded;
     }
 
-    function pharaohNameInfo(king, section) {
-        return PharaohMatch.displayName(king) + " · " + pharaohSectionLabel(section) +
-               " · " + pharaohDynastyZh(king.code);
+    function pharaohNameInfo(king, section, mdc) {
+        let info = PharaohMatch.displayName(king) + " · " + pharaohSectionLabel(section) +
+                   " · " + pharaohDynastyZh(king.code);
+        if (/&\(/.test(String(mdc || ""))) info += " · ⚠ jsesh 不支持 () 连字";
+        return info;
     }
 
     function pharaohFirstPrenomen(king) {
@@ -884,20 +886,20 @@ function showParseErrors(list) {
     }
 
     /**
-     * 站点 MdC 里的残损/复原记号：`[ra]`、`[jt]`，以及 `D&(t:N16)` 这类写法，
+     * 站点 MdC 里的残损/复原记号：`[ra]`、`[jt]`。
      * jsesh 的 MdC 语法不接受（`[` 在 JSesh 里是语文学标记）。
      * 渲染/写入前去掉方括号（按复原文字处理；`[[ … ]]` 是 JSesh 合法语法，保留），
-     * 并把 `&(…)` 归一为 `&…`。
+     * 以及串中偶发的中途 < / >（王名圈由 pharaohFrame 统一追加）。
+     * 注意：`D&(t:N16)` 这类带括号的连字**不做改写**——括号改变连字语义，
+     * 强行去掉会产生错误字形；这类条目按 jsesh 原样解析，失败即不渲染。
      */
     function pharaohSanitizeMdc(mdc) {
         let s = String(mdc || "");
-        // 1) 残损/复原方括号：[ra]、[jt]；`[[ … ]]` 是 JSesh 合法语文学语法，保留
+        // 残损/复原方括号：[ra]、[jt]；`[[ … ]]` 是 JSesh 合法语文学语法，保留
         if (!(s.indexOf("[[") >= 0 && s.indexOf("]]") >= 0)) {
             s = s.replace(/[\[\]]/g, "");
         }
-        // 2) `D&(t:N16)` → `D&t:N16`
-        s = s.replace(/&\(([^)]*)\)/g, "&$1");
-        // 3) 站点数据里偶发的中途 < / >（王名圈由 pharaohFrame 统一追加）
+        // 站点数据里偶发的中途 < / >（王名圈由 pharaohFrame 统一追加）
         s = s.replace(/[<>]/g, "");
         return s;
     }
@@ -926,7 +928,7 @@ function showParseErrors(list) {
                         pron: pharaohReading(hit.entry),
                         glyph: framed,
                         MdC: framed,
-                        mean: pharaohNameInfo(hit.king, hit.entry.s),
+                        mean: pharaohNameInfo(hit.king, hit.entry.s, hit.entry.m),
                         entry: hit.entry,
                         king: hit.king
                     };
@@ -940,7 +942,7 @@ function showParseErrors(list) {
                     pron: pre ? pharaohReading(pre) : "/",
                     glyph: pharaohPrenomenMdc(k),
                     MdC: pre ? pharaohFrame("Prenomen", pre.m) : "",
-                    mean: pharaohNameInfo(k, "Prenomen"),
+                    mean: pharaohNameInfo(k, "Prenomen", pre ? pre.m : ""),
                     king: k
                 };
             });
@@ -965,7 +967,7 @@ function showParseErrors(list) {
                     pron: pharaohReading(n),
                     glyph: framed,
                     MdC: framed,
-                    mean: pharaohNameInfo(pharaoh.king, n.s) + (n.g ? " · " + n.g : ""),
+                    mean: pharaohNameInfo(pharaoh.king, n.s, n.m) + (n.g ? " · " + n.g : ""),
                     item: n
                 };
             });
