@@ -10,7 +10,12 @@
 - 版本：**2.0.0**（2025-12-27 起）
 - 最新：**2.0.0**（2026-11-07）
 - 作者：**Quincy K. / Quartz Studio ©2019-2026**
-- 渲染引擎为单文件插件 [`js/plugin/MdCRndr.js`](js/plugin/MdCRndr.js)，可独立嵌入其它项目
+- **渲染引擎（本版）**：正文与 IB 预览改用 [jsesh-js](lib/jsesh/README.md)（JSesh 官方 TypeScript 移植，
+  `lib/jsesh/jsesh.js` + `lib/jsesh/data/`，CeCILL-C）；字形一律使用 JSesh 官方 SVG，**不再支持 NewGardiner 字体渲染**。
+  字形数据随仓库分发（约 24 MB），因此 **GitHub Pages 上直接打开 `index.html` 即可编辑**，无需任何额外步骤。
+  遇到 jsesh-js 尚未实现的连字构造（`{…}`、`&`）时自动回退内置 MdCRndr（同样只用 SVG 字形）。
+  可在「设置 → 渲染引擎」切换 jsesh-js / 内置 MdCRndr。
+- 内置渲染引擎仍为单文件插件 [`js/plugin/MdCRndr.js`](js/plugin/MdCRndr.js)，可独立嵌入其它项目
 
 ---
 

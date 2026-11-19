@@ -67,3 +67,5 @@ _reg-nopaper.html
 
 # 开发期一次性探针页（草稿，不入库；见 tests/probes/README.md）
 tests/probes/
+# jsesh-js 字形数据（24MB）已入库：index.html 在 GitHub Pages 上要能直接运行，
+# 不能依赖本地目录联接或额外操作。

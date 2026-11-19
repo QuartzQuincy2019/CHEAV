@@ -51,7 +51,37 @@
         return "";
     }
 
-    function render(el, text, sizeEm) {
+    // ---- 待重绘队列（全局唯一一个定时器，避免每个单元格各起一堆 timer） ----
+    const pending = [];          // [{ el, text, size }]
+    let timer = null;
+    let ticks = 0;
+
+    function flush() {
+        ticks++;
+        for (let i = pending.length - 1; i >= 0; i--) {
+            const job = pending[i];
+            if (!job.el.isConnected) { pending.splice(i, 1); continue; }
+            const missing = [];
+            const list = codes(job.text);
+            for (const c of list) if (!urlOf(c)) missing.push(c);
+            if (!missing.length) { pending.splice(i, 1); continue; }
+            if (global.Glyphs && typeof global.Glyphs.preload === "function") {
+                try { Promise.resolve(global.Glyphs.preload(missing)).catch(function () {}); } catch (e) { /* 忽略 */ }
+            }
+            draw(job.el, job.text, job.size);
+        }
+        if (!pending.length || ticks >= 20) {
+            clearInterval(timer); timer = null; ticks = 0;
+            return;
+        }
+    }
+
+    function schedule(el, text, sizeEm) {
+        pending.push({ el: el, text: text, size: sizeEm });
+        if (!timer) { ticks = 0; timer = setInterval(flush, 250); }
+    }
+
+    function draw(el, text, sizeEm) {
         if (!el) return null;
         const fs = sizeEm || 32;
         el.innerHTML = "";
@@ -92,14 +122,22 @@
             line.style.fontSize = fs + "px";
         }
 
-        // 字形还没载入时，触发一次预载，完成后重画（只重试一次，避免死循环）
-        if (missing.length && global.Glyphs && typeof global.Glyphs.preload === "function" && !el.__thumbTried) {
-            el.__thumbTried = true;
-            try {
-                Promise.resolve(global.Glyphs.preload(missing)).then(function () {
-                    render(el, text, sizeEm);
-                }, function () { /* 预载失败：保留占位，不再重试 */ });
-            } catch (e) { /* 同右 */ }
+        return el;
+    }
+
+    function missingOf(text) {
+        const out = [];
+        for (const c of codes(text)) if (!urlOf(c)) out.push(c);
+        return out;
+    }
+
+    function render(el, text, sizeEm) {
+        draw(el, text, sizeEm);
+        // 缺字形：登记到全局队列（每个元素只登记一次）
+        if (missingOf(text).length) {
+            let has = false;
+            for (let i = 0; i < pending.length; i++) if (pending[i].el === el) { has = true; break; }
+            if (!has) schedule(el, text, sizeEm);
         }
         return el;
     }

@@ -47,6 +47,34 @@ function showParseErrors(list) {
     const dockR = document.getElementById("ModeDockRight");
 
     const SIZE = 100;            // 渲染区 1 quadrat = 100px（横排）
+    let renderToken = 0;         // jsesh-js 异步渲染的过期检查
+    let previewToken = 0;
+
+    /**
+     * 小预览（候选词/候选格）在缺少本地 glyfs 时的兜底：
+     * GitHub Pages 上不发 glyfs/，Glyphs.ready=false，此时用 jsesh-js 直接渲染该字形。
+     * @returns {boolean} true 表示已接管（异步填充），调用方不要再走 MdCRndr
+     */
+    function previewGlyphFallback(host, mdc, size) {
+        if (typeof Glyphs !== "undefined" && Glyphs.ready) return false;
+        if (typeof JseshRender === "undefined" || !mdc) return false;
+        const token = (host.__jseshTok = (host.__jseshTok || 0) + 1);
+        JseshRender.svgFor(mdc, size).then(function (svg) {
+            if (host.__jseshTok !== token) return;
+            host.innerHTML = svg;
+            fitSvg(host);
+        }).catch(function () { /* 忽略：保持空白，不影响主渲染 */ });
+        return true;
+    }
+
+    /** 让 jsesh-js 输出的 <svg> 适配容器宽度（高度按比例）。 */
+    function fitSvg(container) {
+        const el = container.querySelector("svg");
+        if (!el) return;
+        el.style.display = "block";
+        el.style.maxWidth = "100%";
+        el.style.height = "auto";
+    }
     const VERTICAL_COLUMNS = 7;  // 竖排列数目标：渲染栏内尽量显示 6~7 列（超出则横向滚动）
     const VERTICAL_MIN_SIZE = 34;   // 竖排字号下限（px）
     const VERTICAL_MAX_SIZE = 100;  // 竖排字号上限（px）
@@ -108,7 +136,6 @@ function showParseErrors(list) {
     /** 确保这些码的字形已就绪；就绪后重绘一次（有上限，避免来回触发）。 */
     async function ensureGlyphsForTree(tree, redraw) {
         if (typeof Glyphs === "undefined" || !Glyphs.ready) return;
-        if (SETTINGS.glyphSource !== "svg") return;
         const codes = codesInTree(tree);
         if (!codes.length) return;
         // 只处理「从未尝试过」的码；失败过的码会被记录，避免每次渲染都重试（否则会死循环）
@@ -146,7 +173,7 @@ function showParseErrors(list) {
                 ? Glyphs.zoneFor(code) : null;
         });
         Glyphs.onLoaded = scheduleGlyphRefresh;       // 新字形到手 → 预览/匹配区自动更新
-        const want = SETTINGS.glyphSource === "svg";
+        const want = true;      // 字形一律用 JSesh SVG（NewGardiner 字体渲染已移除）
         // JSesh 模式：整串都用 JSesh（含度量），不混用字体；字体模式则完全关掉这些钩子，
         // 保证 NewGardiner 的排版行为与之前一致。
         Glyphs.setFontFilter(null);
@@ -168,27 +195,31 @@ function showParseErrors(list) {
         Glyphs.setEnabled(want && Glyphs.ready);
         // 实际生效的字形来源标到 <html data-glyph-mode>
         // （设置里选的是 svg，但 file:// 下读不到 glyfs 时会静默回退到字体）
-        const effective = (want && Glyphs.ready) ? "svg" : "font";
-        document.documentElement.dataset.glyphMode = effective;
-        if (want && !Glyphs.ready && !window.__cheavGlyphWarned) {
+        document.documentElement.dataset.glyphMode = "svg";
+        if (!Glyphs.ready && !window.__cheavGlyphWarned) {
             window.__cheavGlyphWarned = true;
             if (location.protocol === "file:") {
-                console.warn("[CHEAV] file:// 下浏览器不允许读取 glyfs/*.svg（同源策略），已回退到内置字体。需要 SVG 字形请用本地 http 服务打开。");
+                console.warn("[CHEAV] file:// 下浏览器不允许读取 glyfs/*.svg（同源策略）。请用本地 http 服务打开，否则字形不会显示（已不再回退字体）。");
             } else {
-                console.warn("[CHEAV] JSesh SVG 字形未就绪，暂时用内置字体渲染（html[data-glyph-mode=font]）。");
+                console.warn("[CHEAV] JSesh SVG 字形未就绪：找不到 glyfs/jseshGlyphs/，字形将不会显示（已不再回退字体）。");
             }
         }
     }
 
-    /** 切换字形来源（font / svg）。 */
-    async function setGlyphSource(src) {
-        SETTINGS.glyphSource = (src === "svg") ? "svg" : "font";
+    /** 切换渲染引擎（jsesh / mdcrndr）。 */
+    async function setRenderEngine(name) {
+        SETTINGS.renderEngine = (name === "mdcrndr") ? "mdcrndr" : "jsesh";
         saveSettings();
-        await syncGlyphs();
         buildSettings();
         refresh();
         updateIBPreview();
-        setTimeout(refreshCellsToSvg, 0);
+    }
+
+    /** 渲染引擎状态文本（设置面板用）。 */
+    function renderEngineStatus() {
+        if (typeof JseshRender === "undefined") return t("renderEngineFallback");
+        if (JseshRender.ready) return "";
+        return t("renderEngineFallback");
     }
 
     /** 把 jar 里、我们码表之外的码并入「Gardiner Code 匹配」池（例如 C59）。 */
@@ -220,7 +251,6 @@ function showParseErrors(list) {
 
     /** 载入成功后的统一收尾：切到 SVG、预载当前正文用到的码、再重绘。 */
     async function afterGlyphLoaded() {
-        SETTINGS.glyphSource = "svg";
         saveSettings();
         await syncGlyphs();
         const addedCodes = registerJarCodes();           // 把 jar 里的表外码并入匹配池
@@ -325,7 +355,12 @@ function showParseErrors(list) {
     function verticalFontSize() {
         const avail = (box && box.clientWidth > 50) ? box.clientWidth - 16 : 420;   // 减去内边距
         const n = VERTICAL_COLUMNS;
-        const exact = (avail * 0.97) / (n + VERTICAL_COL_GAP * (n - 1));   // 留 3% 余量，避免刚好顶出滚动条
+        // 列距按引擎不同折算（单位 em）：
+        //   jsesh：列宽 26/18，列间 6/18 → 总宽 (32n-6)/18
+        //   MdCRndr：列宽 1em，列间 0.3em
+        const useJsesh = SETTINGS.renderEngine !== "mdcrndr" && typeof JseshRender !== "undefined";
+        const totalEm = useJsesh ? ((32 * n - 6) / 18) : (n + VERTICAL_COL_GAP * (n - 1));
+        const exact = (avail * 0.97) / totalEm;   // 留 3% 余量，避免刚好顶出滚动条
         return Math.round(Math.max(VERTICAL_MIN_SIZE, Math.min(VERTICAL_MAX_SIZE, exact)));
     }
 
@@ -357,11 +392,11 @@ function showParseErrors(list) {
         // 渲染前先把本段用到的 JSesh 字形备齐（首次输入也就能直接出 SVG，不必删改重输）
         // 自愈：首次初始化时站点目录可能还没探到，Glyphs.ready 会是 false，
         // 之后就一直当作字体模式（表现为「选了 JSech SVG 但实际没生效」）。
-        if (typeof Glyphs !== "undefined" && SETTINGS.glyphSource === "svg" && !Glyphs.ready && Glyphs.useSiteDir) {
+        if (typeof Glyphs !== "undefined" && !Glyphs.ready && Glyphs.useSiteDir) {
             try { await Glyphs.useSiteDir(); } catch (e) { /* 忽略 */ }
             if (Glyphs.ready) await syncGlyphs();
         }
-        if (typeof Glyphs !== "undefined" && SETTINGS.glyphSource === "svg" && Glyphs.ready) {
+        if (typeof Glyphs !== "undefined" && Glyphs.ready) {
             const need = codesInTree(tree).filter(c => !Glyphs.tried(c));
             if (need.length) await Glyphs.preload(need);
             // 四开组/转写写法下，codesInTree 拿不到 {stp&n&ra} 里面的码，
@@ -371,15 +406,48 @@ function showParseErrors(list) {
         }
         box.innerHTML = "";
         if (SETTINGS.verticalText) {
-            // 竖排：列宽 = 1em = 字号；按栏宽与列数算出字号，让 6~7 列排满一屏
+            // 竖排：$ 分段为列（适配层换成 jsesh 的 !）；同样按栏宽与列数折算字号
             const size = verticalFontSize();
             box.style.fontSize = size + "px";
+            if (SETTINGS.renderEngine !== "mdcrndr" && typeof JseshRender !== "undefined" && JseshRender.supports(input.value)) {
+                const token = ++renderToken;
+                try {
+                    const svg = await JseshRender.svgFor(input.value, size, { vertical: true });
+                    if (token !== renderToken) return;
+                    box.dataset.engine = "jsesh";
+                    box.innerHTML = svg;
+                    fitSvg(box);
+                    return;
+                } catch (e) {
+                    console.warn("[CHEAV] jsesh-js 竖排失败，回退 MdCRndr：", e);
+                    box.innerHTML = "";
+                }
+            }
+            box.dataset.engine = "mdcrndr";
             MdCRndr.renderVerticalText(box, input.value, size);
             return;
         }
         box.style.fontSize = SIZE + "px";
         // 调试用：标出本次正文用的排版路径（flow / jsesh）
         box.dataset.cadrat = (typeof MdCRndr !== "undefined" && MdCRndr.getCadratMode && MdCRndr.getCadratMode()) || "flow";
+        // 渲染引擎：默认 jsesh-js（与 JSesh 桌面版排版一致）。
+        // jsesh-js 0.2.0 尚未实现本站的连字构造 {…}/& 与 %insert/%hkern/%vkern，
+        // 这类输入自动回退 MdCRndr；jsesh 加载失败也回退。
+        if (SETTINGS.renderEngine !== "mdcrndr" && typeof JseshRender !== "undefined" && JseshRender.supports(input.value)) {
+            const token = ++renderToken;
+            try {
+                const svg = await JseshRender.svgFor(input.value, SIZE);
+                if (token !== renderToken) return;      // 期间有更新的输入，丢弃本次结果
+                box.dataset.engine = "jsesh";
+                box.innerHTML = svg;
+                fitSvg(box);
+                return;
+            } catch (e) {
+                console.warn("[CHEAV] jsesh-js 渲染失败，回退 MdCRndr：", e);
+                box.innerHTML = "";
+            }
+        }
+        box.dataset.engine = "mdcrndr";
         if (typeof MdCRndr !== "undefined" && MdCRndr.getCadratMode && MdCRndr.getCadratMode() === "jsesh") {
             // 四开组排版：整段交给 renderText（它自己按 $ / 换行分段）
             MdCRndr.renderText(box, input.value, SIZE);
@@ -398,7 +466,7 @@ function showParseErrors(list) {
     //   合法且非空 → 渲染字形 + MdC 串
     //   非法       → 警戒样式（边框/底色转警戒色，只显示文本串，不渲染）
     //   空         → 隐藏
-    function updateIBPreview() {
+    async function updateIBPreview() {
         if (!previewBox || !previewRender) return;
         const src = canonicalize(ib.value);
         const parsed = (typeof MdCRndr !== "undefined" && MdCRndr.parseForApp) ? MdCRndr.parseForApp(src) : parseInput(src);
@@ -416,7 +484,29 @@ function showParseErrors(list) {
         previewRender.innerHTML = "";
         if (SETTINGS.verticalText) {
             // 竖排模式：预览与正文同向（自上而下成列）
+            if (SETTINGS.renderEngine !== "mdcrndr" && typeof JseshRender !== "undefined" && JseshRender.supports(src)) {
+                const token = ++previewToken;
+                try {
+                    const svg = await JseshRender.svgFor(src, IB_PREVIEW_SIZE, { vertical: true });
+                    if (token !== previewToken) return;
+                    previewRender.innerHTML = svg;
+                    fitSvg(previewRender);
+                    return;
+                } catch (e) {
+                    previewRender.innerHTML = "";
+                }
+            }
             MdCRndr.renderVerticalText(previewRender, src, IB_PREVIEW_SIZE);
+        } else if (SETTINGS.renderEngine !== "mdcrndr" && typeof JseshRender !== "undefined" && JseshRender.supports(src)) {
+            const token = ++previewToken;
+            try {
+                const svg = await JseshRender.svgFor(src, IB_PREVIEW_SIZE);
+                if (token !== previewToken) return;
+                previewRender.innerHTML = svg;
+                fitSvg(previewRender);
+            } catch (e) {
+                MdCRndr.renderText(previewRender, src, IB_PREVIEW_SIZE);
+            }
         } else if (typeof MdCRndr !== "undefined" && MdCRndr.getCadratMode && MdCRndr.getCadratMode() === "jsesh") {
             MdCRndr.renderText(previewRender, src, IB_PREVIEW_SIZE);
         } else {
@@ -509,7 +599,9 @@ function showParseErrors(list) {
 
             const prev = document.createElement("span");
             prev.className = "c-preview";
+            if (!previewGlyphFallback(prev, c.glyph, PREVIEW_SIZE)) {
             MdCRndr.renderText(prev, c.glyph, PREVIEW_SIZE);   // c.glyph 为 MdC 渲染串
+        }
             item.appendChild(prev);
 
             const wrap = document.createElement("span");
@@ -589,7 +681,16 @@ function showParseErrors(list) {
         const glyph = document.createElement("span");
         glyph.className = "mcell-glyph";
         cell.dataset.mdc = u.glyph || "";
-        MdCRndr.renderText(glyph, u.glyph, PREVIEW_SIZE);      // u.glyph 为 MdC 渲染串
+        // 单字符候选格走"缩略图"渲染路径（Thumbs，见 js/ui/thumbs.js）：
+        // 只画一个字形，输出 inline-block，与四开组/行层的定位体系无关，天然可居中。
+        if (previewGlyphFallback(glyph, u.glyph, PREVIEW_SIZE)) {
+            glyph.classList.add("thumb-box");
+        } else if (typeof Thumbs !== "undefined" && Thumbs.render) {
+            glyph.classList.add("thumb-box");
+            Thumbs.render(glyph, u.glyph, PREVIEW_SIZE);
+        } else {
+            MdCRndr.renderText(glyph, u.glyph, PREVIEW_SIZE);   // u.glyph 为 MdC 渲染串
+        }
         cell.appendChild(glyph);
         // 两行下标：定宽 wrap 内放不定宽标签 → 超长文本（如定符名）循环滚动
         const l1wrap = document.createElement("span");
@@ -685,7 +786,6 @@ function showParseErrors(list) {
     async function refreshCellsToSvg() {
         if (cellSvgPending) return;
         if (typeof Glyphs === "undefined" || !Glyphs.ready) return;
-        if (SETTINGS.glyphSource !== "svg") return;
         const hosts = [];
         document.querySelectorAll(".mcell").forEach((cell) => {
             if (cell.offsetParent === null) return;              // 不可见
@@ -715,7 +815,6 @@ function showParseErrors(list) {
     async function refreshPreviewToSvg(tree) {
         if (previewPending) return;
         if (typeof Glyphs === "undefined" || !Glyphs.ready) return;
-        if (SETTINGS.glyphSource !== "svg") return;
         const missing = codesInTree(tree).filter(c => !Glyphs.tried(c));
         if (!missing.length) return;
         previewPending = true;
@@ -727,7 +826,6 @@ function showParseErrors(list) {
     async function refreshVmToSvg(items) {
         if (vmSvgPending) return;
         if (typeof Glyphs === "undefined" || !Glyphs.ready) return;
-        if (SETTINGS.glyphSource !== "svg") return;
         const missing = new Set();
         for (const c of items) for (const code of mdcCodesIn(c.glyph)) if (!Glyphs.tried(code)) missing.add(code);
         if (!missing.size) return;
@@ -1086,7 +1184,7 @@ function showParseErrors(list) {
         ["bool", ["justify"], "settingsJustify"],
         ["bool", ["autoWrap"], "settingsAutoWrap"],
         ["pageWidth", ["pageWidth"], "settingsPageWidth"],
-        ["glyph", ["glyphSource"], "settingsGlyphSource"],
+        ["engine", ["renderEngine"], "settingsRenderEngine"],
         ["bool", ["keyCastEnabled"], "settingsKeyCast"],
     ];
 
@@ -1189,16 +1287,11 @@ function syncJustify() {
                     b.addEventListener("click", onClick);
                     return b;
                 };
-                const cur = getPath(path);
-                // ud3.0.0-a2d：暂时只开放 JSesh SVG，内置字体（NewGardiner）禁用但仍显示
-                const fontBtn = mk(t("glyphFont"), cur !== "svg", () => setGlyphSource("font"));
-                fontBtn.disabled = true;
-                fontBtn.title = "暂时禁用：当前版本只使用 JSesh SVG 字形";
-                fontBtn.classList.add("is-disabled");
-                wrap.appendChild(fontBtn);
-                const svgBtn = mk(t("glyphSvg"), cur === "svg", () => setGlyphSource("svg"));
-                svgBtn.classList.add("active");
-                wrap.appendChild(svgBtn);
+                // 本版起 NewGardiner 字体渲染已移除，字形一律用 JSesh SVG。
+                const svgTag = document.createElement("span");
+                svgTag.className = "SettingKey active";
+                svgTag.textContent = t("glyphSvg");
+                wrap.appendChild(svgTag);
 
                 const pickDirBtn = document.createElement("button");
                 pickDirBtn.type = "button";
@@ -1216,7 +1309,6 @@ function syncJustify() {
                     siteBtn.addEventListener("click", async () => {
                         const base = await Glyphs.useSiteDir();
                         if (!base) { siteBtn.textContent = t("glyphSiteNone"); return; }
-                        SETTINGS.glyphSource = "svg";
                         saveSettings();
                         await syncGlyphs();
                         buildSettings();
@@ -1228,6 +1320,26 @@ function syncJustify() {
                 const info = document.createElement("span");
                 info.className = "SettingGlyph-info";
                 info.textContent = glyphStatusText();
+                wrap.appendChild(info);
+                row.appendChild(wrap);
+            } else if (type === "engine") {
+                // 渲染引擎：jsesh-js（默认） / 内置 MdCRndr
+                const wrap = document.createElement("span");
+                wrap.className = "SettingGlyph";
+                const mk = (text, active, onClick) => {
+                    const b = document.createElement("button");
+                    b.type = "button";
+                    b.className = "SettingKey" + (active ? " active" : "");
+                    b.textContent = text;
+                    b.addEventListener("click", onClick);
+                    return b;
+                };
+                const cur = getPath(path);
+                wrap.appendChild(mk(t("renderEngineJsesh"), cur !== "mdcrndr", () => setRenderEngine("jsesh")));
+                wrap.appendChild(mk(t("renderEngineMdcrndr"), cur === "mdcrndr", () => setRenderEngine("mdcrndr")));
+                const info = document.createElement("span");
+                info.className = "SettingGlyph-info";
+                info.textContent = renderEngineStatus();
                 wrap.appendChild(info);
                 row.appendChild(wrap);
             } else {
@@ -1299,11 +1411,15 @@ function syncJustify() {
     // 字形来源：绑定引擎；上次选过 jar 则恢复并预载当前正文
     if (typeof Glyphs !== "undefined") {
         syncGlyphs().then(() => {
-            if (Glyphs.ready && SETTINGS.glyphSource === "svg") {
+            if (Glyphs.ready) {
                 ensureGlyphsForTree(parseInput(input.value).tree, false)
                     .then(() => { refresh(); updateIBPreview(); });
             }
         });
+    }
+    // jsesh-js 初始化完成后刷新设置面板里的引擎状态（避免显示“未加载”）
+    if (typeof JseshRender !== "undefined" && JseshRender.init) {
+        JseshRender.init().then(() => { buildSettings(); refresh(); updateIBPreview(); });
     }
     applyMode();       // 还原上次的方向与靠侧
     buildPools();      // onload：一次性生成全部字符单元
@@ -1329,7 +1445,7 @@ if (typeof MdCRndr !== "undefined" && typeof MdCRndr.setGlyphZoneProvider === "f
         // 仅 JSesh SVG 模式下用推导连字区（字体模式的 canvas 栅格会为每个候选字形取像素，
         // 疑似引发输入时的界面卡死，先回退；待定位后再启用）
         if (typeof Glyphs !== "undefined") {
-            if (SETTINGS.glyphSource === "svg" && Glyphs.zoneFor) return Glyphs.zoneFor(code);
+            if (Glyphs.zoneFor) return Glyphs.zoneFor(code);
             if (fontLigatureZones && Glyphs.zoneForFont) return Glyphs.zoneForFont(code);   // 实验开关
         }
         return null;

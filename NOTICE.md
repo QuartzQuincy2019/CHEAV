@@ -12,6 +12,8 @@ CHEAV（*Cyrene's Hierograph Editor and Viewer*）本体代码与文档的许可
 | **NewGardiner.ttf** v3.06（2025-12-21） | `fonts/NewGardiner.ttf` | © Mark-Jan Nederhof（University of St Andrews）<br>分发页 <https://github.com/nederhof/newgardiner> | **SIL Open Font License 1.1**<br>全文见 [`fonts/OFL.txt`](fonts/OFL.txt) |
 | 字形度量数据<br>`visuHeight` / `visuWidth` | `js/plugin/MdCRndr.js`（内嵌）<br>`lib/visumetrics.js`（绑定） | 由上述字体提取（提取脚本与 `visumetrics.json` 不随仓库分发） | 同上（OFL 1.1 授权范围内的字体衍生物） |
 | Gardiner 码表（基础区）<br>`GARDINER` / `revGardiner` | `js/plugin/MdCRndr.js`（内嵌）<br>`js/database/GardinerCode.js` | 由 Unicode 字符名（UnicodeData）整理 | **Unicode License V3**（全文见第三节） |
+| **jsesh-js 0.2.0**（预构建单文件）<br>`lib/jsesh/jsesh.js` | `lib/jsesh/jsesh.js` | © Serge Rosmorduc / JSesh 项目<br><https://github.com/rosmord/jsesh> | **CeCILL-C**（见 `lib/jsesh/README.md`） |
+| jsesh 字形数据（6,963 SVG + 索引，约 24 MB） | `lib/jsesh/data/`（**随仓库分发**） | 同上（JSesh 项目） | 同上（CeCILL-C）；GitHub Pages 直接可用，无需额外部署 |
 | 扩展区映射（A 区 + J 组别名） | `js/plugin/MdCRndr.js`（内嵌 `GARDINER` 扩展区段） | 由 **Unikemet**（Unicode 18.0, UAX #57）的 `kEH_JSesh` / `kEH_UniK` 字段生成 | 同上 |
 
 Unicode 源数据（`Unikemet.txt`）与由其生成的对照表（`jsesh-unicode-map.json`）仅用于开发期生成上述
@@ -101,9 +103,13 @@ authorization of the copyright holder.
 
 ## 五、代码与运行环境
 
-- 仓库内全部 JavaScript / CSS / HTML 均为本项目自有代码，**不含任何第三方库**；
-  页面不引用任何外部 CDN、远程字体或统计脚本。
-- 渲染引擎 `js/plugin/MdCRndr.js` 与按键展示插件 `js/plugin/keycast.js` 均为单文件零依赖实现。
+- 本项目自有 JavaScript / CSS / HTML 不引用任何外部 CDN、远程字体或统计脚本。
+- **第三方库**：`lib/jsesh/jsesh.js` 是 JSesh 官方 TypeScript 移植（jsesh-js 0.2.0）的预构建单文件，
+  按 CeCILL-C 随项目分发；其字形数据 `lib/jsesh/data/`（约 24 MB）同样随仓库分发，GitHub Pages 打开即可用。
+- 内置渲染引擎 `js/plugin/MdCRndr.js` 与按键展示插件 `js/plugin/keycast.js` 仍为单文件零依赖实现；
+  MdCRndr 现在只作为 jsesh-js 无法处理连字（`{…}`、`&`）时的回退，且其字形同样来自 JSesh SVG。
+- NewGardiner 字体（`fonts/NewGardiner.ttf`）仍按 OFL 1.1 随仓库分发，但**不再用于渲染**；
+  字体的内嵌数据副本 `js/database/ngFontData.js` 不再被页面加载。
 
 ## 六、数据说明
 

@@ -10,7 +10,7 @@
 //   字体为「底部对齐」设计（字形坐基线），CSS baseline 对齐即贴底。
 
 // 初始化插件：注入 @font-face 与 .hie / .vrg / .lig 等样式（幂等）
-MdCRndr.init({ fontUrl: "./fonts/NewGardiner.ttf" });
+MdCRndr.init({ injectFontFace: false });   // 不再加载 NewGardiner 字体：字形一律用 JSesh SVG
 
 const px = MdCRndr.internals.px;
 const decodeCode = MdCRndr.decodeCode;

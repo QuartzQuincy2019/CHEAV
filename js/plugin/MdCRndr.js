@@ -54,7 +54,7 @@
         ligDebugClass: "lig-debug",
         textClass: "txt",       // +文本+s 插入的文本片段
         unsupportedClass: "unsup",  // 字体不支持的码：方块占位 + 码名
-        brClass: "br",          // "$" 手动换行标记
+        brClass: "br",          // "!" 手动换行标记（旧版 "$" 已改为 jsesh 的红色标记）
         encClass: "enc",        // 包围框（王名圈 / 塞拉赫框 / 方框）
         encKindClass: { A: "enc-A", S: "enc-S", h1: "enc-h1", F: "enc-F" },   // 按种类区分的类名
         encVerticalClass: "enc-v",   // 竖排朝向
@@ -398,7 +398,7 @@ let glyphBoxProvider = null;
  */
 function attachSvgOverlay(el, payload, inkW, inkH, dy, position) { return MDC.attachSvgOverlay(el, payload, inkW, inkH, dy, position); }
 
-function renderGlyph(parent, code, fontSize, align, mirror) { return MDC.renderGlyph(parent, code, fontSize, align, mirror); }
+function renderGlyph(parent, code, fontSize, align, mirror, red) { return MDC.renderGlyph(parent, code, fontSize, align, mirror, red); }
 
 function ligatureWidth(name) { return MDC.ligatureWidth(name); }
 // mdcVrg 通过 MDC.ligatureBoxEm 访问，保证框内外同一口径
@@ -496,7 +496,7 @@ function renderLayerUnit(layer, u, glyphSize) { return MDC.renderLayerUnit(layer
 // ============================================================================
 // 五之二、竖排排版：VRG → HRG（水平渲染组）
 // ----------------------------------------------------------------------------
-// 竖排时文字自上而下成列，"$" 分段为列，列自右向左。
+// 竖排时文字自上而下成列，"!" 分段为列，列自右向左。
 // 组（横排的 VRG）在竖排中改称"水平渲染组"（HRG）：组的各"层"自上而下各占一整行，
 // 层内元素（"*" 连接的）仍然左右并列 —— 与横排完全同一套层结构，只是缩放口径不同：
 //   横排 VRG：把整组压进 1 em 见方 —— s = min(1, 1em/总层高, 1em/最大层宽)
@@ -531,10 +531,10 @@ function renderLayerUnitV(col, u, size) {
     if (u.type === "char") {
         if (u.shadow) {
             renderInShadedCell(col, size, u.shadow, (cell) => {
-                renderGlyph(cell, u.code, size, "center", u.mirror);
+                renderGlyph(cell, u.code, size, "center", u.mirror, u.red);
             }, false, true);                                // 竖排：格宽 = 列宽 1em
         } else {
-            renderGlyph(col, u.code, size, "center", u.mirror);   // 1em 轨道内上下居中
+            renderGlyph(col, u.code, size, "center", u.mirror, u.red);   // 1em 轨道内上下居中
         }
     } else if (u.type === "vrg") {
         // 单层组 = 一行内并列（"*"）；多层组 = 每层一行（":"），都由 HRG 承担
@@ -565,7 +565,7 @@ function renderLayerUnitV(col, u, size) {
 }
 
 /**
- * 竖排整块：每个 "$" 分段一列，列自左向右排列（字形朝前，不镜像时按左→右书写）。
+ * 竖排整块：每个 "!" 分段一列，列自左向右排列（字形朝前，不镜像时按左→右书写）。
  * @param {HTMLElement} parent 父容器
  * @param {Object} tree 单位树
  * @param {number} fontSize 基准字号（px）
@@ -1195,11 +1195,11 @@ function render(parent, tree, fontSize) {
     if (tree.type === "char") {
         if (tree.shadow) {
             renderInShadedCell(parent, fontSize, tree.shadow, (cell) => {
-                renderGlyph(cell, tree.code, fontSize, "bottom", tree.mirror);
+                renderGlyph(cell, tree.code, fontSize, "bottom", tree.mirror, tree.red);
             }, true);
         } else {
             // 单字贴基线（与 JSesh 一致：符号"sit on the baseline"，不上下居中）
-            renderGlyph(parent, tree.code, fontSize, encADepth > 0 ? "center" : "bottom", tree.mirror);
+            renderGlyph(parent, tree.code, fontSize, encADepth > 0 ? "center" : "bottom", tree.mirror, tree.red);
         }
     } else if (tree.type === "vrg") {
         if (tree.layers.length === 1 && !tree.shadow) {
@@ -1278,12 +1278,12 @@ function render(parent, tree, fontSize) {
 //   { }          连字引用（名字内 ":" 与 "*" 归一化为 "-"）
 //   ( )          词（内部按普通序列展开）
 //   < >          插入文本（"\<"、"\>" 转义；内部保留空白）
-//   $            手动换行（splitLines 据此分段）
+//   !            手动换行（splitLines 据此分段）；$ = 红色标记
 //   空格         忽略（<> 文本区内保留）
 //
 // 主要接口：
 //   parseInput(text) -> { tree, invalid }   树 + 无法识别的串列表（警戒反馈）
-//   splitLines(tree) -> [seq, ...]          按 "$" 切分为渲染段
+//   splitLines(tree) -> [seq, ...]          按 "!" 切分为渲染段
 
 /**
  * 解析输入文本为渲染单位树；无法识别的串收集到返回值 invalid。
@@ -1475,7 +1475,7 @@ function parseInput(text) {
         const start = pos;
         // "#" 是阴影分隔符（<组>#<1-4>），必须在此终止码 token
         // "\\" 是镜像后缀（<码>\\ → 该字符水平镜像），必须在此终止码 token
-        while (pos < s.length && !"-*:]})($<>#\\+".includes(s[pos])) pos++;
+        while (pos < s.length && !"-*:]})($<>#\\+!$".includes(s[pos])) pos++;
         return s.slice(start, pos);
     }
 
@@ -1580,6 +1580,9 @@ function parseInput(text) {
         return { type: "text", text: t };
     }
 
+    // 红色状态：`$` 是**开关**（与 jsesh 一致：`$Aa1-Aa1` 两字都红，`$Aa1$-Aa1` 只第一个红）
+    let redState = false;
+
     // 单个单位解析：无法消费任何字符时返回 null（由四开组解析终止循环）
     function parseUnit() {
         const ch = s[pos];
@@ -1587,9 +1590,12 @@ function parseInput(text) {
         if (ch === "(") return parseWord();
         if (ch === "<") return parseEnclosure();   // 王名圈 <…>、<s…s>、<h…h>、<f…f>、<g…g>
         if (ch === "+") return parseText();        // 文本块 +x…+s
-        // "$"：手动换行（渲染区强制换行；文本框中保留显示）
-        if (ch === "$") { pos++; return { type: "newline" }; }
-        return parseCode();
+        // "!"：手动换行（与 jsesh / JSesh 一致；旧版用 "$"）
+        if (ch === "!") { pos++; return { type: "newline" }; }
+        // "$"：红色开关（jsesh 语义），切换后继续解析下一个单位
+        if (ch === "$") { pos++; redState = !redState; return parseUnit(); }
+        const code = parseCode();
+        return (redState && code) ? { type: "red", unit: code } : code;
     }
 
     // 四开组（quadrat）：由 "*"（同层并列）与 ":"（下移一层）连接的单位串，
@@ -1604,11 +1610,16 @@ function parseInput(text) {
                 pos++;
                 items[items.length - 1].sep = ch;
                 items.push({ unit: parseUnit(), sep: null });
-            } else if (ch === "$") {
+            } else if (ch === "!") {
                 // 手动换行：作为独立单位插入（非分隔符语义）
                 pos++;
                 items.push({ unit: { type: "newline" }, sep: null });
                 items.push({ unit: parseUnit(), sep: null });
+            } else if (ch === "$") {
+                // 红色开关（jsesh 语义）：切换状态后继续
+                pos++;
+                redState = !redState;
+                continue;
             } else if (ch === "#") {
                 // 阴影：<组>#<1-4>，1=左上 2=右上 3=左下 4=右下，可自由组合
                 pos++;
@@ -1728,6 +1739,11 @@ function parseInput(text) {
             invalid.push(u);
             return null;
         }
+        if (u.type === "red") {
+            // 红色标记包装：展开内部单位，再把 red 标记挂到结果上
+            const inner = expandUnit(u.unit);
+            return inner ? Object.assign({}, inner, { red: true }) : null;
+        }
         if (u.type === "mirror") {
             // 水平镜像：单字符与"字体不支持"的占位码都可以镜像（镜像不改变度量，排版不受影响）
             const inner = expandUnit(u.unit);
@@ -1781,7 +1797,7 @@ function parseInput(text) {
 }
 
 /**
- * 把顶层序列按 "$" 手动换行切分为多个段（每个段独立渲染到 .RenderLine，
+ * 把顶层序列按 "!" 手动换行切分为多个段（每个段独立渲染到 .RenderLine，
  * 段间距由外层 column 布局的 row-gap 统一，与段内自动换行间距一致）。
  */
 function splitLines(tree) {

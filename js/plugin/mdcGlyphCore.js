@@ -145,16 +145,17 @@
      * @param {string} [align] "center"：在 1em 轨道内垂直居中（IS 用）；
      *                         其他/缺省：贴底（baseline 对齐，VRG 层内用）
      */
-    function renderGlyph(parent, code, fontSize, align, mirror) {
+    function renderGlyph(parent, code, fontSize, align, mirror, red) {
         const ch = decodeCode(code);
         // 数字码（3 / 2 / 20 …）在 GARDINER 里没有 Unicode 字符，但有 3.svg 与墨迹度量，
         // 这种情况仍要画（用空的占位文字 + SVG 覆盖层）。
         const hasShape = !!(typeof window !== "undefined" && window.SVG_BOXES && window.SVG_BOXES[code]);
         if (!ch && !hasShape) return null;
         const el = document.createElement("span");
-        el.className = "hie";
+        el.className = "hie" + (red ? " red" : "");
         el.textContent = ch || "";
         el.title = mirror ? code + "（水平镜像）" : code;
+        if (red) el.style.color = "#c00";
         el.style.fontSize = fontSize + "px";
         const tf = [];
         if (align === "center") {
@@ -170,7 +171,15 @@
         // 自定义字形（如 JSesh SVG）：字体字形透明仅作占位，SVG 作为覆盖层铺在同一格内。
         // 覆盖层用内联 <svg>（而非 CSS 背景图）：不受 background-clip 裁剪、
         // 也不受 blob:/file:// 限制，缩放与居中交给 preserveAspectRatio 处理。
-        const customGlyph = P.glyph ? P.glyph(code) : null;
+        let customGlyph = P.glyph ? P.glyph(code) : null;
+        if (customGlyph && red && typeof customGlyph === "string") {
+            // SVG 覆盖层是背景图（data URI）：把常见的黑色填充换成红色。
+            customGlyph = customGlyph
+                .replace(/fill="#000000"/g, 'fill="#c00"')
+                .replace(/fill="#000"/g, 'fill="#c00"')
+                .replace(/fill=%23000000/g, "fill=%23c00")
+                .replace(/fill=%23000(?!0)/g, "fill=%23c00");
+        }
         if (customGlyph) {
             el.style.color = "transparent";
             el.classList.add("has-svg");
