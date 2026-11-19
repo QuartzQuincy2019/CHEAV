@@ -683,9 +683,8 @@ function showParseErrors(list) {
 
             const prev = document.createElement("span");
             prev.className = "c-preview";
-            if (!previewGlyphFallback(prev, c.glyph, PREVIEW_SIZE, !!c.useSvg)) {
-            MdCRndr.renderText(prev, c.glyph, PREVIEW_SIZE);   // c.glyph 为 MdC 渲染串
-        }
+            // 所有词条一律用 jsesh SVG；NewGardiner 字体渲染视为不存在（失败则留空）
+            previewGlyphFallback(prev, c.glyph, PREVIEW_SIZE, true);
             item.appendChild(prev);
             watchPreviewWidth(prev);
 
