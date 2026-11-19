@@ -344,9 +344,22 @@ body.wm-off .Watermark {
     min-height: 30px;
 }
 
-/* 单字符：四开组盒与墨迹都在父级里水平居中（纵向交回渲染器，避免越行） */
+/* 候选格内的字形：取消渲染器给的绝对定位/位移，全部交回 flex 居中。
+   这些格子都是单字符，不存在多字形相对排版，所以这样最稳。 */
 .mcell-glyph .vrg,
-.mcell-glyph .hie,
+.mcell-glyph .vrg-part,
+.mcell-glyph .hie {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+}
+
+/* 只对“直接子元素”做居中位移；RenderLine 内部的自定位字形保留渲染器给的坐标，
+   否则单字形会被额外左移半个字宽（表现为格子里的字偏左）。 */
+.mcell-glyph > .vrg,
+.mcell-glyph > .hie,
 .mcell-glyph > span {
     left: 50% !important;
     transform: translateX(-50%) !important;
@@ -1216,16 +1229,6 @@ body.mode-vertical .App-canvas .RenderBox {
 /* .vrg 是 1em 的四开组盒子：先把它整体在格子里居中，再让墨迹在盒内居中，
    两级都居中，单字符才会真正落在格子正中。注意只作用于单字符容器，
    IB 预览是多字形合成行，不能套。 */
-.mcell-glyph .vrg,
-.c-preview .vrg {
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-}
-.mcell-glyph .hie,
-.c-preview .hie {
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-}
 .mcell-glyph,
 .c-preview {
     position: relative;
