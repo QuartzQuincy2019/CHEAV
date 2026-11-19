@@ -4,14 +4,16 @@
 // 「IB 实时预览」交给 jsesh-js，使排版与 JSesh 桌面版一致。
 //
 // 用法（apply.js）：
-//     await JseshRender.render(container, mdc, cadratHeight);
+//     await JseshRender.svgFor(mdc, cadratHeight);            // 返回 <svg> 字符串
+//     await JseshRender.render(container, mdc, cadratHeight); // 直接写入容器
 //   cadratHeight = 一个 quadrat 的像素高（CHEAV 的 SIZE = 100 → 与 MdCRndr 同尺度）
 //
 // 说明：
-//   * jsesh-js 不认识 CHEAV 的规范码 AA1（会画成红色码文本），这里统一换成 Aa1；
-//   * jsesh-js 0.2.0 尚未实现本站的连字构造 `{name}`、`&` 插入与 %insert/%hkern/%vkern，
-//     这类输入返回 supports()=false，由调用方回退 MdCRndr；
-//   * 字形数据在 ./lib/jsesh/data/（本地为指向 jsesh-web 包的目录联接，不入库）。
+//   * 码位写法以 jsesh / JSesh 的数据表为准：CHEAV 的 AA1 → Aa1、
+//     M17a → M17A、Y1a → Y1v 等（见 fixCode；启动时读 glyph-index.json 校验）。
+//   * `!` 换行、`$` 红色、`#` 阴影、`\` 镜像与 jsesh 一致，适配层不改写；
+//   * %insert / %hkern / %vkern 未实现，supports()=false 时由调用方回退 MdCRndr；
+//   * 字形数据在 ./lib/jsesh/data/（随仓库分发，GitHub Pages 直接可用）。
 (function () {
     "use strict";
 
@@ -20,25 +22,56 @@
     // js/render/lib/jsesh/jsesh.js。
     const MODULE_URL = new URL("lib/jsesh/jsesh.js", document.baseURI).href;
     const GLYPHS_URL = new URL("lib/jsesh/data/", document.baseURI).href;
+    const INDEX_URL = new URL("glyph-index.json", GLYPHS_URL).href;
 
     let mod = null;
     let ready = false;
     let loading = null;
     let lastError = null;
+    let avail = null;             // Set of codes present in jsesh's glyph data
 
-    // CHEAV 方言 → jsesh 方言：只差码位前缀 AA→Aa（AA1→Aa1、AA30→Aa30…）。
-    // 换行统一为 `!`、红色统一为 `$`、阴影 `#`、镜像 `\\`，都与 jsesh / JSesh 一致，
-    // 适配层不再改写这些标记。
-    function normalize(mdc) {
-        return String(mdc).replace(/(^|[^A-Za-z0-9])AA(\d+[A-Za-z]?)/g, function (_m, pre, rest) {
-            return pre + "Aa" + rest;
-        });
+    // jsesh 数据里没有的少数写法：按 JSesh 的正式码修正
+    const SPECIAL = {
+        "Y1a": "Y1v",
+        "Y1A": "Y1v",
+    };
+
+    /** 把一个码修正为 jsesh 数据里存在的形式（存在则原样返回）。 */
+    function fixCode(code) {
+        if (!avail) {
+            // 字形索引还没就绪：只做无风险的静态修正
+            if (SPECIAL[code]) return SPECIAL[code];
+            if (/^AA\d/.test(code)) return "Aa" + code.slice(2);
+            return code;
+        }
+        if (avail.has(code)) return code;
+        const cands = [];
+        if (SPECIAL[code]) cands.push(SPECIAL[code]);
+        if (/^AA\d/.test(code)) cands.push("Aa" + code.slice(2));
+        const m = code.match(/^([A-Z][A-Za-z]?\d+)([a-z])$/);   // M17a → M17A
+        if (m) cands.push(m[1] + m[2].toUpperCase());
+        const m2 = code.match(/^([A-Z][A-Za-z]?\d+)([A-Z])$/);  // 反向：X1A → X1a
+        if (m2) cands.push(m2[1] + m2[2].toLowerCase());
+        for (let i = 0; i < cands.length; i++) {
+            if (avail.has(cands[i])) return cands[i];
+        }
+        return code;               // 数据里确实没有：交给 jsesh 画红字提示
     }
 
-    // jsesh-js 已实现 `&` 连字（解析为 Ligature 节点，按字形自带的 ligature zone 摆放）
-    // 与王名圈/塞拉赫/HWT/堡垒框（`<-`、`<S-`、`<h-`、`<F-`、`<g-`）。
-    // 未实现的只有 %insert（源码显式 throw "@insert is not supported yet"）与 %hkern / %vkern。
-    // `{连字名}` 是 CHEAV 旧语法（已废除）：不再预先拦截，交给下面的 "Error in file" 检测回退。
+    // CHEAV 文本 → jsesh 文本：只改码位写法，不动标点。
+    // `+文本+s` 片段内的内容不参与替换（可能是普通文字）。
+    function normalize(mdc) {
+        const parts = String(mdc).split(/(\+[^+]{0,160}\+[a-zA-Z])/g);
+        for (let i = 0; i < parts.length; i++) {
+            if (i % 2 === 1) continue;                     // 保护文本块
+            parts[i] = parts[i].replace(/[A-Z][A-Za-z]?\d+[A-Za-z]?/g, fixCode);
+        }
+        return parts.join("");
+    }
+
+    // jsesh-js 已实现 `&` 连字（Ligature 节点 + 字形自带 ligature zone）与
+    // 王名圈/塞拉赫/HWT/堡垒框（`<-`、`<S-`、`<h-`、`<F-`、`<g-`）。
+    // 未实现的只有 %insert（源码显式 throw）与 %hkern / %vkern。
     function supports(mdc) {
         return !/%insert|%hkern|%vkern/.test(String(mdc));
     }
@@ -49,6 +82,14 @@
             try {
                 mod = await import(MODULE_URL);
                 mod.configureJSesh({ glyphsUrl: GLYPHS_URL });
+                // 读取字形索引，用于把 CHEAV 的码位写法映射到 jsesh 的写法
+                try {
+                    const res = await fetch(INDEX_URL);
+                    if (res.ok) {
+                        const idx = await res.json();
+                        if (idx && idx.glyphs) avail = new Set(Object.keys(idx.glyphs));
+                    }
+                } catch (e) { /* 索引拿不到：fixCode 退化为静态规则 */ }
                 ready = true;
             } catch (e) {
                 lastError = String(e && e.message || e);
@@ -104,8 +145,8 @@
         svgFor: svgFor,
         supports: supports,
         normalize: normalize,
+        fixCode: fixCode,
         get ready() { return ready; },
         get lastError() { return lastError; },
-        get failed() { return !ready && !!loading && !loading.__pending; },
     };
 })();
