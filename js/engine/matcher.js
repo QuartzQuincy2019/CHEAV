@@ -194,7 +194,17 @@ function buildPhonemeUnits() {
         l1: u.pron,
         l2: u.code,
     }));
-    return base.concat(buildTranslitUnits()).sort((a, b) => {
+    // 音素表与转写表会有同一（发音, 码）的重复登记（如 a|D36）：
+    // 只保留单点音素那一条，否则 PDMBox 会出现两个一模一样的候选。
+    const seen = new Set();
+    const list = [];
+    for (const u of base.concat(buildTranslitUnits())) {
+        const key = u.l1 + "|" + u.l2;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        list.push(u);
+    }
+    return list.sort((a, b) => {
         if (a.translit !== b.translit) return a.translit ? 1 : -1;   // 单点音素优先，转写排后
         if (a.l1.length !== b.l1.length) return a.l1.length - b.l1.length;
         return a.l1 < b.l1 ? -1 : a.l1 > b.l1 ? 1 : 0;
