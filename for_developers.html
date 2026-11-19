@@ -271,6 +271,7 @@ mergeWordCandidates([...])    // 合并 + 按 insert 去重 + 排序</code></pre
     <tr><th>成员</th><th>说明</th></tr>
     <tr><td><code>PharaohMatch.search(q)</code></td><td><code>~d19~RamessesII</code> / <code>~Ramesses3</code> / <code>19th dynasty Ramesses</code></td></tr>
     <tr><td><code>PharaohMatch.parse(q)</code></td><td>拆出 <code>{ code, category, name, num }</code>；<code>category</code> 为 <code>o/n/p/h/g</code></td></tr>
+    <tr><td><code>PharaohMatch.kingsIn(code)</code></td><td>某朝代/时期代号下的全部国王（浏览模式用）</td></tr>
     <tr><td><code>PharaohMatch.searchEntries(q)</code></td><td>按王名本身检索；2,333 条王名（名称/转写/MdC）全部入候选映射，返回 <code>{ king, entry }</code></td></tr>
     <tr><td><code>PharaohMatch.namesFor(id)</code></td><td>某国王的全部王名变体 <code>{ s, n, t, g, m }</code></td></tr>
     <tr><td><code>PharaohMatch.categoriesFor(id)</code></td><td>该类国王拥有的名号类别与条数</td></tr>

@@ -125,6 +125,10 @@ function showParseErrors(list) {
 
     // 王名输入（~ 语法）：king → category → variant 三段式
     const pharaoh = { active: false, stage: "king", king: null, section: null, category: "", units: [], sel: 0 };
+    // 未指定国王、只给了 ~n 类别时，优先展示这些著名法老
+    const PH_FAMOUS = ["Tutankhamun", "Ramesses-II", "Seti-I", "Amenhotep-III",
+                       "Thutmose-III", "Cleopatra-VII", "Hatshepsut", "Khufu", "Narmer"];
+
     const PH_SECTION_LABEL = {
         "Horus": "Horus 名", "Nebty": "Nebty 名", "Golden falcon": "Golden Horus",
         "Prenomen": "Prenomen 王位名", "Nomen": "Nomen 本名",
@@ -937,6 +941,36 @@ function showParseErrors(list) {
                     };
                 });
             }
+            const rawQuery = String(ib.value || "").trim();
+            const parsedQuery = PharaohMatch.parse(rawQuery);
+            if (parsedQuery && !String(parsedQuery.name || "").trim() && (parsedQuery.code || parsedQuery.category)) {
+                // 浏览模式：朝代 + 无姓名 → 该朝代各法老的 Horus 名（默认）；
+                //            只给类别 → 著名法老在该类别的名
+                const section = pharaoh.category || "Horus";
+                let kings;
+                if (parsedQuery.code) {
+                    kings = PharaohMatch.kingsIn(parsedQuery.code);
+                } else {
+                    kings = PH_FAMOUS.map(id => PharaohMatch.byId(id)).filter(Boolean);
+                }
+                const browse = [];
+                for (const k of kings) {
+                    const first = PharaohMatch.namesFor(k.id).find(n => n.s === section && n.m);
+                    if (!first) continue;
+                    const framed = pharaohFrame(first.s, first.m);
+                    browse.push({
+                        kind: "pharaoh",
+                        useSvg: true,
+                        pron: pharaohReading(first),
+                        glyph: framed,
+                        MdC: framed,
+                        mean: pharaohNameInfo(k, first.s, first.m),
+                        entry: first,
+                        king: k
+                    });
+                }
+                if (browse.length) return browse;
+            }
             const kings = PharaohMatch.search(String(ib.value || "").trim());
             // 指定了 ~n 类别且只命中一位国王 → 直接展开该国王这一类的全部王名
             if (pharaoh.category && kings.length === 1) {
@@ -1009,7 +1043,7 @@ function showParseErrors(list) {
         focusBox = "VM";
 
         const hint = {
-            king: "王名 —— 输入 ~d19~np~RamessesII（~d / ~n 段可省略且顺序任意，名字不留空格）",
+            king: "王名 —— 输入 ~d19~np~RamessesII；~d19~ 列该朝代荷鲁斯名，~nh~ 列著名法老（~d / ~n 可省略、顺序任意）",
             category: "选择王名类别（Tab 确认）",
             variant: "选择变体（Tab 写入 IB）"
         }[pharaoh.stage] || "王名";

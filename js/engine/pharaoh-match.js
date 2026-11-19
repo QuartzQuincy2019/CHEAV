@@ -231,6 +231,12 @@
 
     function displayName(k) { return k.num ? (k.base + " " + toRoman(k.num)) : k.name; }
 
+    /** 某个朝代/时期代号下的全部国王（浏览用，不要求姓名）。 */
+    function kingsIn(code) {
+        init();
+        return KINGS.filter(function (k) { return matchCode(k, code); });
+    }
+
     /**
      * 按「王名本身」检索：把每位国王的全部 2,333 条王名（名称 / 转写 / MdC）
      * 都作为候选键。返回 [{ king, entry }]，entry = { s, n, t, g, m }。
@@ -295,6 +301,7 @@
             return { tilde: false, code: s.code, name: p.name, num: p.num };
         },
         displayName: displayName,
+        kingsIn: kingsIn,
         searchEntries: searchEntries,
         namesFor: namesFor,
         categoriesFor: categoriesFor,
