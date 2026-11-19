@@ -858,6 +858,17 @@ function showParseErrors(list) {
         return PH_DYNASTY_ZH[code] || code;
     }
 
+    /**
+     * VM 左列的「拟合MdC读音」：只取转写 t 折叠后的结果。
+     * MdC 字母表里没有 e / o；出现这两个字母说明不是拟合MdC读音（如希腊/罗马名），
+     * 此时按约定显示 "/"。
+     */
+    function pharaohReading(entry) {
+        const folded = pharaohFitMdc(entry && entry.t).trim();
+        if (!folded || /[eo]/.test(folded)) return "/";
+        return folded;
+    }
+
     function pharaohNameInfo(king, section) {
         return PharaohMatch.displayName(king) + " · " + pharaohSectionLabel(section) +
                " · " + pharaohDynastyZh(king.code);
@@ -892,7 +903,7 @@ function showParseErrors(list) {
                     const framed = pharaohFrame(hit.entry.s, hit.entry.m);
                     return {
                         kind: "pharaoh",
-                        pron: pharaohFitMdc(hit.entry.t) || hit.entry.n || "",
+                        pron: pharaohReading(hit.entry),
                         glyph: framed,
                         MdC: framed,
                         mean: pharaohNameInfo(hit.king, hit.entry.s),
@@ -905,7 +916,7 @@ function showParseErrors(list) {
                 const pre = pharaohFirstPrenomen(k);
                 return {
                     kind: "pharaoh",
-                    pron: pre ? pharaohFitMdc(pre.t) : "",
+                    pron: pre ? pharaohReading(pre) : "/",
                     glyph: pharaohPrenomenMdc(k),
                     MdC: pre ? pharaohFrame("Prenomen", pre.m) : "",
                     mean: pharaohNameInfo(k, "Prenomen"),
@@ -929,7 +940,7 @@ function showParseErrors(list) {
                 const framed = pharaohFrame(n.s, n.m);
                 return {
                     kind: "pharaoh",
-                    pron: pharaohFitMdc(n.t) || n.n || "",
+                    pron: pharaohReading(n),
                     glyph: framed,
                     MdC: framed,
                     mean: pharaohNameInfo(pharaoh.king, n.s) + (n.g ? " · " + n.g : ""),
