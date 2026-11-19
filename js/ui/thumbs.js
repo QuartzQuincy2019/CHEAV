@@ -108,10 +108,22 @@
                 sign.style.backgroundRepeat = "no-repeat";
             } else {
                 const ch = charOf(code);
-                if (ch) sign.textContent = ch;
-                else sign.classList.add("thumb-missing");
-                sign.style.fontSize = (box.h * fs).toFixed(2) + "px";
-                sign.style.lineHeight = (box.h * fs).toFixed(2) + "px";
+                const h = (box.h * fs);
+                if (ch) {
+                    sign.textContent = ch;
+                    sign.style.fontSize = h.toFixed(2) + "px";
+                    sign.style.lineHeight = h.toFixed(2) + "px";
+                } else {
+                    // 没有字形：按 jsesh / JSesh 的约定画红色码文本（不用斜纹占位）
+                    sign.classList.add("thumb-missing");
+                    sign.textContent = code;
+                    sign.style.fontSize = (h * 0.42).toFixed(2) + "px";
+                    sign.style.lineHeight = h.toFixed(2) + "px";
+                    sign.style.color = "#c00000";
+                    sign.style.fontWeight = "bold";
+                    sign.style.fontFamily = '"Times New Roman", Times, serif';
+                    sign.style.whiteSpace = "nowrap";
+                }
                 missing.push(code);
             }
             line.appendChild(sign);

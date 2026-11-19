@@ -1241,7 +1241,7 @@ body.mode-vertical .App-canvas .RenderBox {
 .thumb-box { display: flex; align-items: center; justify-content: center; }
 .thumb-box .thumb-line { display: inline-flex; align-items: center; gap: 2px; line-height: 1; }
 .thumb-box .thumb-sign { display: inline-block; flex: 0 0 auto; }
-.thumb-box .thumb-missing { background: repeating-linear-gradient(45deg,#eee,#eee 4px,#f7f7f7 4px,#f7f7f7 8px); }
+.thumb-box .thumb-missing { background: none; color: #c00000; font-weight: bold; font-family: "Times New Roman", Times, serif; display: flex; align-items: center; justify-content: center; text-align: center; }
 .IBPreview-render .thumb-box { justify-content: flex-start; }
 
 /* 关键：渲染器给单元格里的行盒写死了 width:0px（单符号时 m.w 算成 0），
