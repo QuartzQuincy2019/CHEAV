@@ -367,6 +367,22 @@ A29                      // GM 单码候选
 
 </div>
 
+<script>
+// 文档示例依赖 jsesh-js 的 ES module；file:// 下模块会被浏览器拦截，
+// 此时给 .glyphs 一个明确提示，而不是留下空白或误显示成 MdC 标签。
+(function () {
+    function mark() {
+        if (!document.querySelector(".glyphs[data-mdc]")) return;
+        if (document.querySelector(".glyphs svg")) return;
+        document.body.classList.add("doc-no-svg");
+        document.querySelectorAll(".glyphs[data-mdc]").forEach(function (el) {
+            el.textContent = "（示例字形需通过 http(s) 打开）";
+        });
+    }
+    if (location.protocol === "file:") { mark(); return; }
+    window.addEventListener("load", function () { setTimeout(mark, 8000); });
+})();
+</script>
 <script type="module">
     import { configureJSesh, renderMdc } from "./lib/jsesh/jsesh.js";
     configureJSesh({ glyphsUrl: "./lib/jsesh/data/" });
