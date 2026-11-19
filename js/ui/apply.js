@@ -615,6 +615,42 @@ function showParseErrors(list) {
         }
     }
 
+    /** 行内预览自适应：词形很长时按比例缩小，避免字形压到右侧的 MdC/释义。 */
+    function fitPreviewWidth(el) {
+        if (!el) return;
+        el.style.transform = "";
+        el.style.width = "";
+        const box = el.getBoundingClientRect();
+        if (!box.width) return;
+        // 内容宽度取最长子元素的右边界（不能只信 scrollWidth：行盒可能是 width:0）
+        let content = 0;
+        const kids = el.querySelectorAll(".hie, svg, .vrg, .RenderLine");
+        kids.forEach(function (k) {
+            const r = k.getBoundingClientRect();
+            if (r.width > 0) content = Math.max(content, Math.round(r.right - box.left));
+        });
+        if (!content) content = el.scrollWidth || 0;
+        if (!content) return;
+        const rowW = (vmBox && vmBox.clientWidth) ? vmBox.clientWidth : 900;
+        const limit = Math.max(170, Math.min(460, rowW * 0.42));
+        const shown = Math.min(content, limit);
+        el.style.width = shown + "px";
+        if (shown >= content) return;                 // 不需要缩放，只固定宽度
+        const s = Math.max(0.30, limit / content);
+        el.style.transformOrigin = "left center";
+        el.style.transform = "scale(" + s.toFixed(3) + ")";
+    }
+
+    /** 预览内容是异步填充的（jsesh）：定时复量一段时间，稳定后定宽/缩放。 */
+    function watchPreviewWidth(el) {
+        let n = 0;
+        const timer = setInterval(function () {
+            fitPreviewWidth(el);
+            if (++n >= 12) clearInterval(timer);     // 约 3 秒
+        }, 250);
+        fitPreviewWidth(el);
+    }
+
     function renderVM() {
         vmBox.innerHTML = "";
         const total = vm.list.length;
@@ -641,6 +677,7 @@ function showParseErrors(list) {
             MdCRndr.renderText(prev, c.glyph, PREVIEW_SIZE);   // c.glyph 为 MdC 渲染串
         }
             item.appendChild(prev);
+            watchPreviewWidth(prev);
 
             const wrap = document.createElement("span");
             wrap.className = "c-mean-wrap";

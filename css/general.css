@@ -760,14 +760,24 @@ html.DocOverlay-open body {
     color: #222;
 }
 
-/* 预览：小型的象形文字显示区域（渲染引擎实时生成） */
+/* 预览里的字形不接收鼠标事件：避免字形（尤其是靠下的 M3 之类）
+   把 hover/原生 title 提示带到行框之外，造成"没碰这一行却被选中/弹出编码"。 */
+.candidate .c-preview,
+.candidate .c-preview * {
+    pointer-events: none;
+}
+
+/* 预览：小型的象形文字显示区域（渲染引擎实时生成）
+   长词：按内容宽度占位（max-content），超过行宽 42% 时由 apply.js 等比缩小，
+   避免字形溢出压到右侧的 MdC / 释义。 */
 .c-preview {
     display: flex;
     align-items: flex-end;
     font-size: 26px;
     line-height: 1;
+    flex: 0 0 auto;
     min-width: 130px;
-    overflow: visible;  /* 墨迹（含 VRG 贴底层）完整显示，不被裁剪 */
+    overflow: visible;  /* 内容宽度由 apply.js 量出后再定（长词等比缩小） */
     padding: 2px 0;
     color: #333;
 }
