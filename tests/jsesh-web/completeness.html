@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>RUNNING</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; }
+  h1 { font-size: 20px; }
+  #log { font: 12px/1.5 Consolas, monospace; white-space: pre-wrap; }
+  .ok { color: #0a7a2f; } .bad { color: #b00020; } .warn { color: #9a6700; }
+  .cell { display: inline-block; border: 1px solid #ddd; padding: 4px; margin: 2px; }
+</style>
+</head>
+<body>
+<h1>jsesh-js 功能完整性测试</h1>
+<div id="log">running…</div>
+<div id="sandbox" style="position:absolute;left:-9999px;top:0"></div>
+<script type="application/json" id="result">{"status":"running"}</script>
+
+<script type="module">
+import * as J from "./jsesh/jsesh.js";
+
+// 页级配置：字形数据目录（README 要求在任何渲染前调用）
+J.configureJSesh({ glyphsUrl: new URL("./jsesh/data/", location.href).href });
+
+const R = {
+  status: "running",
+  startedAt: new Date().toISOString(),
+  userAgent: navigator.userAgent,
+  bundle: { url: new URL("./jsesh/jsesh.js", location.href).href },
+  exports: { expected: [], missing: [], present: 0 },
+  data: {},
+  parse: [],
+  render: [],
+  layout: [],
+  elements: [],
+  errors: [],
+  perf: {},
+  console: [],
+};
+
+const logEl = document.getElementById("log");
+function log(line, cls) {
+  const d = document.createElement("div");
+  if (cls) d.className = cls;
+  d.textContent = line;
+  logEl.appendChild(d);
+}
+const origError = console.error;
+console.error = (...a) => { R.console.push("error: " + a.map(String).join(" ").slice(0, 300)); origError(...a); };
+const origWarn = console.warn;
+console.warn = (...a) => { R.console.push("warn: " + a.map(String).join(" ").slice(0, 300)); origWarn(...a); };
+window.addEventListener("error", (e) => R.errors.push("window.error: " + (e.message || e)));
+window.addEventListener("unhandledrejection", (e) => R.errors.push("unhandledrejection: " + String(e.reason)));
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error("timeout: " + label + " after " + ms + "ms")), ms)),
+  ]);
+}
+function shortErr(e) {
+  return (e && (e.name ? e.name + ": " : "") + (e && e.message ? e.message : String(e))).slice(0, 300);
+}
+
+function finalize() {
+  R.status = "done";
+  R.finishedAt = new Date().toISOString();
+  document.getElementById("result").textContent = JSON.stringify(R);
+  document.title = "DONE";
+  log("DONE — " + R.parse.length + " parse cases, " + R.render.length + " render cases", "ok");
+}
+
+/* ---------------- 1. 导出面 ---------------- */
+const EXPECTED = [
+  "parseMdc", "parseMdcAst", "toMdc", "readMdcDocument", "writeMdcDocument",
+  "renderMdc", "renderToSvg", "layOutText", "layOutTextSync", "drawLaidOutText",
+  "buildView", "MDCView", "configureJSesh", "autoRender", "layOutInPage",
+  "loadGlyphProvider", "loadSignDatabase", "GlyphIndexProvider",
+  "EditorSession", "EditorView", "PaletteController",
+  "JSeshTextElement", "JSeshEditorElement", "JSeshPaletteElement",
+  "defineJSeshElements", "defineJSeshEditor", "defineJSeshPalette",
+  "DEFAULT_STYLE", "DEFAULT_GEOMETRY", "DEFAULT_LAYOUT_OPTIONS",
+  "withStyle", "parseMdc", "MdcParser", "MdcSyntaxError",
+  "Hieroglyph", "Cadrat", "HBox", "Cartouche", "Ligature", "Philology", "Overwrite",
+];
+R.exports.expected = EXPECTED;
+for (const k of EXPECTED) {
+  if (J[k] === undefined) R.exports.missing.push(k); else R.exports.present++;
+}
+log("exports: " + R.exports.present + "/" + EXPECTED.length + "  missing=" + R.exports.missing.join(","),
+  R.exports.missing.length ? "warn" : "ok");
+
+/* ---------------- 2. 自定义元素注册 ---------------- */
+for (const [tag, ctor] of [["jsesh-text", "JSeshTextElement"], ["jsesh-editor", "JSeshEditorElement"], ["jsesh-palette", "JSeshPaletteElement"]]) {
+  const def = customElements.get(tag);
+  R.elements.push({ kind: "registration", tag, defined: !!def, matchesExport: !!def && J[ctor] !== undefined && def === J[ctor], prototype: def ? def.name : null });
+}
+log("custom elements: " + R.elements.map((e) => e.tag + "=" + (e.defined ? "yes" : "NO")).join(", "),
+  R.elements.every((e) => e.defined) ? "ok" : "bad");
+
+/* ---------------- 3. 字形数据 ---------------- */
+async function testData() {
+  const t0 = performance.now();
+  const indexUrl = new URL("./jsesh/data/glyph-index.json", location.href).href;
+  const res = await fetch(indexUrl);
+  const index = await res.json();
+  R.data = {
+    httpStatus: res.status,
+    format: index.format,
+    glyphCount: Object.keys(index.glyphs || {}).length,
+    ligatureCount: (index.ligatures || []).length,
+    canonicalCount: Object.keys(index.canonical || {}).length,
+    sampleCodes: Object.keys(index.glyphs || {}).slice(0, 12),
+    loadMs: Math.round(performance.now() - t0),
+  };
+  const provider = await J.pageGlyphProvider ? await J.pageGlyphProvider() : await J.loadGlyphProvider(new URL("./jsesh/data/", location.href).href);
+  R.data.providerCodes = provider.codes ? provider.codes.length : null;
+  R.data.sizeA1 = provider.size("A1");
+  R.data.sizeN35 = provider.size("N35");
+  R.data.zoneA1 = provider.ligatureZone("A1", 0) ?? null;
+  R.data.hasExtA = (provider.codes || []).some((c) => /^[A-Z]?[a-z]?\d{3,}/.test(c)) ? "yes-codes-sample" : "check";
+  R.data.extACodes = (provider.codes || []).filter((c) => /A\d{3}/.test(c)).slice(0, 10);
+  log("glyphs: " + R.data.glyphCount + " signs, " + R.data.ligatureCount + " predefined ligatures, format " + R.data.format, "ok");
+}
+await withTimeout(testData(), 20000, "glyph data").catch((e) => { R.data.error = shortErr(e); log("glyph data FAILED: " + R.data.error, "bad"); });
+
+/* ---------------- 4. 解析 / 回写 ---------------- */
+const PARSE_CASES = [
+  ["基础词", "nfr-f:r"],
+  ["两个四开组", "A1-N35"],
+  ["并置+竖叠", "A1*B2:I10"],
+  ["三层竖叠", "D21:N35:X1"],
+  ["2 符号连字", "zA&ra"],
+  ["3 符号连字", "t&G43&t"],
+  ["Tksesh 连字", "q&mA"],
+  ["绝对组 &&", "A1&&B2"],
+  ["绝对组 **", "A1**B2"],
+  ["插入连字 ^^", "A1^^B2"],
+  ["插入连字 &&&", "A1&&&B2"],
+  ["王名圈 <A1>", "<A1>"],
+  ["王名圈 <-A1->", "<-A1->"],
+  ["新式王名圈 <s1", "<s1A1s1>"],
+  ["旧式王名圈 <S1", "<S1A1S1>"],
+  ["堡垒框 <f1", "<f1A1f1>"],
+  ["分栏王名圈 <0", "<0A1>"],
+  ["语文学 [[ ]]", "[[A1]]"],
+  ["语文学 [( )]", "[(A1)]"],
+  ["语文学 [? ]", "[?A1?]"],
+  ["语文学 [{ }]", "[{A1}]"],
+  ["语文学 [' ']", "['A1']"],
+  ["语文学 [\" \"]", "[\"A1\"]"],
+  ["语文学 [& &]", "[&A1&]"],
+  ["覆盖 #", "A1#B2"],
+  ["覆盖 ##", "A1##B2"],
+  ["底纹 #134", "A1#134"],
+  ["底纹 A1#1234", "A1#1234"],
+  ["底纹前缀 #1234（应失败）", "#1234A1"],
+  ["底纹切换 -#-", "-#-A1"],
+  ["底纹开 #b", "#bA1"],
+  ["底纹关 #e", "#eA1"],
+  ["选项 [x=1]", "A1[x=1]"],
+  ["制表 %{}", "A1%{}"],
+  ["制表 %[..]", "A1%[1]"],
+  ["quadrant() 关键字", "quadrant(A1:B2)"],
+  ["子 cadrat ( )", "A1-(B2:C3)*D4"],
+  ["省略符 ^", "A1^B2"],
+  ["$ 切色", "A1$B2"],
+  ["拉丁文本 +good+s", "+good+s"],
+  ["上标 |...", "A1|2"],
+  ["小字 \"...\"", "\"small\""],
+  ["换行 !", "A1!A2"],
+  ["换行间距 !=150%", "A1!=150%A2"],
+  ["分页 !!", "A1!!A2"],
+  ["制表定位 ?100", "A1?100B2"],
+  ["制表 %", "A1%B2"],
+  ["清制表 %clear", "A1%clear"],
+  ["横线 {l,}", "{l100,200}"],
+  ["修饰符 \\R90", "A1\\R90"],
+  ["修饰符 \\2", "A1\\2"],
+  ["半空 .", "A1.B2"],
+  ["全空 ..", "A1..B2"],
+  ["底纹符号 /", "A1/B2"],
+  ["底纹符号 //", "A1//B2"],
+  ["底纹符号 h/", "A1h/B2"],
+  ["底纹符号 v/", "A1v/B2"],
+  ["红点 o", "A1oB2"],
+  ["黑点 O", "A1OB2"],
+  ["红字 $r", "A1$rB2"],
+  ["黑字 $b", "A1$bB2"],
+  ["缺文 ?", "A1?B2"],
+  ["整行缺文 ??", "A1??B2"],
+  ["子组 ( )", "(A1:B2)*C3"],
+  ["选项列表 [..]", "A1[2]"],
+  ["组合真实词", "i-w-r:a-C1-m-p*t:pt"],
+  ["组合真实词2", "zA&ra-mn:n-xpr"],
+  ["制表 %[x=1]", "A1%[x=1]"],
+  ["quadrant()", "quadrant(A1:B2)"],
+  ["底纹 A1#1234", "A1#1234"],
+  ["= 语法标记", "A1=B2"],
+  ["%insert 插入组", "%insert[dir=bs,dw=20,dh=30](O1,n:t)"],
+  ["%insert 嵌套", "%insert[dir=te](%insert[dir=bs](O1,n),t)"],
+  ["%hkern 行内", "p-%hkern-q"],
+  ["%hkern 带选项", "p*%hkern[a=1,b]*q"],
+  ["%vkern 竖排字距", "p:%vkern:q"],
+  ["转写 nfr", "nfr"],
+  ["转写 iri", "iri"],
+  ["十六进制码 13460", "13460"],
+  ["空串", ""],
+  ["非法：未闭合 [", "[A1"],
+  ["非法：未闭合 (", "(A1"],
+  ["非法：未闭合 {", "{A1"],
+  ["非法：未知连字", "{no-such-ligature}"],
+];
+for (const [name, mdc] of PARSE_CASES) {
+  const rec = { name, mdc };
+  try {
+    const model = J.parseMdc(mdc);
+    rec.model = model && model.constructor ? model.constructor.name : typeof model;
+    rec.astOk = true;
+    try {
+      const back = J.toMdc(model);
+      rec.written = typeof back === "string" ? back.slice(0, 120) : String(back);
+      rec.roundTrip = back === mdc;
+    } catch (e2) { rec.writeError = shortErr(e2); }
+  } catch (e) {
+    rec.astOk = false;
+    rec.error = shortErr(e);
+  }
+  R.parse.push(rec);
+}
+log("parse: " + R.parse.filter((p) => p.astOk).length + "/" + PARSE_CASES.length + " accepted, 回写相等 " +
+  R.parse.filter((p) => p.roundTrip).length, "ok");
+
+/* ---------------- 5. 渲染 ---------------- */
+const RENDER_CASES = [
+  "nfr-f:r", "A1-N35", "A1*B2:I10", "zA&ra", "t&G43&t", "q&mA",
+  "<A1>", "<s1A1s1>", "[[A1]]", "A1#134", "A1#B2", "+good+s", "A1|2",
+  "A1!A2", "A1?100B2", "A1\\R90", "A1.B2", "A1..B2", "A1/B2",
+  "i-w-r:a-C1-m-p*t:pt", "zA&ra-mn:n-xpr", "S34-N35:AA1", "13460", "A1&&B2",
+];
+let fetchedGlyphs = 0;
+const fetchFailures = [];
+const origFetch = window.fetch;
+window.fetch = function (...args) {
+  const url = String(args[0]);
+  if (/\/glyphs\/[^/]+\.json$/.test(url)) fetchedGlyphs++;
+  return origFetch.apply(this, args).then((r) => {
+    if (!r.ok) fetchFailures.push(r.status + " " + url);
+    return r;
+  });
+};
+for (const mdc of RENDER_CASES) {
+  const rec = { mdc };
+  const t0 = performance.now();
+  try {
+    const svg = await withTimeout(J.renderMdc(mdc, { cadratHeight: 36 }), 20000, "render " + mdc);
+    rec.ms = Math.round(performance.now() - t0);
+    rec.ok = true;
+    rec.svgLength = svg.length;
+    rec.svgKind = typeof svg;
+    rec.pathCount = (svg.match(/<path/g) || []).length;
+    rec.hasSvgTag = svg.includes("<svg");
+    rec.textCount = (svg.match(/<text/g) || []).length;
+    rec.imageCount = (svg.match(/<image/g) || []).length;
+    rec.hasNaN = svg.includes("NaN");
+    rec.head = svg.slice(0, 160);
+  } catch (e) {
+    rec.ok = false;
+    rec.ms = Math.round(performance.now() - t0);
+    rec.error = shortErr(e);
+  }
+  R.render.push(rec);
+}
+R.perf.glyphJsonFetched = fetchedGlyphs; R.perf.fetchFailures = fetchFailures.slice(0, 10);
+log("render: " + R.render.filter((r) => r.ok && !r.hasNaN).length + "/" + RENDER_CASES.length +
+  " ok, 无 NaN 的 " + R.render.filter((r) => r.ok && !r.hasNaN).length + ", 拉取字形 JSON " + fetchedGlyphs, "ok");
+
+/* ---------------- 6. 排版变体（横/竖/RTL/居中/两端对齐） ---------------- */
+const VARIANTS = [
+  ["默认", {}],
+  ["RTL", { options: { textDirection: "RIGHT_TO_LEFT" } }],
+  ["竖排", { options: { textOrientation: "VERTICAL" } }],
+  ["竖排+RTL", { options: { textOrientation: "VERTICAL", textDirection: "RIGHT_TO_LEFT" } }],
+  ["居中", { options: { smallSignCentered: true } }],
+  ["两端对齐", { options: { justified: true } }],
+  ["页宽 20em", { geometry: { wrapWidth: 20 } }],
+];
+function walkView(v, depth, acc) {
+  if (!v) return acc;
+  acc.nodes++;
+  acc.maxDepth = Math.max(acc.maxDepth, depth);
+  const subs = v.subviews || [];
+  acc.children += subs.length;
+  for (const s of subs) walkView(s, depth + 1, acc);
+  return acc;
+}
+function svgRootSize(svg) {
+  const m = svg.match(/<svg[^>]*?width="([\d.]+)"[^>]*?height="([\d.]+)"/) || svg.match(/<svg[^>]*?height="([\d.]+)"[^>]*?width="([\d.]+)"/);
+  return m ? { width: Number(m[1]), height: Number(m[2]) } : null;
+}
+for (const [name, style] of VARIANTS) {
+  const rec = { name, style };
+  try {
+    const laid = await withTimeout(J.layOutInPage("A1-N35-<-t:w->-i-w-r:a-C1", { style }), 20000, "layout " + name);
+    rec.keys = Object.keys(laid);
+    rec.viewWidth = laid.view && laid.view.width;
+    rec.viewHeight = laid.view && laid.view.height;
+    rec.dir = laid.view && laid.view.direction;
+    const acc = walkView(laid.view, 0, { nodes: 0, children: 0, maxDepth: 0 });
+    rec.nodes = acc.nodes; rec.maxDepth = acc.maxDepth;
+    const svg = J.drawLaidOutText(laid, { cadratHeight: 36 });
+    rec.svgLength = svg.length;
+    rec.svgSize = svgRootSize(svg);
+    rec.hasNaN = svg.includes("NaN");
+    rec.ok = true;
+  } catch (e) {
+    rec.ok = false;
+    rec.error = shortErr(e);
+  }
+  R.layout.push(rec);
+}
+log("layout variants: " + R.layout.filter((l) => l.ok && !l.hasNaN).length + "/" + VARIANTS.length, "ok");
+
+/* ---------------- 7. 自定义元素行为 ---------------- */
+const sandbox = document.getElementById("sandbox");
+async function testElement(tag, attrs, mdc, expect) {
+  const rec = { tag, attrs, mdc, expect };
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+  if (mdc !== undefined) el.textContent = mdc;
+  let rendered = null, errored = null;
+  el.addEventListener("jsesh-render", () => { rendered = true; });
+  el.addEventListener("jsesh-error", (e) => { errored = shortErr(e.detail); });
+  sandbox.appendChild(el);
+  const t0 = performance.now();
+  for (let i = 0; i < 100 && rendered === null && errored === null; i++) await sleep(50);
+  rec.ms = Math.round(performance.now() - t0);
+  rec.rendered = rendered === true;
+  rec.errored = errored;
+  rec.shadow = !!el.shadowRoot;
+  if (el.shadowRoot) {
+    const html = el.shadowRoot.innerHTML;
+    rec.svgInShadow = html.includes("<svg");
+    rec.shadowLen = html.length;
+  }
+  if (tag === "jsesh-text") {
+    try { el.mdc = "A1"; } catch (e) { rec.propSetError = shortErr(e); }
+    rec.mdcProperty = el.mdc;
+  }
+  if (tag === "jsesh-editor") {
+    try { rec.mdcGet = typeof el.mdc === "string" ? el.mdc.slice(0, 40) : typeof el.mdc; } catch (e) { rec.mdcGet = shortErr(e); }
+  }
+  const hasUi = (rec.shadowLen || 0) > 200 || rec.svgInShadow === true;
+  rec.pass = expect === "render" ? (rec.rendered || (tag !== "jsesh-text" && hasUi)) : expect === "error" ? !!rec.errored : true;
+  el.remove();
+  return rec;
+}
+try {
+  R.elements.push(await testElement("jsesh-text", {}, "nfr-f:r", "render"));
+  R.elements.push(await testElement("jsesh-text", { "cadrat-height": "48", direction: "rtl" }, "i-w-r:a-C1-m-p*t:pt", "render"));
+  R.elements.push(await testElement("jsesh-text", { orientation: "vertical" }, "A1-N35", "render"));
+  R.elements.push(await testElement("jsesh-text", { justified: "justified", centered: "centered" }, "A1-N35", "render"));
+  R.elements.push(await testElement("jsesh-text", {}, "[A1", "error"));
+  R.elements.push(await testElement("jsesh-editor", {}, undefined, "render"));
+  R.elements.push(await testElement("jsesh-palette", {}, undefined, "render"));
+  R.elements.push(await testElement("jsesh-text", { "glyphs-url": new URL("./jsesh/data/", location.href).href }, "A1-N35", "render"));
+} catch (e) {
+  R.elements.push({ error: shortErr(e) });
+}
+log("elements: " + R.elements.map((e) => (e.tag || "?") + "=" + (e.pass === false ? "FAIL" : e.pass ? "pass" : "?")).join(", "), "ok");
+
+/* ---------------- 8. autoRender ---------------- */
+try {
+  const span = document.createElement("span");
+  span.className = "mdc";
+  span.textContent = "zA&ra-mn:n-xpr";
+  sandbox.appendChild(span);
+  const ar = J.autoRender({ observe: true });
+  await sleep(1500);
+  R.autoRender = {
+    returned: typeof ar,
+    spanClass: span.className,
+    innerLen: span.innerHTML.length,
+    hasSvg: span.innerHTML.includes("<svg"),
+    childCount: span.children.length,
+  };
+  span.remove();
+} catch (e) {
+  R.autoRender = { error: shortErr(e) };
+}
+log("autoRender: " + JSON.stringify(R.autoRender), R.autoRender && (R.autoRender.hasSvg || R.autoRender.innerLen > 0) ? "ok" : "warn");
+
+/* ---------------- 9. 错误对象 ---------------- */
+try {
+  J.parseMdc("[A1");
+  R.syntaxError = { thrown: false };
+} catch (e) {
+  R.syntaxError = { thrown: true, name: e.name, isMdcSyntaxError: e instanceof J.MdcSyntaxError, message: String(e.message).slice(0, 200) };
+}
+log("syntax error: " + JSON.stringify(R.syntaxError), R.syntaxError.thrown && R.syntaxError.isMdcSyntaxError ? "ok" : "warn");
+
+/* ---------------- 10. 规模/性能 ---------------- */
+try {
+  const long = new Array(40).fill("A1-N35-B2").join("-");
+  const t0 = performance.now();
+  const svg = await withTimeout(J.renderMdc(long, { cadratHeight: 30 }), 30000, "long render");
+  R.perf.longRender = { mdc: long, quadrats: 120, ms: Math.round(performance.now() - t0), svgLength: svg.length, paths: (svg.match(/<path/g) || []).length, hasNaN: svg.includes("NaN") };
+  log("perf: 120 quadrats in " + R.perf.longRender.ms + " ms, " + R.perf.longRender.paths + " paths", "ok");
+} catch (e) {
+  R.perf.longRender = { error: shortErr(e) };
+}
+
+/* ---------------- 11. 错误行为 / 兜底 / 缓存 / 间距 ---------------- */
+try {
+  const probe = {};
+  probe.parseThrows = (() => { try { J.parseMdc("[A1"); return false; } catch { return true; } })();
+  try {
+    const laid = await withTimeout(J.layOutInPage("[A1"), 15000, "layout invalid");
+    probe.layoutThrows = false;
+    probe.layoutNodes = walkView(laid.view, 0, { nodes: 0, children: 0, maxDepth: 0 }).nodes;
+    probe.layoutSvg = J.drawLaidOutText(laid, { cadratHeight: 30 }).length;
+  } catch (e) {
+    probe.layoutThrows = true;
+    probe.layoutError = shortErr(e);
+  }
+  const provider = await J.loadGlyphProvider(new URL("./jsesh/data/", location.href).href);
+  probe.lookup = {
+    "13460": provider.size("13460") ?? null,
+    "A1ZZZ": provider.size("A1ZZZ") ?? null,
+    "nfr": provider.size("nfr") ?? null,
+    "canonical(nfr)": provider.canonicalCode("nfr"),
+    "canonical(t)": provider.canonicalCode("t"),
+  };
+  probe.codeCount = provider.codes.length;
+  const before = fetchedGlyphs;
+  await J.renderMdc("A1-N35-B2", { cadratHeight: 30 });
+  const mid = fetchedGlyphs;
+  await J.renderMdc("A1-N35-B2", { cadratHeight: 30 });
+  probe.cache = { before, mid, after: fetchedGlyphs };
+  const w = async (mdc) => { const svg = await J.renderMdc(mdc, { cadratHeight: 30 }); return svgRootSize(svg); };
+  probe.widths = { "A1-B2": await w("A1-B2"), "A1?100B2": await w("A1?100B2"), "A1..B2": await w("A1..B2"), "A1.B2": await w("A1.B2") };
+  probe.geometryKeys = Object.keys(J.DEFAULT_GEOMETRY || {});
+  probe.optionsKeys = Object.keys(J.DEFAULT_LAYOUT_OPTIONS || {});
+  probe.styleKeys = Object.keys(J.DEFAULT_STYLE || {});
+
+  // 非法文本在 layOutInPage 下是"错误行恢复"（JSesh 行为），不是抛异常：验证输出里有 Error in file
+  try {
+    const laidInvalid = await J.layOutInPage("[A1");
+    const svgInvalid = J.drawLaidOutText(laidInvalid, { cadratHeight: 30 });
+    probe.invalidRender = { hasErrorText: /Error in file/.test(svgInvalid), textNodes: (svgInvalid.match(/<text/g) || []).length, paths: (svgInvalid.match(/<path/g) || []).length };
+  } catch (e) { probe.invalidRender = { threw: shortErr(e) }; }
+  // 严格入口是否可用
+  try { J.parseMdc("[A1"); probe.strictParse = "accepted"; } catch (e2) { probe.strictParse = "throws " + e2.name; }
+
+  // 制表位：?N 的绝对位置（单位 1/200 em）
+  const wsum = async (mdc) => { const svg = await J.renderMdc(mdc, { cadratHeight: 30 }); return svgRootSize(svg); };
+  probe.tabs = { plain: await wsum("A1-B2"), t50: await wsum("A1?50B2"), t100: await wsum("A1?100B2"), t200: await wsum("A1?200B2") };
+  // 默认几何 / 排版选项
+  const g = J.DEFAULT_GEOMETRY || {};
+  probe.defaults = {
+    maxCadratHeight: g.maxCadratHeight, maxCadratWidth: g.maxCadratWidth, smallSkip: g.smallSkip,
+    lineSkip: g.lineSkip, columnSkip: g.columnSkip, tabUnitWidth: g.tabUnitWidth,
+    textWidth: g.textWidth, leftMargin: g.leftMargin, topMargin: g.topMargin,
+    cartoucheLineWidth: g.cartoucheLineWidth, cartoucheLoopLength: g.cartoucheLoopLength,
+    cartoucheMargin: g.cartoucheMargin, serekhDoorSize: g.serekhDoorSize,
+    options: J.DEFAULT_LAYOUT_OPTIONS,
+  };
+  // 非法文本恢复后的可见文本
+  try {
+    const svgInv = await J.renderMdc("[A1", { cadratHeight: 30 });
+    const plain = svgInv.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    probe.invalidText = { hasErrorText: plain.includes("Error in file"), plainHead: plain.trim().slice(0, 220) };
+  } catch (e) { probe.invalidText = { threw: shortErr(e) }; }
+  // insert 渲染是否成功
+  try {
+    const svgIns = await J.renderMdc("%insert[dir=bs,dw=20,dh=30](O1,n:t)", { cadratHeight: 36 });
+    probe.insertRender = { ok: true, len: svgIns.length, paths: (svgIns.match(/<path/g) || []).length };
+  } catch (e) { probe.insertRender = { ok: false, error: shortErr(e) }; }
+
+  // 真实 .gly 文档（含 header）渲染
+  probe.samples = [];
+  for (const name of ["samples/A_demonstration_of_the_mdc.gly", "samples/Cairo JE 67573.gly", "samples/Book of the dead Chapter 17.gly"]) {
+    const rec = { name };
+    const f0 = fetchedGlyphs;
+    try {
+      const text = await (await fetch(new URL(name, location.href).href)).text();
+      rec.bytes = text.length;
+      const doc = J.readMdcDocument(text);
+      rec.topItems = doc.text ? doc.text.topItems.length : null;
+      const t0s = performance.now();
+      const svg = await withTimeout(J.renderMdc(text, { cadratHeight: 24 }), 30000, "sample " + name);
+      rec.ms = Math.round(performance.now() - t0s);
+      rec.ok = true;
+      rec.svgLen = svg.length;
+      rec.paths = (svg.match(/<path/g) || []).length;
+      rec.errorInFile = /Error in file/.test(svg);
+      rec.textNodes = (svg.match(/<text/g) || []).length;
+      rec.hasNaN = svg.includes("NaN");
+      rec.glyphJsonFetched = fetchedGlyphs - f0;
+      const plain = svg.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+      rec.hasErrorText = plain.includes("Error in file");
+    } catch (e) { rec.ok = false; rec.error = shortErr(e); }
+    probe.samples.push(rec);
+  }
+  R.probes = probe;
+} catch (e) { R.probes = { error: shortErr(e) }; }
+
+R.parseDiffs = R.parse.filter((x) => x.astOk && x.written !== undefined && !x.roundTrip).slice(0, 30).map((x) => ({ mdc: x.mdc, written: x.written }));
+
+setTimeout(finalize, 200);
+</script>
+</body>
+</html>

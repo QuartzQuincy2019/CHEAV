@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>jsesh-js gallery</title>
+<style>
+  body { font-family: Georgia, serif; margin: 24px; background: #fff; color: #111; }
+  h1 { font-size: 18px; font-weight: normal; letter-spacing: .04em; }
+  .row { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-end; margin: 18px 0 26px; }
+  .item { border: 1px solid #eee; padding: 10px 14px; border-radius: 6px; }
+  .cap { font: 11px/1.4 ui-sans-serif, system-ui, sans-serif; color: #777; margin-top: 6px; }
+  jsesh-text { display: inline-block; }
+</style>
+</head>
+<body>
+<h1>jsesh-js 0.2.0 · 渲染抽样</h1>
+<script type="module">
+import { configureJSesh } from "./jsesh/jsesh.js";
+configureJSesh({ glyphsUrl: "./jsesh/data/" });
+</script>
+
+<div class="row">
+  <div class="item"><jsesh-text cadrat-height="46">nfr-f:r</jsesh-text><div class="cap">nfr-f:r（“good”）</div></div>
+  <div class="item"><jsesh-text cadrat-height="46">A1-N35</jsesh-text><div class="cap">A1-N35（两个四开组）</div></div>
+  <div class="item"><jsesh-text cadrat-height="46">A1*B2:I10</jsesh-text><div class="cap">A1*B2:I10（并置 + 竖叠）</div></div>
+  <div class="item"><jsesh-text cadrat-height="46">zA&amp;ra</jsesh-text><div class="cap">zA&amp;ra（2 符号连字）</div></div>
+  <div class="item"><jsesh-text cadrat-height="46">t&amp;G43&amp;t</jsesh-text><div class="cap">t&amp;G43&amp;t（3 符号连字）</div></div>
+</div>
+
+<div class="row">
+  <div class="item"><jsesh-text cadrat-height="42">&lt;A1&gt;</jsesh-text><div class="cap">&lt;A1&gt;（王名圈）</div></div>
+  <div class="item"><jsesh-text cadrat-height="42">&lt;s1A1s1&gt;</jsesh-text><div class="cap">&lt;s1A1s1&gt;（新式王名圈）</div></div>
+  <div class="item"><jsesh-text cadrat-height="42">[[A1]]</jsesh-text><div class="cap">[[A1]]（语文学括号）</div></div>
+  <div class="item"><jsesh-text cadrat-height="42">A1#134</jsesh-text><div class="cap">A1#134（底纹）</div></div>
+  <div class="item"><jsesh-text cadrat-height="42">A1#B2</jsesh-text><div class="cap">A1#B2（覆盖）</div></div>
+</div>
+
+<div class="row">
+  <div class="item"><jsesh-text cadrat-height="40" direction="rtl">i-w-r:a-C1-m-p*t:pt</jsesh-text><div class="cap">RTL 整句</div></div>
+  <div class="item"><jsesh-text cadrat-height="26" orientation="vertical">A1-N35-B2</jsesh-text><div class="cap">竖排（一列）</div></div>
+  <div class="item"><jsesh-text cadrat-height="40">+good+s A1</jsesh-text><div class="cap">拉丁文本 + 字形</div></div>
+  <div class="item"><jsesh-text cadrat-height="40">A1!A2</jsesh-text><div class="cap">换行</div></div>
+</div>
+
+<div class="row">
+  <div class="item"><jsesh-text cadrat-height="34">zA&amp;ra-mn:n-xpr</jsesh-text><div class="cap">zA&amp;ra-mn:n-xpr（常见词组）</div></div>
+  <div class="item"><jsesh-text cadrat-height="34">S34-N35:AA1</jsesh-text><div class="cap">S34-N35:AA1</div></div>
+  <div class="item"><jsesh-text cadrat-height="34">A1\R90</jsesh-text><div class="cap">A1\R90（旋转）</div></div>
+  <div class="item"><jsesh-text cadrat-height="34">A1?100B2</jsesh-text><div class="cap">A1?100B2（绝对制表）</div></div>
+</div>
+</body>
+</html>

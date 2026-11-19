@@ -1,0 +1,5 @@
+# 该目录只放测试台；jsesh-js 的运行时文件不入库
+jsesh/
+samples/
+dom.html
+*.log
