@@ -22,7 +22,7 @@ import os
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", default=r"E:\QKMansion\CSX10\w\_dickson\pipeline\vocab-p10-305.json")
-    ap.add_argument("--out", default=r"js\database\vocabulary-dickson.js")
+    ap.add_argument("--out", default=r"data\dickson\vocabulary-dickson.js")
     ap.add_argument("--max", type=int, default=0, help="limit entries (0 = all)")
     args = ap.parse_args()
 

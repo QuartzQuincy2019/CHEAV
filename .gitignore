@@ -70,5 +70,4 @@ tests/probes/
 # jsesh-js 字形数据（24MB）已入库：index.html 在 GitHub Pages 上要能直接运行，
 # 不能依赖本地目录联接或额外操作。
 
-# Dickson 词典派生词表（CC BY-NC-SA 2.5，生成文件；默认不入库，见 tools/gen_dickson_vocab.py）
-js/database/vocabulary-dickson.js
+# Dickson 词典派生词表已入库：data/dickson/（CC BY-NC-SA 2.5，见该目录 README/LICENSE）

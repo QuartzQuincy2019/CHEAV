@@ -27,6 +27,18 @@ Unicode 源数据（`Unikemet.txt`）与由其生成的对照表（`jsesh-unicod
 
 ---
 
+## 一之二、许可边界：`data/dickson/`（词典派生数据）
+
+`data/dickson/` 是 R. Dickson *Dictionary of Middle Egyptian*（2006）的派生数据
+（发音 / MdC / 英文释义 / 页码，7,747 条），按 **CC BY-NC-SA 2.5** 分发：
+
+- 署名：R. Dickson, *Dictionary of Middle Egyptian*, 2006；
+- 非商业：不得用于商业目的；
+- 相同方式共享：再分发该数据须沿用 CC BY-NC-SA 2.5。
+
+该目录**不属于**本仓库的 MIT 代码部分；MIT 仅适用于其余源码与文档。
+许可全文见 [`data/dickson/LICENSE`](data/dickson/LICENSE)。
+
 ## 二、明确**未**包含的第三方素材
 
 以下素材**不属于**本仓库的分发内容（均存放于仓库外 `..\..\_external_CHEAV\`，
