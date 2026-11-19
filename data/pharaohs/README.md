@@ -20,9 +20,13 @@
 ## IB 输入语法
 
 ```
-~d<Code>~<Name>     例：~d19~RamessesII、~dpt~PtolemyI、~dnk~ThutmoseIII
-~<Name>             例：~RamessesIII（不带朝代）
+~d<Code>~<Name>         例：~d19~RamessesII、~dpt~PtolemyI
+~n<类别>~<Name>         例：~np~RamessesII（类别：no/nn/np/nh/ng）
+~d<Code>~n<类别>~<Name> 例：~d19~np~RamessesII
+~<Name>                 例：~RamessesIII
 ```
+
+`~d` 与 `~n` 两段均可选、顺序任意；姓名必需。候选超过 40 页时只显示前 40 页。
 
 - `~d` 段可省略；`~<Name>` 必需；**名字里不留空格**（`RamessesII`，不是 `Ramesses II`）；
 - `<Code>`：两位王朝号 `01`–`31`，或 `pd/ed/ok/fi/mk/si/nk/ti/lp/ag/pt/ro/ab/un`；

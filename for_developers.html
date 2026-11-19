@@ -266,11 +266,11 @@ mergeWordCandidates([...])    // 合并 + 按 insert 去重 + 排序</code></pre
 </table>
 
 <h2 id="pharaoh">4.5 王名检索（PharaohMatch）</h2>
-<p><code>js/engine/pharaoh-match.js</code> 提供王名检索；数据在 <code>data/pharaohs/</code>（pharaoh.se，CC BY 4.0）。王名候选统一渲染在 <b>VMBox</b>（词条形式：左列＝由转写 1:1 折叠出的拟合MdC读音，右列＝国王 · 类别 · 王朝），PDM/GM 仍只显示单字符。写入时按类别加框：<code>Horus</code> → <code>&lt;S-…-S&gt;</code>，<code>Prenomen</code>/<code>Nomen</code> → <code>&lt;-…-&gt;</code>，其余不加框。</p>
+<p><code>js/engine/pharaoh-match.js</code> 提供王名检索；语法 <code>~d&lt;Code&gt;~n&lt;类别&gt;~&lt;Name&gt;</code>（两段均可选、顺序任意）；候选超过 40 页时只显示前 40 页。数据在 <code>data/pharaohs/</code>（pharaoh.se，CC BY 4.0）。王名候选统一渲染在 <b>VMBox</b>（词条形式：左列＝由转写 1:1 折叠出的拟合MdC读音，右列＝国王 · 类别 · 王朝），PDM/GM 仍只显示单字符。写入时按类别加框：<code>Horus</code> → <code>&lt;S-…-S&gt;</code>，<code>Prenomen</code>/<code>Nomen</code> → <code>&lt;-…-&gt;</code>，其余不加框。</p>
 <table>
     <tr><th>成员</th><th>说明</th></tr>
     <tr><td><code>PharaohMatch.search(q)</code></td><td><code>~d19~RamessesII</code> / <code>~Ramesses3</code> / <code>19th dynasty Ramesses</code></td></tr>
-    <tr><td><code>PharaohMatch.parse(q)</code></td><td>拆出 <code>{ code, name, num }</code>（数字已归一）</td></tr>
+    <tr><td><code>PharaohMatch.parse(q)</code></td><td>拆出 <code>{ code, category, name, num }</code>；<code>category</code> 为 <code>o/n/p/h/g</code></td></tr>
     <tr><td><code>PharaohMatch.searchEntries(q)</code></td><td>按王名本身检索；2,333 条王名（名称/转写/MdC）全部入候选映射，返回 <code>{ king, entry }</code></td></tr>
     <tr><td><code>PharaohMatch.namesFor(id)</code></td><td>某国王的全部王名变体 <code>{ s, n, t, g, m }</code></td></tr>
     <tr><td><code>PharaohMatch.categoriesFor(id)</code></td><td>该类国王拥有的名号类别与条数</td></tr>

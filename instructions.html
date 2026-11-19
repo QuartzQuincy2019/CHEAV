@@ -220,6 +220,9 @@
 <p>键入 <code>F35</code> 这类码时，GM 区按前缀列出候选；大小写不敏感（<code>f35</code> 与 <code>F35</code> 等价）。</p>
 
 <h3>4.4 王名输入（<code>~</code>）</h3>
+<p>可选的 <code>~n</code> 段用于限定名号类别：<code>no</code>=Nomen、<code>nn</code>=Nebty、<code>np</code>=Prenomen、
+<code>nh</code>=Horus、<code>ng</code>=Golden Horus。例如 <code>~np~RamessesII</code>、<code>~d19~np~RamessesII</code>；
+<code>~d</code> 与 <code>~n</code> 两段**顺序任意**，都可省略，姓名必需。</p>
 <p>在 IB 里以 <code>~</code> 开头：<code>~d19~RamessesII</code>。候选在 <b>VM 词区</b>以词条形式列出（PDM/GM 是单字符区，不参与王名）。其中 <code>~d19~</code> 是可选朝代段
 （<code>19</code> = 第十九王朝，也可用 <code>pt</code> 托勒密、<code>ro</code> 罗马、<code>nk</code> 新王国等），
 <code>RamessesII</code> 是必需的姓名，<b>名字里不留空格</b>。也可以直接输入王名本身（如 <code>~Usermaatra</code>），候选会直接列出该王名的全部变体。</p>
@@ -293,6 +296,7 @@
     <li><b>输入</b>：IB 输入有 50 ms 防抖；候选封顶 200 条；7,687 条词条下单键同步耗时约 0 ms，候选字形在 ~100–150 ms 内出齐。</li>
     <li><b>缺字形</b>：显示红色码名（与词典原书一致），不是错误；可在词表里补映射或换用存在的变体码。</li>
     <li><b>长词</b>：VM 行内预览会按比例缩小（最多占行宽 42%），不会压到右侧文字。</li>
+    <li><b>候选分页</b>：候选超过 40 页时只显示前 40 页（分页栏标注「仅前 40 页」）。</li>
 </ul>
 
 <h2 id="faq">10 常见问题</h2>

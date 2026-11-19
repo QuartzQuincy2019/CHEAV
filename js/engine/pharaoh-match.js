@@ -73,15 +73,27 @@
         return n ? { name: m[1].trim(), num: n } : { name: t, num: 0 };
     }
 
-    /** 解析 "~d19~Ramesses II" / "~dpt~Ptolemy" / "~Ramesses III"。 */
+    /** `~n` 名号类别：o=Nomen, n=Nebty, p=Prenomen, h=Horus, g=Golden Horus。 */
+    var CATEGORY = { o: "Nomen", n: "Nebty", p: "Prenomen", h: "Horus", g: "Golden falcon" };
+
+    /**
+     * 解析 `~d19~np~RamessesII`：`~d<Code>` 与 `~n<类别>` 都是可选的、顺序任意，
+     * 最后一段是必需的姓名。
+     */
     function parseTilde(q) {
         var s = String(q || "").trim();
-        var m = /^~\s*(?:d\s*([a-z]{2}|\d{1,2})\s*~\s*)?(.*)$/i.exec(s);
-        if (!m) return null;
-        var code = (m[1] || "").toLowerCase();
-        var rest = (m[2] || "").trim();
+        if (s.charAt(0) !== "~") return null;
+        var parts = s.split("~");
+        var code = "", category = "", i = 1;
+        for (; i < parts.length; i++) {
+            var tok = parts[i].toLowerCase();
+            if (/^d(?:[a-z]{2}|\d{1,2})$/.test(tok)) { code = tok.slice(1); continue; }
+            if (/^n[opnhg]$/.test(tok)) { category = tok.charAt(1); continue; }
+            break;
+        }
+        var rest = parts.slice(i).join("~").trim();
         var p = splitNumeral(rest);
-        return { code: code, name: p.name, num: p.num, nameRequired: true };
+        return { code: code, category: category, name: p.name, num: p.num, nameRequired: true };
     }
 
     /** 解析自由文本里的朝代/时期（兼容旧写法）。 */
@@ -227,8 +239,8 @@
         init();
         var raw = String(query == null ? "" : query);
         var t = parseTilde(raw);
-        var code, nameQ;
-        if (t) { code = t.code; nameQ = key(t.name); }
+        var code, category = "", nameQ;
+        if (t) { code = t.code; category = t.category; nameQ = key(t.name); }
         else {
             var scope = parseScope(raw);
             var parts = splitNumeral(scope.rest);
@@ -243,6 +255,7 @@
             var list = namesFor(king.id);
             for (var j = 0; j < list.length; j++) {
                 var e = list[j];
+                if (category && e.s !== CATEGORY[category]) continue;
                 var kn = key(e.n), kt = key(e.t), km = key(e.m);
                 var exact = (kn === nameQ || kt === nameQ || km === nameQ);
                 var prefix = !exact && (kn.indexOf(nameQ) === 0 || kt.indexOf(nameQ) === 0);
@@ -277,7 +290,7 @@
         search: search,
         parse: function (q) {
             var t = parseTilde(q);
-            if (t) return { tilde: true, code: t.code, name: t.name, num: t.num };
+            if (t) return { tilde: true, code: t.code, category: t.category, name: t.name, num: t.num };
             var s = parseScope(q), p = splitNumeral(s.rest);
             return { tilde: false, code: s.code, name: p.name, num: p.num };
         },
@@ -287,6 +300,7 @@
         categoriesFor: categoriesFor,
         byId: function (id) { init(); return BY_ID[id] || null; },
         periodCode: function (code) { return PERIOD_CODES[String(code || "").toLowerCase()] || ""; },
+        categorySection: function (code) { return CATEGORY[String(code || "").toLowerCase()] || ""; },
         all: function () { init(); return KINGS; }
     };
 })(typeof window !== "undefined" ? window : globalThis);

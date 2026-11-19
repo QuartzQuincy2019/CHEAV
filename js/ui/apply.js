@@ -124,7 +124,7 @@ function showParseErrors(list) {
     let inflow = false;                                   // true = 入流（PDM/GM 空闲）
 
     // 王名输入（~ 语法）：king → category → variant 三段式
-    const pharaoh = { active: false, stage: "king", king: null, section: null, units: [], sel: 0 };
+    const pharaoh = { active: false, stage: "king", king: null, section: null, category: "", units: [], sel: 0 };
     const PH_SECTION_LABEL = {
         "Horus": "Horus 名", "Nebty": "Nebty 名", "Golden falcon": "Golden Horus",
         "Prenomen": "Prenomen 王位名", "Nomen": "Nomen 本名",
@@ -571,7 +571,8 @@ function showParseErrors(list) {
 
     // ============ VMBox（页内选择模型 + 只渲染当前页） ============
     function pageSize() { return normalizeVmPageSize(SETTINGS.vmPageSize); }
-    function vmTotalPages() { return Math.max(1, Math.ceil(vm.list.length / pageSize())); }
+    const VM_MAX_PAGES = 40;
+    function vmTotalPages() { return Math.min(VM_MAX_PAGES, Math.max(1, Math.ceil(vm.list.length / pageSize()))); }
     function vmPageLen(page) {
         const p = (page === undefined) ? vm.page : page;
         return Math.max(0, Math.min(pageSize(), vm.list.length - p * pageSize()));
@@ -728,8 +729,10 @@ function showParseErrors(list) {
             // mousedown 阶段翻页（同候选行：避免框重建导致 click 丢失）
             prevBtn.addEventListener("mousedown", (e) => { stop(e); turnPage(-1); renderAll(); });
             const info = document.createElement("span");
+            const realPages = Math.max(1, Math.ceil(vm.list.length / pageSize()));
             info.textContent = (vm.page + 1) + " / " + totalPages +
-                (vm.list.truncated ? "（仅前 " + VM_MAX_CANDIDATES + " 条）" : "");
+                (realPages > VM_MAX_PAGES ? "（仅前 " + VM_MAX_PAGES + " 页）" :
+                 (vm.list.truncated ? "（仅前 " + VM_MAX_CANDIDATES + " 条）" : ""));
             const nextBtn = document.createElement("button");
             nextBtn.type = "button";
             nextBtn.textContent = t("pageNext");
@@ -985,7 +988,7 @@ function showParseErrors(list) {
         focusBox = "VM";
 
         const hint = {
-            king: "王名 —— 输入 ~d19~RamessesII（~d 段可省略，名字不留空格）",
+            king: "王名 —— 输入 ~d19~np~RamessesII（~d / ~n 段可省略且顺序任意，名字不留空格）",
             category: "选择王名类别（Tab 确认）",
             variant: "选择变体（Tab 写入 IB）"
         }[pharaoh.stage] || "王名";
@@ -999,6 +1002,16 @@ function showParseErrors(list) {
         if (typeof PharaohMatch === "undefined") return;
         if (!pharaoh.hintDefault) pharaoh.hintDefault = vmBox.dataset.ph || "";
         pharaoh.active = true;
+        // 查询文本变化 → 回到第一阶段（内部 Tab 切换时 raw 不变，不会重置）
+        if (pharaoh.query !== raw) {
+            pharaoh.query = raw;
+            pharaoh.stage = "king";
+            pharaoh.king = null;
+            pharaoh.section = null;
+            pharaoh.sel = 0;
+        }
+        const parsed = (typeof PharaohMatch !== "undefined") ? PharaohMatch.parse(String(raw || "")) : null;
+        pharaoh.category = (parsed && parsed.category) ? PharaohMatch.categorySection(parsed.category) : "";
         if (pharaoh.stage === "king") { pharaoh.king = null; pharaoh.section = null; }
         pharaohRender();
     }
@@ -1008,6 +1021,8 @@ function showParseErrors(list) {
         pharaoh.stage = "king";
         pharaoh.king = null;
         pharaoh.section = null;
+        pharaoh.category = "";
+        pharaoh.query = "";
         vm.list = [];
         vm.page = 0;
         vm.sel = 0;
@@ -1036,7 +1051,12 @@ function showParseErrors(list) {
         }
         if (pharaoh.stage === "king") {
             pharaoh.king = u.king;
-            pharaoh.stage = "category";
+            if (pharaoh.category) {                 // ~np 等：跳过类别选择
+                pharaoh.section = pharaoh.category;
+                pharaoh.stage = "variant";
+            } else {
+                pharaoh.stage = "category";
+            }
             pharaoh.sel = 0;
             updateMatch();
             renderAll();
