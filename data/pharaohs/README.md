@@ -17,6 +17,18 @@
 - 原始出处：Kitchen, *Ramesside Inscriptions*；von Beckerath, *Handbuch der ägyptischen Königsnamen*；
   Leprohon, *The Great Name*；Petrie 等（见各国王页的 References）。
 
+## IB 输入语法
+
+```
+~d<Code>~<Name>     例：~d19~RamessesII、~dpt~PtolemyI、~dnk~ThutmoseIII
+~<Name>             例：~RamessesIII（不带朝代）
+```
+
+- `~d` 段可省略；`~<Name>` 必需；**名字里不留空格**（`RamessesII`，不是 `Ramesses II`）；
+- `<Code>`：两位王朝号 `01`–`31`，或 `pd/ed/ok/fi/mk/si/nk/ti/lp/ag/pt/ro/ab/un`；
+- 名字支持罗马数字与阿拉伯数字（`II` = `2`），II 与 III 严格区分；
+- 交互：`Tab` 选国王 → `Tab` 选名号类别 → `Tab` 选变体，MdC 写入 IB（Prenomen/Nomen 自动加 `<...>` 王名圈）。
+
 ## 检索接口
 
 `js/engine/pharaoh-match.js` 提供 `PharaohMatch`：

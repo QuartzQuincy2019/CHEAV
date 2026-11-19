@@ -219,6 +219,18 @@
 <h3>4.3 Gardiner Code 匹配（GMBox）</h3>
 <p>键入 <code>F35</code> 这类码时，GM 区按前缀列出候选；大小写不敏感（<code>f35</code> 与 <code>F35</code> 等价）。</p>
 
+<h3>4.4 王名输入（<code>~</code>）</h3>
+<p>在 IB 里以 <code>~</code> 开头：<code>~d19~RamessesII</code>。其中 <code>~d19~</code> 是可选朝代段
+（<code>19</code> = 第十九王朝，也可用 <code>pt</code> 托勒密、<code>ro</code> 罗马、<code>nk</code> 新王国等），
+<code>RamessesII</code> 是必需的姓名，<b>名字里不留空格</b>。</p>
+<ol>
+    <li><kbd>Tab</kbd> 选中国王（如 Ramesses II）；</li>
+    <li><kbd>Tab</kbd> 选择五类名号之一（Horus / Nebty / Golden Horus / Prenomen / Nomen）；</li>
+    <li><kbd>Tab</kbd> 选择该类的具体变体，MdC 串写入 IB（Prenomen / Nomen 自动加王名圈）。</li>
+</ol>
+<p>其他写法：<code>~RamessesIII</code>（不带朝代）、<code>~dpt~PtolemyI</code>、<code>~dnk~ThutmoseIII</code>、
+<code>~KingTut</code>（别名）。数字支持罗马数字与阿拉伯数字，<code>II</code> 与 <code>III</code> 严格区分。</p>
+
 <h3>4.4 缺字形：红色码文本</h3>
 <p>如果某个码在 jsesh-js 的字形数据里不存在（例如 Dickson 词典里印成红字的 <code>A478A</code>），CHEAV 不会画方块占位，而是按 JSesh 的约定显示<b>红色码名</b>。这与词典原书的做法一致。</p>
 

@@ -123,6 +123,15 @@ function showParseErrors(list) {
     let mode = "idle";                                    // idle | phon | gc | phon+gc | det
     let inflow = false;                                   // true = 入流（PDM/GM 空闲）
 
+    // 王名输入（~ 语法）：king → category → variant 三段式
+    const pharaoh = { active: false, stage: "king", king: null, section: null, units: [], sel: 0 };
+    const PH_SECTION_LABEL = {
+        "Horus": "Horus 名", "Nebty": "Nebty 名", "Golden falcon": "Golden Horus",
+        "Prenomen": "Prenomen 王位名", "Nomen": "Nomen 本名",
+        "Prenomen + Nomen": "Prenomen + Nomen",
+        "Autokrator + Kaisaros": "Autokrator + Kaisaros", "Kaisaros": "Kaisaros"
+    };
+
     // 页脚附构建标记，便于确认刷新是否生效
     if (typeof Glyphs !== "undefined" && Glyphs.debug) {
         const fp = document.querySelector(".SiteFooter p");
@@ -506,6 +515,7 @@ function showParseErrors(list) {
     //   空         → 隐藏
     async function updateIBPreview() {
         if (!previewBox || !previewRender) return;
+        if (pharaoh.active) { previewBox.hidden = true; return; }
         const src = canonicalize(ib.value);
         const parsed = (typeof MdCRndr !== "undefined" && MdCRndr.parseForApp) ? MdCRndr.parseForApp(src) : parseInput(src);
         const { tree, invalid } = parsed;
@@ -811,6 +821,149 @@ function showParseErrors(list) {
         }
     }
 
+    // ============ 王名输入（~d<Code>~<Name>，名字不含空格） ============
+    function pharaohSectionLabel(sec) { return PH_SECTION_LABEL[sec] || sec; }
+
+    function pharaohPrenomenMdc(k) {
+        if (!k || typeof PharaohMatch === "undefined") return "";
+        const list = PharaohMatch.namesFor(k.id);
+        const hit = list.find(n => n.s === "Prenomen" && n.m);
+        return hit ? ("<" + hit.m + ">") : "";
+    }
+
+    function pharaohCurrentUnits() {
+        if (pharaoh.stage === "king") {
+            const raw = String(ib.value || "").trim();
+            return PharaohMatch.search(raw).map(k => ({
+                kind: "pharaoh",
+                l1: PharaohMatch.displayName(k),
+                l2: "dyn " + (k.code || "?") + (k.prenomen ? " · " + k.prenomen : ""),
+                glyph: pharaohPrenomenMdc(k),
+                king: k
+            }));
+        }
+        if (pharaoh.stage === "category") {
+            return PharaohMatch.categoriesFor(pharaoh.king.id).map(c => ({
+                kind: "pharaoh",
+                l1: pharaohSectionLabel(c.section),
+                l2: c.count + " 条",
+                glyph: "",
+                section: c.section
+            }));
+        }
+        return PharaohMatch.namesFor(pharaoh.king.id)
+            .filter(n => n.s === pharaoh.section)
+            .map(n => ({
+                kind: "pharaoh",
+                l1: n.t || n.n || n.m,
+                l2: n.m,
+                glyph: n.m,
+                item: n
+            }));
+    }
+
+    function pharaohRender() {
+        // 清掉上一阶段自建单元格
+        for (const u of pharaoh.units) if (u.el) u.el.remove();
+        pharaoh.units = [];
+        // 隐藏普通音素/定符单元
+        filterUnits(pdmBox, [], [phonUnits, detUnits], null);
+        filterUnits(gmBox, [], [codeUnits], null);
+        vm.list = [];
+        vm.page = 0; vm.sel = 0;
+
+        const limit = Math.max(1, visibleLimit(pdmBox));
+        pharaoh.units = pharaohCurrentUnits().slice(0, limit);
+        pharaoh.sel = Math.min(pharaoh.sel, Math.max(0, pharaoh.units.length - 1));
+        for (const u of pharaoh.units) {
+            u.el = createCellEl(u);
+            pdmBox.appendChild(u.el);
+            u.el.style.display = "";
+            if (u.glyph) paintCellGlyph(u.el);
+        }
+        pd.pool = pharaoh.units;
+        pd.visible = pharaoh.units;
+        pd.sel = pharaoh.sel;
+
+        const hints = {
+            king: "王名 —— 输入 ~d19~RamessesII（~d 段可省略，名字不留空格）",
+            category: "选择王名类别（Tab 确认）",
+            variant: "选择变体（Tab 写入 IB）"
+        };
+        pdmBox.dataset.ph = hints[pharaoh.stage] || "王名";
+        pdmBox.classList.toggle("empty", pharaoh.units.length === 0);
+        focusBox = "PDM";
+        renderVM();
+        paintCells(pd, "PDM");
+        paintCells(gm, "GM");
+        vmBox.classList.toggle("focused", false);
+        pdmBox.classList.toggle("focused", true);
+        gmBox.classList.toggle("focused", false);
+        gmBox.classList.add("empty");
+    }
+
+    function updatePharaohMatch(raw) {
+        if (typeof PharaohMatch === "undefined") return;
+        if (!pharaoh.hintDefault) pharaoh.hintDefault = pdmBox.dataset.ph || "";
+        pharaoh.active = true;
+        pdmBox.classList.add("pharaoh");
+        if (pharaoh.stage === "king") {
+            pharaoh.king = null;
+            pharaoh.section = null;
+        }
+        pharaohRender();
+    }
+
+    function pharaohExit() {
+        pharaoh.active = false;
+        pharaoh.stage = "king";
+        pharaoh.king = null;
+        pharaoh.section = null;
+        for (const u of pharaoh.units) if (u.el) u.el.remove();
+        pharaoh.units = [];
+        pd.pool = []; pd.visible = []; pd.sel = 0;
+        pdmBox.dataset.ph = pharaoh.hintDefault || pdmBox.dataset.ph;
+        pdmBox.classList.remove("pharaoh");
+        focusBox = "IB";
+    }
+
+    function pharaohConfirm() {
+        // 方向键改的是 pd.sel（PDMBox 的选择模型），这里必须同步取它
+        const idx = (focusBox === "PDM" ? pd.sel : pharaoh.sel);
+        pharaoh.sel = idx;
+        const u = pharaoh.units[idx];
+        if (!u) return;
+        if (pharaoh.stage === "king") {
+            pharaoh.king = u.king;
+            pharaoh.stage = "category";
+            pharaoh.sel = 0;
+            updateMatch();
+            renderAll();
+            return;
+        }
+        if (pharaoh.stage === "category") {
+            pharaoh.section = u.section;
+            pharaoh.stage = "variant";
+            pharaoh.sel = 0;
+            updateMatch();
+            renderAll();
+            return;
+        }
+        let mdc = (u.item && u.item.m) || "";
+        if (!mdc) return;
+        // 王位名 / 本名在王名圈里书写
+        if (pharaoh.section === "Prenomen" || pharaoh.section === "Nomen" || pharaoh.section === "Prenomen + Nomen") {
+            mdc = "<" + mdc + ">";
+        }
+        ib.value = mdc;
+        ib.selectionStart = ib.selectionEnd = mdc.length;
+        pharaohExit();
+        inflow = false;
+        updateMatch();
+        updateIBPreview();
+        renderAll();
+    }
+
     function visibleLimit(container) {
         const W = container.clientWidth || 0;
         if (!W) return 8;
@@ -953,6 +1106,13 @@ function showParseErrors(list) {
     }
 
     function updateMatch() {
+        // 王名模式：IB 以 "~" 开头 → 走王名三段式匹配，不进入普通音素/码匹配
+        if (String(ib.value || "").trimStart().charAt(0) === "~") {
+            updatePharaohMatch(ib.value);
+            return;
+        }
+        if (pharaoh.active) pharaohExit();
+
         const run = currentRunOf(ib.value, ib.selectionStart);
         mode = "idle";
         vm.page = 0;
@@ -1067,6 +1227,7 @@ function showParseErrors(list) {
 
     /** 确认当前 MBox 的选中项 → 写入 IBBox → 进入【入流】。 */
     function confirmCurrent() {
+        if (pharaoh.active) { pharaohConfirm(); return; }
         const c = focusBox === "VM" ? vmCurrent()
             : focusBox === "PDM" ? pd.visible[pd.sel]
                 : focusBox === "GM" ? gm.visible[gm.sel] : null;
@@ -1084,6 +1245,7 @@ function showParseErrors(list) {
      * （J1 → AA1、J80 → Aa80、Y1v → Y1a）。
      */
     function commitAll() {
+        if (pharaoh.active) { pharaohConfirm(); return; }
         const raw = ib.value;
         const text = canonicalize(raw);
         if (!text) return;

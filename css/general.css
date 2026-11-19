@@ -780,6 +780,14 @@ html.DocOverlay-open body {
     pointer-events: none;
 }
 
+/* 王名输入：格子放宽，容纳英文名 + 王朝/王位名 */
+.MBox.pharaoh .mcell {
+    width: 148px;
+}
+.MBox.pharaoh .mcell-l1 {
+    font-weight: 600;
+}
+
 /* 预览：小型的象形文字显示区域（渲染引擎实时生成）
    长词：按内容宽度占位（max-content），超过行宽 42% 时由 apply.js 等比缩小，
    避免字形溢出压到右侧的 MdC / 释义。 */

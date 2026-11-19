@@ -1,15 +1,17 @@
-// pharaoh-match.js —— 王名检索：英文「朝代 / 姓名」，区分 Ramesses II 与 III
+// pharaoh-match.js —— 王名检索（英文朝代 / 姓名）
 //
-// 设计要点：
-//   · 姓名可带罗马数字（II、III）或阿拉伯数字（2、3），两者等价；
-//   · 朝代可写 "19th dynasty"、"dynasty 19"、"Nineteenth Dynasty"、"新王国/New Kingdom"；
-//   · 别名归一到本名（Rameses/Ramses → Ramesses，Tuthmosis → Thutmose，Akhenaten → Amenhotep IV 等）；
-//   · 先精确匹配整名/整别名，退化为基名匹配；无数字时返回该名字的全部国王（按王朝/顺序排序）。
+// 支持的 IB 写法：
+//     ~d<Code>~<Name>     例：~d19~Ramesses II、~dpt~Ptolemy、~dnk~Thutmose III
+//     ~<Name>             例：~Ramesses III（不给朝代）
+// 也兼容旧的自由文本：Ramesses II、19th dynasty Ramesses、New Kingdom。
 //
-// 依赖：data/pharaohs/pharaohs.js（window.PHARAOHS）
-// 用法：PharaohMatch.search("Ramesses II")
-//       PharaohMatch.search("19th dynasty Ramesses")
-//       PharaohMatch.search("New Kingdom Thutmose")
+// <Code>：两位王朝号 01–31，或时期代号
+//     pd 前王朝 · ed 早王朝 · ok 古王国 · fi 第一中间期 · mk 中王国
+//     si 第二中间期 · nk 新王国 · ti 第三中间期 · lp 晚期
+//     ag 阿吉德 · pt 托勒密 · ro 罗马 · ab 阿拜多斯 · un 未定位
+//
+// 规则：~d 段可省略，~<Name> 必需；姓名可带罗马/阿拉伯数字，II 与 III 严格区分；
+//       先精确整名/整别名，再退化为基名匹配；无数字时返回同名全部国王。
 
 (function (global) {
     "use strict";
@@ -28,139 +30,179 @@
         "ix": 9, "x": 10, "xi": 11, "xii": 12, "xiii": 13, "xiv": 14, "xv": 15,
         "xvi": 16, "xvii": 17, "xviii": 18, "xix": 19, "xx": 20
     };
-    var PERIODS = [
-        "predynastic", "early dynastic", "old kingdom", "first intermediate",
-        "middle kingdom", "second intermediate", "new kingdom", "third intermediate",
-        "late period", "ptolemaic", "roman", "argead", "unplaced"
-    ];
 
-    /** 归一化：小写、去变音、标点变空格。 */
+    /** 时期代号（两位字母）；数值王朝号另算。 */
+    var PERIOD_CODES = {
+        pd: "predynastic", ed: "early dynastic", ok: "old kingdom",
+        fi: "first intermediate", mk: "middle kingdom", si: "second intermediate",
+        nk: "new kingdom", ti: "third intermediate", lp: "late period",
+        ag: "argead", pt: "ptolemaic", ro: "roman", ab: "abydos", un: "unplaced"
+    };
+
+    var PERIOD_ALIASES = {
+        "predynastic": "pd", "early dynastic": "ed", "old kingdom": "ok",
+        "first intermediate": "fi", "first intermediate period": "fi",
+        "middle kingdom": "mk", "second intermediate": "si", "second intermediate period": "si",
+        "new kingdom": "nk", "third intermediate": "ti", "third intermediate period": "ti",
+        "late period": "lp", "argead": "ag", "ptolemaic": "pt", "ptolemaic kingdom": "pt",
+        "roman": "ro", "roman period": "ro", "abydos": "ab", "unplaced": "un",
+        "unplaced kings": "un"
+    };
+
     function norm(s) {
         return String(s == null ? "" : s)
             .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, " ")
-            .trim();
+            .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     }
 
+    /** 去空格键：名字里不允许空格，匹配时两边都压掉空格/连字符。 */
+    function key(s) { return norm(s).replace(/[\s-]+/g, ""); }
+
     function toRoman(n) {
-        var map = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
-        var out = "";
-        for (var i = 0; i < map.length; i++) {
-            while (n >= map[i][0]) { out += map[i][1]; n -= map[i][0]; }
-        }
+        var map = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]], out = "";
+        for (var i = 0; i < map.length; i++) while (n >= map[i][0]) { out += map[i][1]; n -= map[i][0]; }
         return out;
     }
 
-    /** 末尾数字（罗马或阿拉伯）→ { name, num }。 */
     function splitNumeral(text) {
         var t = String(text || "").trim();
         var m = /^(.*?)\s+([IVXivx]+|\d{1,2})$/.exec(t);
         if (!m) return { name: t, num: 0 };
         var tail = m[2];
         var n = /^\d+$/.test(tail) ? parseInt(tail, 10) : (ROMAN[tail.toLowerCase()] || 0);
-        if (!n) return { name: t, num: 0 };
-        return { name: m[1].trim(), num: n };
+        return n ? { name: m[1].trim(), num: n } : { name: t, num: 0 };
     }
 
-    /** 解析朝代/时期片段。 */
+    /** 解析 "~d19~Ramesses II" / "~dpt~Ptolemy" / "~Ramesses III"。 */
+    function parseTilde(q) {
+        var s = String(q || "").trim();
+        var m = /^~\s*(?:d\s*([a-z]{2}|\d{1,2})\s*~\s*)?(.*)$/i.exec(s);
+        if (!m) return null;
+        var code = (m[1] || "").toLowerCase();
+        var rest = (m[2] || "").trim();
+        var p = splitNumeral(rest);
+        return { code: code, name: p.name, num: p.num, nameRequired: true };
+    }
+
+    /** 解析自由文本里的朝代/时期（兼容旧写法）。 */
     function parseScope(q) {
         var s = " " + norm(q) + " ";
-        var scope = { dyn: 0, period: "", rest: q };
+        var scope = { code: "", rest: q };
         var m;
-        // 19th dynasty / 19 dynasty / dynasty 19 / dynasty xix
         m = /\b(\d{1,2})(?:st|nd|rd|th)?\s+dynasty\b/.exec(s);
-        if (m) { scope.dyn = parseInt(m[1], 10); s = s.replace(m[0], " "); }
-        else if ((m = /\bdynasty\s+(\d{1,2})\b/.exec(s))) { scope.dyn = parseInt(m[1], 10); s = s.replace(m[0], " "); }
-        else if ((m = /\bdynasty\s+([ivx]+)\b/.exec(s))) { scope.dyn = ROMAN[m[1]] || 0; s = s.replace(m[0], " "); }
+        if (m) { scope.code = m[1].length === 1 ? "0" + m[1] : m[1]; s = s.replace(m[0], " "); }
+        else if ((m = /\bdynasty\s+(\d{1,2})\b/.exec(s))) { scope.code = m[1].length === 1 ? "0" + m[1] : m[1]; s = s.replace(m[0], " "); }
+        else if ((m = /\bdynasty\s+([ivx]+)\b/.exec(s))) { scope.code = String(ROMAN[m[1]] || "").padStart(2, "0"); s = s.replace(m[0], " "); }
         else {
-            // nineteenth dynasty
             for (var w in ORD) {
                 var re = new RegExp("\\b" + w + "\\s+dynasty\\b");
-                if (re.test(s)) { scope.dyn = ORD[w]; s = s.replace(re, " "); break; }
+                if (re.test(s)) { scope.code = String(ORD[w]).padStart(2, "0"); s = s.replace(re, " "); break; }
             }
         }
-        // 时期名
-        for (var i = 0; i < PERIODS.length; i++) {
-            var p = PERIODS[i];
-            var rp = new RegExp("\\b" + p.replace(/ /g, "\\s+") + "\\b");
-            if (rp.test(s)) { scope.period = p; s = s.replace(rp, " "); break; }
+        if (!scope.code) {
+            for (var alias in PERIOD_ALIASES) {
+                var rp = new RegExp("\\b" + alias.replace(/ /g, "\\s+") + "\\b");
+                if (rp.test(s)) { scope.code = PERIOD_ALIASES[alias]; s = s.replace(rp, " "); break; }
+            }
         }
         scope.rest = s.replace(/\s+/g, " ").trim();
         return scope;
     }
 
-    var KINGS = null;
-    var ALIAS_BASE = null;   // "ramses" -> "ramesses"
-    var BY_BASE = null;      // "ramesses" -> [kings]
+    var KINGS = null, ALIAS_BASE = null, BY_BASE = null, BY_ID = null;
+    var FULL_KEY = null;      // "ramessesii" -> [kings]（整名/整别名，去空格）
+    var BASE_KEY = null;      // "ramesses" -> [kings]
 
     function init() {
         if (KINGS) return;
         KINGS = (global.PHARAOHS || []).slice();
         ALIAS_BASE = Object.create(null);
         BY_BASE = Object.create(null);
+        BY_ID = Object.create(null);
+        FULL_KEY = Object.create(null);
+        BASE_KEY = Object.create(null);
         for (var i = 0; i < KINGS.length; i++) {
             var k = KINGS[i];
+            BY_ID[k.id] = k;
             var base = norm(k.base);
-            if (!BY_BASE[base]) BY_BASE[base] = [];
-            BY_BASE[base].push(k);
-            // 别名的基名 → 本名（如 Ramses → Ramesses）
+            (BY_BASE[base] || (BY_BASE[base] = [])).push(k);
+            var bk = key(k.base);
+            (BASE_KEY[bk] || (BASE_KEY[bk] = [])).push(k);
+            (FULL_KEY[key(k.name)] || (FULL_KEY[key(k.name)] = [])).push(k);
             for (var j = 0; j < (k.aliases || []).length; j++) {
                 var ab = norm(splitNumeral(k.aliases[j]).name);
-                if (ab && ab !== base && !ALIAS_BASE[ab]) ALIAS_BASE[ab] = base;
+                if (ab && ab !== base) {
+                    if (!ALIAS_BASE[ab]) ALIAS_BASE[ab] = base;
+                    var abk = key(splitNumeral(k.aliases[j]).name);
+                    (BASE_KEY[abk] || (BASE_KEY[abk] = [])).push(k);   // 别名基名也可检索
+                }
+                (FULL_KEY[key(k.aliases[j])] || (FULL_KEY[key(k.aliases[j])] = [])).push(k);
             }
         }
     }
 
-    function fullName(k) {
-        return norm(k.name);
+    function fullName(k) { return norm(k.name); }
+
+    /** code 过滤：数值王朝号 → dyn；时期代号 → period 或特殊 code。 */
+    function matchCode(k, code) {
+        if (!code) return true;
+        if (/^\d{1,2}$/.test(code)) return k.dyn === parseInt(code, 10);
+        var want = code.toLowerCase();
+        return k.code === want || k.period === want;
     }
 
     /**
-     * 检索。
-     * @param {string} query 例："Ramesses II" / "19th dynasty Ramesses" / "New Kingdom"
+     * 检索。query 可以是 "~d19~Ramesses II" 形式，也可以是自由文本。
      * @returns {Array} 匹配的国王（按精确度、王朝、顺序排序）
      */
     function search(query) {
         init();
-        var q = String(query == null ? "" : query);
-        var scope = parseScope(q);
-        var rest = scope.rest;
-        var parts = splitNumeral(rest);
-        var nameQ = norm(parts.name);
-        var num = parts.num;
-        var fullQ = norm(rest);
-
-        var pool = KINGS.filter(function (k) {
-            if (scope.dyn && k.dyn !== scope.dyn) return false;
-            if (scope.period && k.period !== scope.period) return false;
-            return true;
-        });
-
-        var exact = [];
-        var baseHits = [];
-        for (var i = 0; i < pool.length; i++) {
-            var k = pool[i];
-            var n = fullName(k);
-            if (fullQ && n === fullQ) { exact.push(k); continue; }
-            var aliasExact = false;
-            for (var j = 0; j < (k.aliases || []).length; j++) {
-                if (fullQ && norm(k.aliases[j]) === fullQ) { aliasExact = true; break; }
-            }
-            if (aliasExact) { exact.push(k); continue; }
-            if (!nameQ) continue;
-
-            // 基名（含别名基名）匹配
-            var canon = ALIAS_BASE[nameQ] || nameQ;
-            var kb = norm(k.base);
-            if (kb !== canon) continue;
-            if (num && k.num !== num) continue;
-            baseHits.push(k);
+        var raw = String(query == null ? "" : query);
+        var tilde = parseTilde(raw);
+        var code = "", nameQ = "", num = 0, fullQ = "";
+        if (tilde) {
+            code = tilde.code; nameQ = norm(tilde.name); num = tilde.num; fullQ = norm(tilde.name);
+        } else {
+            var scope = parseScope(raw);
+            code = scope.code;
+            var parts = splitNumeral(scope.rest);
+            nameQ = norm(parts.name); num = parts.num; fullQ = norm(scope.rest);
         }
 
-        var out = exact.length ? exact : baseHits;
-        if (!exact.length && !baseHits.length && !nameQ) out = pool;
+        var nameKey = key(tilde ? tilde.name : (parseScope(raw).rest));
+        if (tilde && !nameKey) return [];          // ~d19~ / ~ 没有名字 → 不返回候选
+        var pool = KINGS.filter(function (k) { return matchCode(k, code); });
+        var exact = [], baseHits = [];
 
+        // ① 整名 / 整别名（去空格）
+        if (nameKey && FULL_KEY[nameKey]) {
+            exact = FULL_KEY[nameKey].filter(function (k) { return matchCode(k, code); });
+        }
+        // ② 末尾数字（Ramesses3 / RamessesIII / PtolemyXII）
+        if (!exact.length && nameKey) {
+            var m = /^(.*?)(\d{1,2})$/.exec(nameKey);
+            if (m) {
+                var nNum = parseInt(m[2], 10);
+                var bk = m[1];
+                (BASE_KEY[bk] || []).forEach(function (k) {
+                    if (k.num === nNum && matchCode(k, code)) baseHits.push(k);
+                });
+            } else {
+                var mr = /^(.*?)([ivx]+)$/.exec(nameKey);
+                if (mr && ROMAN[mr[2]]) {
+                    var rNum = ROMAN[mr[2]];
+                    (BASE_KEY[mr[1]] || []).forEach(function (k) {
+                        if (k.num === rNum && matchCode(k, code)) baseHits.push(k);
+                    });
+                }
+            }
+        }
+        // ③ 无数字的基名（Ramesses / Ptolemy）
+        if (!exact.length && !baseHits.length && nameKey) {
+            baseHits = (BASE_KEY[nameKey] || []).filter(function (k) { return matchCode(k, code); });
+        }
+        var out = exact.length ? exact : baseHits;
+        if (!exact.length && !baseHits.length && !nameKey) out = pool;
         out.sort(function (a, b) {
             if (a.dyn !== b.dyn) return a.dyn - b.dyn;
             if (a.order !== b.order) return a.order - b.order;
@@ -169,15 +211,36 @@
         return out;
     }
 
-    /** 某个国王在标题里最常用的完整名（含罗马数字）。 */
-    function displayName(k) {
-        return k.num ? (k.base + " " + toRoman(k.num)) : k.name;
+    function displayName(k) { return k.num ? (k.base + " " + toRoman(k.num)) : k.name; }
+
+    function namesFor(id) {
+        var all = global.PHARAOH_NAMES || {};
+        return all[id] || [];
+    }
+
+    /** 该国王拥有的王名类别（按固定顺序）。 */
+    function categoriesFor(id) {
+        var order = ["Horus", "Nebty", "Golden falcon", "Prenomen", "Nomen",
+                     "Prenomen + Nomen", "Autokrator + Kaisaros", "Kaisaros"];
+        var have = {};
+        namesFor(id).forEach(function (n) { have[n.s] = (have[n.s] || 0) + 1; });
+        return order.filter(function (s) { return have[s]; })
+            .map(function (s) { return { section: s, count: have[s] }; });
     }
 
     global.PharaohMatch = {
         search: search,
+        parse: function (q) {
+            var t = parseTilde(q);
+            if (t) return { tilde: true, code: t.code, name: t.name, num: t.num };
+            var s = parseScope(q), p = splitNumeral(s.rest);
+            return { tilde: false, code: s.code, name: p.name, num: p.num };
+        },
         displayName: displayName,
-        parse: function (q) { var s = parseScope(q); var p = splitNumeral(s.rest); return { dyn: s.dyn, period: s.period, name: p.name, num: p.num }; },
+        namesFor: namesFor,
+        categoriesFor: categoriesFor,
+        byId: function (id) { init(); return BY_ID[id] || null; },
+        periodCode: function (code) { return PERIOD_CODES[String(code || "").toLowerCase()] || ""; },
         all: function () { init(); return KINGS; }
     };
 })(typeof window !== "undefined" ? window : globalThis);
