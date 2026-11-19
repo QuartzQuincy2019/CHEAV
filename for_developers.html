@@ -98,6 +98,18 @@
         .toc a:hover { color: var(--accent); text-decoration: underline; }
         .toc div { break-inside: avoid; margin: 2px 0; }
 
+
+        figure { margin: 18px 0; }
+        figure img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .07);
+        }
+        figcaption { color: var(--dim); font-size: 12.5px; margin-top: 6px; text-align: center; }
+
         .footer { margin-top: 46px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12.5px; }
 
         @media (max-width: 700px) {
@@ -158,6 +170,11 @@
     改动任何脚本后，记得同步改两处：<code>index.html</code> 的 <code>?v=3.0.0</code> 缓存标记，以及
     <code>js/ui/glyphs.js</code> 里的 <code>BUILD</code> 常量（页脚 <i>Build</i> 显示它）。
 </div>
+
+<figure>
+    <img src="img/interface.png" alt="CHEAV 界面分区：缓冲区、缓冲预览、词汇匹配、声符/意符匹配、Gardiner Code 匹配、正文区、渲染区、设置面板" />
+    <figcaption>界面分区与模块对应（示意图；红框与橙字为说明标注，实际界面见 <a href="index.html" target="_top">index.html</a>）</figcaption>
+</figure>
 
 <h2 id="render">2 渲染管线</h2>
 
