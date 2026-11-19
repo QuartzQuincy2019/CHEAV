@@ -55,10 +55,35 @@ function showParseErrors(list) {
      * GitHub Pages 上不发 glyfs/，Glyphs.ready=false，此时用 jsesh-js 直接渲染该字形。
      * @returns {boolean} true 表示已接管（异步填充），调用方不要再走 MdCRndr
      */
+    // 预览 SVG 缓存（LRU）：同一词的 MdC 反复出现（翻页、重匹配）时直接复用
+    const PREVIEW_CACHE_MAX = 500;
+    const previewCache = new Map();
+    function previewCacheGet(key) {
+        if (!previewCache.has(key)) return null;
+        const v = previewCache.get(key);
+        previewCache.delete(key);
+        previewCache.set(key, v);
+        return v;
+    }
+    function previewCacheSet(key, svg) {
+        if (previewCache.has(key)) previewCache.delete(key);
+        previewCache.set(key, svg);
+        if (previewCache.size > PREVIEW_CACHE_MAX) {
+            previewCache.delete(previewCache.keys().next().value);
+        }
+    }
+
     function previewGlyphFallback(host, mdc, size) {
         if (typeof Glyphs !== "undefined" && Glyphs.ready) return false;
         if (typeof JseshRender === "undefined" || !mdc) return false;
         const token = (host.__jseshTok = (host.__jseshTok || 0) + 1);
+        const key = size + "|" + String(mdc);
+        const hit = previewCacheGet(key);
+        if (hit) {
+            host.innerHTML = hit;
+            fitSvg(host);
+            return true;
+        }
         (async function () {
             let svg = null;
             // 单码 → 直接取字形路径（快，约 1–2 ms/码）；多码/失败 → 走完整渲染
@@ -66,6 +91,7 @@ function showParseErrors(list) {
             try { if (single && JseshRender.glyphSvg) svg = await JseshRender.glyphSvg(mdc, size); } catch (e) { /* ignore */ }
             if (!svg) { try { svg = await JseshRender.svgFor(mdc, size); } catch (e) { /* ignore */ } }
             if (!svg || host.__jseshTok !== token) return;
+            previewCacheSet(key, svg);
             host.innerHTML = svg;
             fitSvg(host);
         })();
@@ -656,7 +682,8 @@ function showParseErrors(list) {
             // mousedown 阶段翻页（同候选行：避免框重建导致 click 丢失）
             prevBtn.addEventListener("mousedown", (e) => { stop(e); turnPage(-1); renderAll(); });
             const info = document.createElement("span");
-            info.textContent = (vm.page + 1) + " / " + totalPages;
+            info.textContent = (vm.page + 1) + " / " + totalPages +
+                (vm.list.truncated ? "（仅前 " + VM_MAX_CANDIDATES + " 条）" : "");
             const nextBtn = document.createElement("button");
             nextBtn.type = "button";
             nextBtn.textContent = t("pageNext");
@@ -1127,6 +1154,10 @@ function showParseErrors(list) {
     // 以及组闭合符 "}"（敲完即视为该单位输入结束）。
     const INFLOW_KEYS = /^[-:}]$/;
 
+    // IB 输入防抖：连续键入时只对最后一次做匹配/渲染（词条多时单次排序可达 ~100 ms）
+    const IB_INPUT_DEBOUNCE_MS = 50;
+    let ibInputTimer = 0;
+
     function onInput(e) {
         const data = e && e.data;
         const typing = !!(e && e.inputType === "insertText");
@@ -1139,12 +1170,21 @@ function showParseErrors(list) {
             inflow = false;
         }
 
-        updateMatch();     // 按最新状态统一匹配一次（避免先匹配后切态导致 PDM/GM 空白）
-        updateIBPreview();
+        const run = function () {
+            updateMatch();     // 按最新状态统一匹配一次（避免先匹配后切态导致 PDM/GM 空白）
+            updateIBPreview();
+            if (terminator) focusBox = "VM";
+            else if (typing) enterOutflow();
+            renderAll();
+        };
 
-        if (terminator) focusBox = "VM";
-        else if (typing) enterOutflow();
-        renderAll();
+        if (terminator) {          // 分隔符要立刻切换焦点，不能等防抖
+            ibInputTimer = 0;
+            run();
+            return;
+        }
+        if (ibInputTimer) clearTimeout(ibInputTimer);
+        ibInputTimer = setTimeout(function () { ibInputTimer = 0; run(); }, IB_INPUT_DEBOUNCE_MS);
     }
 
     ib.addEventListener("input", onInput);

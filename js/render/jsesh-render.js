@@ -112,6 +112,9 @@
             '" width="' + w + '" height="' + h + '" aria-hidden="true">' +
             '<path d="' + sh.d + '" fill="#000000"/></svg>';
         glyphCache.set(key, svg);
+        if (glyphCache.size > 1000) {            // 简单上限，避免长期浏览后无限增长
+            glyphCache.delete(glyphCache.keys().next().value);
+        }
         return svg;
     }
 

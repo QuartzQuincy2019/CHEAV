@@ -98,6 +98,57 @@ function wordRank(c) {
  * 排序 = 发音匹配 → 复合码串 → 单段码；
  * 同级内：精确等长发音优先 → 发音较短优先 → 字典序。
  */
+/** VM 候选上限：先取前 N 条再排序，避免为 8,000+ 词条整表排序（见 takeTopCandidates）。 */
+var VM_MAX_CANDIDATES = 200;
+
+/** 词候选排序：kind 权重 → 发音精确 → 发音长度 → 字符序。 */
+function candidateCompare(a, b) {
+    const ra = wordRank(a), rb = wordRank(b);
+    if (ra !== rb) return ra - rb;
+    const ea = a.pronExact ? 0 : 1, eb = b.pronExact ? 0 : 1;
+    if (ea !== eb) return ea - eb;
+    const la = a.pronLen || 0, lb = b.pronLen || 0;
+    if (la !== lb) return la - lb;
+    const pa = a.pron || "", pb = b.pron || "";
+    return pa < pb ? -1 : pa > pb ? 1 : 0;
+}
+
+/**
+ * 取排序后的前 k 条：k 小于总量时用"大小为 k 的最大堆"做部分选择，
+ * 复杂度 O(n log k)，避免对全部候选做 O(n log n) 排序。
+ * 返回的数组带 `truncated` 标记，供 UI 提示"仅前 N 条"。
+ */
+function takeTopCandidates(arr, k) {
+    let out;
+    if (!k || arr.length <= k) {
+        out = arr.slice().sort(candidateCompare);
+        out.truncated = false;
+        return out;
+    }
+    const heap = arr.slice(0, k);
+    const siftDown = function (i) {
+        for (;;) {
+            const l = i * 2 + 1, r = l + 1;
+            let m = i;
+            if (l < heap.length && candidateCompare(heap[l], heap[m]) > 0) m = l;
+            if (r < heap.length && candidateCompare(heap[r], heap[m]) > 0) m = r;
+            if (m === i) break;
+            const t = heap[i]; heap[i] = heap[m]; heap[m] = t;
+            i = m;
+        }
+    };
+    for (let i = (k >> 1) - 1; i >= 0; i--) siftDown(i);
+    for (let i = k; i < arr.length; i++) {
+        if (candidateCompare(arr[i], heap[0]) < 0) {
+            heap[0] = arr[i];
+            siftDown(0);
+        }
+    }
+    out = heap.sort(candidateCompare);
+    out.truncated = true;
+    return out;
+}
+
 function mergeWordCandidates(groups) {
     const map = new Map();
     for (const list of groups) {
@@ -114,15 +165,7 @@ function mergeWordCandidates(groups) {
             }
         }
     }
-    return Array.from(map.values()).sort((a, b) => {
-        const ra = wordRank(a), rb = wordRank(b);
-        if (ra !== rb) return ra - rb;
-        const ea = a.pronExact ? 0 : 1, eb = b.pronExact ? 0 : 1;
-        if (ea !== eb) return ea - eb;
-        const la = a.pronLen || 0, lb = b.pronLen || 0;
-        if (la !== lb) return la - lb;
-        return a.MdC < b.MdC ? -1 : a.MdC > b.MdC ? 1 : 0;
-    });
+    return takeTopCandidates(Array.from(map.values()), VM_MAX_CANDIDATES);
 }
 
 /**
