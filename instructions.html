@@ -4,27 +4,16 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CHEAV 使用说明</title>
-
-    <!-- 文档内的象形文字示例由该插件现场渲染 -->
-    <script src="js/database/mdcGlyphTables.js"></script>
-    <script src="js/database/ngMetrics.js"></script>
-    <script src="js/plugin/mdcEncoding.js"></script>
-    <script src="js/plugin/mdcMetrics.js"></script>
-    <script src="js/plugin/mdcView.js"></script>
-<script src="js/plugin/mdcEnclosure.js"></script>
-<script src="js/plugin/mdcVrg.js"></script>
-    <script type="text/javascript"  src="js/plugin/mdcGlyphCore.js"></script>
-<script type="text/javascript" src="js/plugin/MdCRndr.js"></script>
-
+    <title>CHEAV 使用说明 · 3.0.0</title>
     <style>
         :root {
-            --line: #e0e0e0;
+            --line: #e2e2df;
             --ink: #2f2f2f;
             --dim: #6b6b6b;
             --accent: #3b6fd4;
             --bg: #f6f6f4;
             --card: #fff;
+            --code-bg: #f4f6fa;
         }
 
         * { box-sizing: border-box; }
@@ -38,881 +27,280 @@
             line-height: 1.85;
         }
 
-        header {
-            padding: 26px 28px 18px;
-            background: #fff;
-            border-bottom: 1px solid var(--line);
-        }
+        .wrap { max-width: 900px; margin: 0 auto; padding: 28px 24px 80px; }
 
-        header h1 { margin: 0 0 4px; font-size: 24px; }
+        header { border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 22px; }
 
-        header p { margin: 0; color: var(--dim); font-size: 14px; }
+        h1 { font-size: 27px; margin: 0 0 6px; letter-spacing: .5px; }
+        h2 { font-size: 20px; margin: 38px 0 10px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+        h3 { font-size: 16px; margin: 22px 0 6px; }
+        p, li { color: var(--ink); }
 
-        header .links { margin-top: 10px; font-size: 13.5px; }
+        .meta { color: var(--dim); font-size: 13px; }
+        .back { display: inline-block; margin-bottom: 12px; color: var(--accent); text-decoration: none; font-size: 14px; }
+        .back:hover { text-decoration: underline; }
 
-        header .links a { margin-right: 14px; }
-
-        .wrap {
-            display: flex;
-            align-items: flex-start;
-            gap: 26px;
-            max-width: 1180px;
-            margin: 0 auto;
-            padding: 22px 28px 60px;
-        }
-
-        nav {
-            position: sticky;
-            top: 18px;
-            flex: 0 0 210px;
-            padding: 14px 16px;
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 10px;
-            font-size: 13.5px;
-        }
-
-        nav b { display: block; margin-bottom: 8px; color: var(--dim); font-weight: 600; }
-
-        nav a { display: block; padding: 3px 0; color: #40506b; text-decoration: none; }
-
-        nav a:hover { color: var(--accent); }
-
-        main { flex: 1 1 auto; min-width: 0; }
-
-        section {
-            margin-bottom: 26px;
-            padding: 18px 22px 22px;
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 12px;
-        }
-
-        h2 { margin: 0 0 12px; font-size: 19px; }
-
-        h3 { margin: 20px 0 8px; font-size: 16px; }
-
-        p { margin: 10px 0; }
-
-        a { color: var(--accent); }
-
-        code, kbd {
-            padding: 1px 5px;
-            border-radius: 4px;
-            background: #eee;
+        code, .mdc {
             font-family: Consolas, "Courier New", monospace;
-            font-size: 0.92em;
+            background: var(--code-bg);
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 13.5px;
+            color: #24406e;
         }
 
         kbd {
-            border: 1px solid #c8c8c8;
+            font-family: Consolas, monospace;
+            font-size: 12.5px;
+            border: 1px solid #c9c9c4;
             border-bottom-width: 2px;
-            background: #fafafa;
-        }
-
-        table {
-            width: 100%;
-            margin: 12px 0;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-
-        th, td {
-            padding: 7px 10px;
-            border: 1px solid var(--line);
-            text-align: left;
-            vertical-align: top;
-        }
-
-        th { background: #f2f4f8; font-weight: 600; }
-
-        td.k { white-space: nowrap; }
-
-        .demo {
-            margin: 12px 0;
-            padding: 12px 14px;
-            border: 1px dashed #cfd6e4;
-            border-radius: 8px;
-            background: #fbfcff;
-            font-size: 17px;
-            line-height: 2.6;
-        }
-
-        .demo .label {
-            display: block;
-            margin-bottom: 6px;
-            color: var(--dim);
-            font-size: 13px;
-            line-height: 1.6;
-        }
-
-        /* 行内象形文字 */
-        .mdc { display: inline; white-space: nowrap; }
-
-        .mdc .hie, .mdc .lig { vertical-align: baseline; }
-
-        .mdc .hie, .mdc .vrg, .mdc .lig { margin: 0 1px; }
-
-        .mdc .pron {
-            margin-left: 2px;
-            color: #8a6d00;
-            font-family: Consolas, "Courier New", monospace;
-            font-size: 0.6em;
-            vertical-align: 0.6em;
-        }
-
-        .demo.align-baseline .mdc .hie { transform: none !important; }
-
-        .note {
-            margin: 12px 0;
-            padding: 10px 14px;
-            border-left: 4px solid var(--accent);
-            background: #f2f6ff;
-            border-radius: 0 8px 8px 0;
-            font-size: 14.5px;
-        }
-
-        .note.warn { border-left-color: #e63946; background: #fff5f5; }
-
-        .note b { color: #20437a; }
-
-        .note.warn b { color: #b52b36; }
-
-        footer {
-            max-width: 1180px;
-            margin: 0 auto;
-            padding: 0 28px 40px;
-            color: var(--dim);
-            font-size: 13px;
-        }
-
-        @media (max-width: 860px) {
-            .wrap { flex-direction: column; }
-            nav { position: static; width: 100%; flex: none; }
-        }
-    
-        figure.shot {
-            margin: 14px 0 18px;
-            padding: 10px;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: #fbfcff;
-        }
-
-        figure.shot img {
-            display: block;
-            width: 100%;
-            height: auto;
             border-radius: 4px;
+            padding: 1px 6px;
+            background: #fff;
         }
 
-        figure.shot figcaption {
-            margin-top: 8px;
-            color: var(--dim);
-            font-size: 13px;
-            text-align: center;
+        table { border-collapse: collapse; width: 100%; margin: 12px 0; background: var(--card); }
+        th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+        th { background: #f1f1ee; font-weight: 600; }
+        td code { white-space: nowrap; }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 14px 18px;
+            margin: 14px 0;
         }
 
-        </style>
+        .note { border-left: 3px solid var(--accent); background: #f2f6ff; padding: 10px 14px; margin: 14px 0; border-radius: 0 4px 4px 0; }
+        .warn { border-left: 3px solid #c77a00; background: #fff8ec; padding: 10px 14px; margin: 14px 0; border-radius: 0 4px 4px 0; }
+
+        .glyphs { display: inline-flex; align-items: center; vertical-align: middle; margin: 0 4px; }
+        .glyphs svg { display: block; }
+
+        .demo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .demo .glyphs { min-height: 42px; }
+
+        ul, ol { padding-left: 22px; }
+        li { margin: 3px 0; }
+
+        .toc { columns: 2; column-gap: 34px; font-size: 14px; }
+        .toc a { color: var(--ink); text-decoration: none; }
+        .toc a:hover { color: var(--accent); text-decoration: underline; }
+        .toc div { break-inside: avoid; margin: 2px 0; }
+
+        .footer { margin-top: 46px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12.5px; }
+
+        @media (max-width: 700px) {
+            .toc { columns: 1; }
+            .wrap { padding: 18px 14px 60px; }
+        }
+    </style>
 </head>
 
 <body>
-    <header>
-        <h1>CHEAV 使用说明</h1>
-        <p>Cyrene's Hierograph Editor and Viewer —— 面向使用者的功能指南</p>
-        <div class="links">
-            <a href="index.html" target="_top">← 返回编辑器</a>
-            <a href="https://quartzquincy2019.github.io/CHEAV/" target="_blank" rel="noopener">在线使用（GitHub Pages）</a>
-            <a href="for_developers.html">开发者文档</a>
-            <a href="CPlugin_Test/index.html">渲染插件测试台</a>
-        </div>
-    </header>
+<div class="wrap">
 
-    <div class="wrap">
-        <nav>
-            <b>目录</b>
-            <a href="#overview">0 界面总览</a>
-            <a href="#quick">1 快速上手</a>
-            <a href="#ui">2 界面一览</a>
-            <a href="#syntax">3 MdC 输入语法</a>
-            <a href="#match">4 匹配区</a>
-            <a href="#keys">5 键盘操作</a>
-            <a href="#flow">6 出流与入流</a>
-            <a href="#pic">7 主字符隐式转换</a>
-            <a href="#ligdet">8 连字与定符</a>
-            <a href="#render">9 正文与渲染区</a>
-            <a href="#settings">10 设置面板</a>
-            <a href="#keycast">11 按键展示（录屏）</a>
-            <a href="#faq">12 常见问题</a>
-        </nav>
+<a class="back" href="index.html" target="_top">← 返回编辑器</a>
 
-        <main>
+<header>
+    <h1>CHEAV 使用说明</h1>
+    <div class="meta">Cyrene's Hierograph Editor and Viewer · <b>3.0.0</b>（2026-11-19）· jsesh-js 渲染 + 7,000+ 词汇候选</div>
+</header>
 
-            <!-- ================================================== -->
-            <section id="overview">
-                <h2>0 界面总览</h2>
-                <p>下图是 CHEAV 的完整界面，红框与文字是说明用的标注，实际页面没有这些标记。</p>
-                <figure class="shot">
-                    <img src="img/interface.png" alt="CHEAV 界面分区：缓冲区、缓冲区预览、匹配区（词汇 / 声符·意符 / Gardiner Code）、正文区、渲染区、设置面板">
-                    <figcaption>CHEAV 界面分区</figcaption>
-                </figure>
+<h2 id="toc">目录</h2>
+<div class="toc">
+    <div><a href="#start">1 快速开始</a></div>
+    <div><a href="#ui">2 界面一览</a></div>
+    <div><a href="#mdc">3 MdC 输入语法</a></div>
+    <div><a href="#boxes">4 匹配区</a></div>
+    <div><a href="#keys">5 键盘操作</a></div>
+    <div><a href="#io">6 入流与出流</a></div>
+    <div><a href="#settings">7 设置</a></div>
+    <div><a href="#vocab">8 词汇与词典数据</a></div>
+    <div><a href="#perf">9 性能与限制</a></div>
+    <div><a href="#faq">10 常见问题</a></div>
+</div>
 
-                <p>第 1 节先走一遍最常用的两条路径（输入单字符、选中一个词），第 2 节再逐区说明。</p>
-            </section>
+<h2 id="start">1 快速开始</h2>
 
-            <!-- ================================================== -->
-            <section id="quick">
-                <h2>1 快速上手</h2>
-                <h3>1.1 输入单个字符（nfr）</h3>
-                <p>打开 <code>index.html</code>，把光标放进 <b>缓冲区</b>（页首的输入框），依次做三件事：</p>
-                <table>
-                    <tr>
-                        <th style="width:38%">操作</th>
-                        <th>说明</th>
-                    </tr>
-                    <tr>
-                        <td class="k">输入 <code>nfr</code></td>
-                        <td>下方候选区立刻给出匹配项：词匹配区出现「美好」等词条，音素区出现 <code>nfr</code> 单字符。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">按 <kbd>Tab</kbd></td>
-                        <td>确认当前候选，把它的码写入缓冲区（此处 <code>nfr</code> → <code>F35</code>）。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">按 <kbd>Enter</kbd></td>
-                        <td>把缓冲区的全部内容规范化为 MdC 后送入正文，缓冲区清空，正文下方即渲染出象形文字。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>码\</code></td>
-                        <td>水平镜像（<b>只作用于紧邻的一个字符</b>）</td>
-                        <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k">转写 <code>mr</code></td>
-                        <td><b>主字符</b>：转写本身不是码，会取它的「主字符」——与 JSesh 一致
-                            （<code>mr</code> → <code>U6</code>）。共支持 <b>819</b> 个转写，
-                            含 <code>Hry-sStA</code> 这类带连字符的复合转写；其余候选见「音素 / 定符匹配」框。</td>
-                        <td><code>E1:D40-C2-mr</code> → <span class="mdc" data-mdc="E1:D40-C2-mr">E1:D40-C2-mr</span></td>
-                    </tr>
-                </table>
-                <div class="demo align-baseline">
-                    <span class="label">结果示例：</span>
-                    <span class="mdc" data-mdc="F35" data-pron="nfr">F35</span>
-                </div>
-                <div class="note">
-                    <b>一句话理解：</b>左边输入框负责「找到想要的字」，<kbd>Tab</kbd> 把它放进缓冲区，
-                    <kbd>Enter</kbd> 再把缓冲区送进正文；正文下方是只读的渲染结果。
-                </div>
+<p>在输入框（IB）里键入发音 <code>nfr</code>：</p>
 
-                <h3>1.2 选择一个词（sA）</h3>
-                <p>要输入的不是单个字符而是一个<b>词</b>时，做法完全一样，只是候选会在<b>词汇匹配</b>里列出多条读音相同的词，
-                   需要你挑出正确的那一条。以 <code>sA</code>（儿子）为例：</p>
-                <table>
-                    <tr>
-                        <th style="width:34%">操作</th>
-                        <th>说明</th>
-                    </tr>
-                    <tr>
-                        <td class="k">在缓冲区输入 <code>sA</code></td>
-                        <td>词汇匹配区列出所有读音为 <code>sA</code> 的词条，每行自左至右为：<b>发音</b> / <b>字形</b> / <b>码串 + 释义</b>。
-                            此处会出现「儿子」（<code>G39-A1</code>）、「土地度量」（<code>G39</code>）、「拉之子」（<code>{G39-N5}</code>）等。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">按 <kbd>↓</kbd> / <kbd>↑</kbd></td>
-                        <td>在候选行之间移动高亮，直到选中释义为「儿子」、码串为 <code>G39-A1</code> 的那一行。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">按 <kbd>Tab</kbd></td>
-                        <td>把该行的码串写入缓冲区（此处得到 <code>G39-A1</code>）。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">按 <kbd>Enter</kbd></td>
-                        <td>送入正文，渲染区随即画出「儿子」这个词的两个字形。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>码\</code></td>
-                        <td>水平镜像（<b>只作用于紧邻的一个字符</b>）</td>
-                        <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
-                    </tr>
-                </table>
-                <div class="demo align-baseline">
-                    <span class="label">结果示例：</span>
-                    <span class="mdc" data-mdc="G39-A1" data-pron="sA">G39-A1</span>
-                </div>
-                <div class="note">
-                    <b>怎么挑：</b>候选行右侧的释义就是判据；同一个读音往往对应多个词，字形与码串也随之不同。
-                    确认后若发现选错，回到缓冲区按 <kbd>Backspace</kbd> 删掉刚写入的码，重新选择即可。
-                </div>
-            </section>
+<div class="card demo">
+    <span class="mdc">nfr</span>
+    <span>→ <kbd>Tab</kbd> 确认候选（通常写入 <code>F35</code>）→ <kbd>Enter</kbd> 送入正文：</span>
+    <span class="glyphs" data-mdc="F35" data-size="40"></span>
+</div>
 
-            <!-- ================================================== -->
-            <section id="ui">
-                <h2>2 界面一览</h2>
-                <p>第 0 节的界面图已标出下面这几块区域，这里逐块说明用途（红框与文字是说明用的，实际页面没有这些标记）。</p>
-                <table>
-                    <tr>
-                        <th style="width:24%">区域</th>
-                        <th>用途</th>
-                    </tr>
-                    <tr>
-                        <td class="k"><b>缓冲区</b></td>
-                        <td>页首的输入框。可以键入发音、码、组语法或连字引用；它同时是「待送入正文」的暂存区。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><b>缓冲区预览</b></td>
-                        <td>实时显示缓冲区内容渲染后的样子，并给出规范化后的 MdC 串；内容无法识别时转为红色警戒样式（不渲染）。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><b>匹配区 · 词汇匹配</b></td>
-                        <td>列出与缓冲区内容相符的<b>词汇</b>与<b>连字</b>。每行自左至右为：发音 / 字形 / 码串与释义。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><b>匹配区 · 声符 / 意符匹配</b></td>
-                        <td>左侧单元按发音给出<b>单字符</b>；键入分号 <code>;</code> 后切换为<b>意符（定符）</b>。单元上行为发音或 <code>;名称</code>，下行为 Gardiner 码。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><b>匹配区 · Gardiner Code 匹配</b></td>
-                        <td>按码检索单字符，<b>大小写不敏感</b>（输入 <code>v</code> 也命中 <code>V…</code> 系）。单元上行为码，下行为 Unicode 码位。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><b>正文区</b></td>
-                        <td>最终文本。只接受<b>纯 MdC 渲染串</b>；可用 <code>!</code> 手动换行（旧版 $ 已废弃）。出现无法识别的片段时边框转为警戒色。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><b>渲染区</b></td>
-                        <td>正文的渲染结果。<b>只读</b>，不可选中，随输入即时更新。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><b>设置面板</b></td>
-                        <td>页面底部可折叠区域：改键位、匹配区每页项数、功能开关、<b>字形来源</b>。方向切换请用顶部的「排版方向」切换条。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>码\</code></td>
-                        <td>水平镜像（<b>只作用于紧邻的一个字符</b>）</td>
-                        <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
-                    </tr>
-                </table>
+<p>也可以用 Gardiner 码直接输入：<code>F35</code>、<code>N35</code>、<code>D21</code>……候选格（GM 区）会按码前缀实时过滤。</p>
 
-                <p><b>字形来源：</b>默认用随站点打包的 <b>NewGardiner</b> 字体渲染。若本机装有 <b>JSesh</b>，可在设置里点
-                    「选择 jseshGlyphs 包…」，选中 JSesh 安装目录下的 <code>lib/jseshGlyphs-*.jar</code>：
-                    CHEAV 会直接读取并解压其中的 SVG 字形，用 JSesh 的手绘矢量字形替换字体字形
-                    （版式、度量与叠组规则完全不变）。</p>
-                <div class="note">
-                    该功能<b>只在本地读取你的文件</b>，站点不包含也不分发任何 JSesh 数据（JSesh 为 LGPL / CeCILL 授权）；
-                    换机器或清除浏览器数据后需重新选择一次。仅 Chrome / Edge 支持（需 File System Access API）。
-                </div>
-                <p>被选中的候选框有蓝色外框与光晕；框内当前项高亮显示。<b>光标在哪个框，<kbd>Tab</kbd> 就确认哪个框</b>。</p>
-            </section>
+<h2 id="ui">2 界面一览</h2>
 
-            <!-- ================================================== -->
-            <section id="syntax">
-                <h2>3 MdC 输入语法</h2>
-                <p>缓冲区与正文共用同一套语法（Manuel de Codage 的渲染子集）：</p>
-                <table>
-                    <tr>
-                        <th style="width:16%">写法</th>
-                        <th style="width:34%">含义</th>
-                        <th>示例</th>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>N35</code></td>
-                        <td>Gardiner 码 → 单字符</td>
-                        <td><code>N35</code> → <span class="mdc" data-mdc="N35">N35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>1313F</code></td>
-                        <td>十六进制码位（圣书体区 U+13000–U+1342F）</td>
-                        <td><code>1313F</code> → <span class="mdc" data-mdc="1313F">1313F</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>-</code></td>
-                        <td>四开组之间的横排（<b>堆叠组内部不能用 <code>-</code></b>）</td>
-                        <td><code>D58-G43</code> → <span class="mdc" data-mdc="D58-G43">D58-G43</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>*</code></td>
-                        <td>同一方块内并列（横排）</td>
-                        <td><code>W24*X1:N1</code> → <span class="mdc" data-mdc="W24*X1:N1">W24*X1:N1</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>:</code></td>
-                        <td>下移一层（竖叠）；相邻的 <code>*</code> / <code>:</code> 串构成一个堆叠组</td>
-                        <td><code>D21:N35</code> → <span class="mdc" data-mdc="D21:N35">D21:N35</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>:</code> 与 <code>*</code> 混用</td>
-                        <td>多层堆叠：层内用 <code>*</code> 并列，层间用 <code>:</code></td>
-                        <td><code>Z1*Z1:Z1*Z1-M17a</code> → <span class="mdc" data-mdc="Z1*Z1:Z1*Z1-M17a">Z1*Z1:Z1*Z1-M17a</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>{名称}</code></td>
-                        <td>连字引用（2–3 个固定组合的字符合并为一个单位）</td>
-                        <td><code>{I10-D46}</code> → <span class="mdc" data-mdc="{I10-D46}">{I10-D46}</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>+文本+s</code></td>
-                        <td>插入普通文本（0.4 倍字号、上下居中）；<code>\&lt;</code>、<code>\&gt;</code> 转义</td>
-                        <td><code>F35-&lt;good&gt;</code> → <span class="mdc" data-mdc="F35-&lt;good&gt;">F35-&lt;good&gt;</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>!</code></td>
-                        <td>手动换行（渲染区强制分段；竖排即分列）——与 jsesh / JSesh 一致</td>
-                        <td><code>D21-!-D46</code>（分两段）</td>
-                    </tr>
-<tr>
-<td class="k"><code>$</code></td>
-<td>红色墨迹开关（切换后续字形的颜色，与 jsesh 一致）</td>
-<td><code>$A1-A1</code>（两字皆红）　<code>$A1$-A1</code>（只第一个红）</td>
-</tr>
-                    <tr>
-                        <td class="k"><code>组#1234</code></td>
-                        <td>阴影：按四象限加底色（jsesh 为半透明灰；旧版为 45° 斜线） —— 1 左上、2 右上、3 左下、4 右下，可任意组合；不改变字形尺寸与位置</td>
-                        <td><code>A1#134</code> → <span class="mdc" data-mdc="A1#134">A1#134</span>　<code>A1*A2:I10#24</code> → <span class="mdc" data-mdc="A1*A2:I10#24">A1*A2:I10#24</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>&lt;- … -&gt;</code></td>
-                        <td>王名圈（胶囊轮廓 + 框外座）</td>
-                        <td><code>&lt;-D21:N35-&gt;</code> → <span class="mdc" data-mdc="&lt;-D21:N35-&gt;">&lt;-D21:N35-&gt;</span>　<code>&lt;-A1-A1-A1-&gt;</code> → <span class="mdc" data-mdc="&lt;-A1-A1-A1-&gt;">&lt;-A1-A1-A1-&gt;</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>&lt;S- … -&gt;</code></td>
-                        <td>塞拉赫框（矩形 + 框外字体字形尾）</td>
-                        <td><code>&lt;S-A1-N35-&gt;</code> → <span class="mdc" data-mdc="&lt;S-A1-N35-&gt;">&lt;S-A1-N35-&gt;</span>　<code>&lt;S-A1-A1-A1-&gt;</code> → <span class="mdc" data-mdc="&lt;S-A1-A1-A1-&gt;">&lt;S-A1-A1-A1-&gt;</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>&lt;h1- … -h1&gt;</code></td>
-                        <td>裸方框</td>
-                        <td><code>&lt;h1-A1-h1&gt;</code> → <span class="mdc" data-mdc="&lt;h1-A1-h1&gt;">&lt;h1-A1-h1&gt;</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>&lt;F- … -&gt;</code></td>
-                        <td>堡垒框（细框线 + 四边雉堞状方块齿）</td>
-                        <td><code>&lt;F-A1-N35-&gt;</code> → <span class="mdc" data-mdc="&lt;F-A1-N35-&gt;">&lt;F-A1-N35-&gt;</span>　<code>&lt;F-A1-A1-A1-&gt;</code> → <span class="mdc" data-mdc="&lt;F-A1-A1-A1-&gt;">&lt;F-A1-A1-A1-&gt;</span></td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>码\</code></td>
-                        <td>水平镜像（<b>只作用于紧邻的一个字符</b>）</td>
-                        <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
-                    </tr>
-                </table>
-                <div class="note">
-                    <b>四种框的名称对照：</b>
-                    <code>&lt;- … -&gt;</code> <b>王名圈</b>（cartouche，<b>通行译法</b>）·
-                    <code>&lt;S- … -&gt;</code> <b>塞拉赫框</b>（serekh；「塞拉赫」为<b>音译</b>，也译「王宫门面」，
-                    「塞拉赫框」为本项目用法）·
-                    <code>&lt;h1- … -h1&gt;</code> <b>裸方框</b>（<b>非正式名</b>，本项目为便于指称而起的描述名）·
-                    <code>&lt;F- … -&gt;</code> <b>堡垒框</b>（<b>非正式名</b>；JSesh 称 fortified enclosure，
-                    开框字母 F 疑取自 Fortress，属推断）。<br>
-                    <b>标注含义：</b>「通行译法」= 学界常用译名；「音译」= 直接音写外语术语；
-                    「非正式名」= 仅本项目使用的描述性称呼，<b>不是</b>学科术语。
-                </div>
-                <div class="note">
-                    <b>书写方向：</b>字形朝前（A1 面向左），不镜像时横排<b>从左到右</b>，
-                    竖排<b>先读最左一列、自上而下</b>。<b>包围框不允许嵌套</b>（嵌套会报错）；
-                    竖排时框内内容改为自上而下，座 / 尾移到底部。
-                </div>
-                <div class="note">
-                    <b>括号必须严格配对：</b><code>{ }</code>、<code>&lt; &gt;</code> 写成异种闭括号或缺闭合符都会判为非法，
-                    正文框转为警戒色并<b>中止本次渲染</b>（保留上一次画面，不会被清空）。
-                </div>
-                <div class="note">
-                    <b><code>J…</code> 是 <code>AA…</code>／<code>Aa…</code> 的简写</b>（Gardiner 表没有 J 组，故借用来代指 Unicode 的 AA 组）：
-                    <code>J1</code> 等同于 <code>AA1</code>、<code>J80</code> 等同于 <code>Aa80</code>、<code>Y1v</code> 等同于 <code>Y1a</code>。
-                    输入时两种写法都可用，但<b>规范名是 <code>AA…</code>／<code>Aa…</code></b> —— 写入正文时会自动换成正式名，
-                    所以你看到的正文永远是规范写法。
-                </div>
-                <div class="note">
-                    <b>渲染区只认这种「纯 MdC」：</b>它不识别发音（<code>nfr</code>）与定符名（<code>;eye</code>）。
-                    这些请用缓冲区输入并确认 —— 缓冲区会在入正文前把它们规范化为码（见第 7 节）。
-                </div>
-            </section>
+<table>
+    <tr><th>区域</th><th>作用</th></tr>
+    <tr><td><b>IB</b>（输入缓冲区）</td><td>键入发音、Gardiner 码或整串 MdC；<kbd>Enter</kbd> 送入正文</td></tr>
+    <tr><td><b>IB 预览</b></td><td>实时渲染 + 规范化后的 MdC 串；解析失败时显示错误位置，不覆盖上一次的成功渲染</td></tr>
+    <tr><td><b>VMBox</b>（词匹配）</td><td>词汇与连字候选：发音 / 字形 / MdC / 释义；共约 7,687 条词条</td></tr>
+    <tr><td><b>PDMBox</b></td><td>键入字母 → 音素（单字符）；键入 <code>;</code> 后切换为定符</td></tr>
+    <tr><td><b>GMBox</b></td><td>按 Gardiner 码检索，大小写不敏感</td></tr>
+    <tr><td><b>正文</b></td><td>最终文本，只接受 MdC 渲染串</td></tr>
+    <tr><td><b>渲染区</b></td><td>正文的只读渲染结果（横排 / 竖排两种方向）</td></tr>
+    <tr><td><b>设置</b></td><td>键位、每页项数、渲染引擎、功能开关；改动即时生效并记住</td></tr>
+</table>
 
-            <!-- ================================================== -->
-            <section id="match">
-                <h2>4 匹配区</h2>
-            <p>界面上是三个面板：<b>词汇匹配</b>、<b>声符 / 意符匹配</b>（同一个面板，键入 <code>;</code> 切换）与 <b>Gardiner Code 匹配</b>；下面按四种匹配分别说明。</p>
+<h2 id="mdc">3 MdC 输入语法</h2>
 
-                <h3>4.1 词汇匹配</h3>
-                <p>对象是<b>词汇</b>与<b>连字</b>，两条线索同时生效：</p>
-                <ul>
-                    <li><b>码序列前缀</b>：与缓冲区中已确认的码串相符。匹配时忽略 <code>{ }</code>（有些文本不主动写成连字形式），但始终关注 <code>*</code> 与 <code>:</code>（方块分组）。</li>
-                    <li><b>发音匹配</b>：你键入的字母片段（如 <code>nfr</code>）与词条发音相符时同样列出。</li>
-                </ul>
-                <div class="demo align-baseline">
-                    <span class="label">示例：键入 <code>nfr</code>，词匹配区给出（仅示前三条）——</span>
-                    发音 <code>nfr</code> → 码 <code>F35</code>（美好）；
-                    前缀 <code>F35</code> → <code>F35-Z1</code>、<code>F35-I9:D21</code> …
-                </div>
-                <p>候选排序：发音匹配优先 → 发音更精确、更短者优先 → 复合码串 → 单段码。</p>
+<p>CHEAV 使用 JSesh 的 MdC（Manuel de Codage）子集。方括号表示“方块（quadrat）”，块内可再分层。</p>
 
-                <h3>4.2 声符匹配（发音 → 单字符）</h3>
-                <p>键入<b>字母</b>即列出对应单字符。例如键入 <code>k</code>：</p>
-                <div class="demo align-baseline">
-                    <span class="label">音素区：</span>
-                    <span class="mdc" data-mdc="V31" data-pron="k">V31</span>
-                    <span class="mdc" data-mdc="D28" data-pron="kA">D28</span>
-                    <span class="mdc" data-mdc="I6" data-pron="km">I6</span>
-                    …（同音异形会并列，首个为登记的<b>主字符</b>）
-                </div>
-                <p>含数字的片段（如 <code>D34</code>）判定为「必走码」，音素区自动关闭。</p>
+<table>
+    <tr><th>写法</th><th>含义</th><th>示例</th></tr>
+    <tr><td><code>A-B</code></td><td>方块之间横排（分隔两个方块）</td><td><code>D58-G43</code></td></tr>
+    <tr><td><code>A*B</code></td><td>同一方块内并列</td><td><code>W24*X1</code></td></tr>
+    <tr><td><code>A:B</code></td><td>同一方块内下移一层（竖叠）</td><td><code>D21:N35</code></td></tr>
+    <tr><td><code>&amp;</code></td><td>插入连字（如 <code>I10&amp;X1</code>）</td><td><code>I10&amp;X1</code></td></tr>
+    <tr><td><code>{名称}</code></td><td><b>旧写法，已废弃</b>；仍可解析但不再推荐</td><td><code>{I10-D46}</code></td></tr>
+    <tr><td><code>#1</code>…<code>#4</code></td><td>方块象限着色（1 左上、2 右上、3 左下、4 右下）</td><td><code>#1N35</code></td></tr>
+    <tr><td><code>\</code></td><td>镜像**前一个**符号（后缀）</td><td><code>D21\</code></td></tr>
+    <tr><td><code>!</code></td><td>换行（竖排时 = 换列）</td><td><code>D21-!-D46</code></td></tr>
+    <tr><td><code>$</code></td><td>红色开关：其后的字形变红，直到再次 <code>$</code></td><td><code>$D21$</code></td></tr>
+    <tr><td><code>&lt;…&gt;</code></td><td>插入文本</td><td><code>F35-&lt;good&gt;</code></td></tr>
+    <tr><td><code>&lt;S-…-S&gt;</code></td><td>塞拉赫（serekh）</td><td><code>&lt;S-N35-S&gt;</code></td></tr>
+    <tr><td><code>&lt;h1-…-h1&gt;</code></td><td>普通方框</td><td><code>&lt;h1-N35-h1&gt;</code></td></tr>
+    <tr><td><code>&lt;F-…-F&gt;</code></td><td>城堡框</td><td><code>&lt;F-N35-F&gt;</code></td></tr>
+    <tr><td><code>&lt;g-…-g&gt;</code></td><td>圆形框</td><td><code>&lt;g-N35-g&gt;</code></td></tr>
+</table>
 
-                <h3>4.3 意符（定符）匹配（键入 <code>;</code> 后）</h3>
-                <p>输入分号进入定符模式，此时词匹配区与码区<b>一并停用</b>；只输入 <code>;</code> 会列出全部定符供挑选。</p>
-                <div class="demo align-baseline">
-                    <span class="label">键入 <code>;eye</code>：</span>
-                    <span class="mdc" data-mdc="D4" data-pron=";eye">D4</span>
-                    —— 按 <kbd>Tab</kbd> 确认后写入 <code>D4</code>，<b>分号会被一并删除</b>。
-                </div>
+<div class="note">
+    <b>码的写法：</b>Gardiner 码如 <code>N35</code>、<code>Aa1</code>、<code>M17A</code>；十六进制码位如 <code>1313F</code>（U+1313F）。
+    CHEAV 内部会把旧写法自动规范化（例如 <code>AA1</code> → <code>Aa1</code>、<code>Y1a</code> → <code>Y1v</code>）。
+</div>
 
-                <h3>4.4 Gardiner Code 匹配</h3>
-                <p>按码检索单字符，<b>大小写不敏感</b>：输入 <code>v</code> 也会列出 <code>V1</code>、<code>V2</code>…；输入 <code>d34</code> 命中 <code>D34</code>。</p>
-                <div class="demo align-baseline">
-                    <span class="label">键入 <code>v</code>：</span>
-                    <span class="mdc" data-mdc="V1">V1</span>
-                    <span class="mdc" data-mdc="V2">V2</span>
-                    <span class="mdc" data-mdc="V3">V3</span> …
-                </div>
-                <div class="note">
-                    各区的候选数量按窗口宽度自动限定（超出的不显示）；词匹配区分页显示，可用翻页键浏览。
-                    单元内下标过长时（如定符名 <code>vegetable_offerings</code>）会自动循环滚动。
-                </div>
-            </section>
+<h3>示例</h3>
 
-            <!-- ================================================== -->
-            <section id="keys">
-                <h2>5 键盘操作</h2>
-                <table>
-                    <tr>
-                        <th style="width:24%">按键</th>
-                        <th>作用</th>
-                        <th style="width:22%">可否在设置中修改</th>
-                    </tr>
-                    <tr>
-                        <td class="k"><kbd>Alt</kbd></td>
-                        <td>在词匹配 / 音素 / 码三个候选框间循环切换焦点（<b>自动跳过当前无候选的框</b>；三者皆空时不切换）。</td>
-                        <td>可（切换匹配区键）</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><kbd>Tab</kbd></td>
-                        <td>确认当前候选框的选中项，写入缓冲区，焦点回到词匹配区（进入「入流」）。</td>
-                        <td>可（选项确认键）</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><kbd>Enter</kbd></td>
-                        <td>把缓冲区全部内容规范化后送入正文，并清空缓冲区。</td>
-                        <td>可（缓冲区确认键）</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><kbd>↑</kbd> <kbd>↓</kbd></td>
-                        <td>词匹配区：<b>页内</b>上下移动选择；音素 / 码区：左右移动选择。</td>
-                        <td>可（各框选项键）</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><kbd>←</kbd> <kbd>→</kbd></td>
-                        <td>词匹配区翻页。翻页后仍选中<b>同样的页内序号</b>；新页项数不足时取该页最后一项。</td>
-                        <td>可（翻页键）</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><kbd>Backspace</kbd></td>
-                        <td>缓冲区为空时，等同正文文本框的退格（连续删除正文，无需切换焦点）。</td>
-                        <td>否</td>
-                    </tr>
-                    <tr>
-                        <td class="k">鼠标</td>
-                        <td>点击候选行 / 单元即确认该项；点击候选框空白处只切换焦点。</td>
-                        <td>否</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>码\</code></td>
-                        <td>水平镜像（<b>只作用于紧邻的一个字符</b>）</td>
-                        <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
-                    </tr>
-                </table>
-            </section>
+<div class="card demo">
+    <span class="glyphs" data-mdc="D21:N35" data-size="40"></span>
+    <code>D21:N35</code>
+    <span class="glyphs" data-mdc="S34-N35:Aa1" data-size="40"></span>
+    <code>S34-N35:Aa1</code>
+    <span class="glyphs" data-mdc="G39-X1" data-size="40"></span>
+    <code>G39-X1</code>
+</div>
 
-            <!-- ================================================== -->
-            <section id="flow">
-                <h2>6 出流与入流</h2>
-                <p>系统始终处于两个状态之一，理解它能解释大部分「为什么某个框空了」：</p>
-                <table>
-                    <tr>
-                        <th style="width:20%">状态</th>
-                        <th style="width:34%">何时进入</th>
-                        <th>各框表现</th>
-                    </tr>
-                    <tr>
-                        <td class="k"><b>出流</b></td>
-                        <td>你开始输入一个词或单字符（键入普通字符）。</td>
-                        <td>三个候选框<b>全部</b>进入匹配状态。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><b>入流</b></td>
-                        <td>你结束一个词或单字符：按 <kbd>Tab</kbd> 确认，或键入分隔符 <code>-</code> <code>:</code>、组闭合符 <code>]</code> <code>}</code>。</td>
-                        <td>除词匹配区外，音素区与码区<b>转为空闲</b>（清空）；焦点落到词匹配区，等待你继续。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>码\</code></td>
-                        <td>水平镜像（<b>只作用于紧邻的一个字符</b>）</td>
-                        <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
-                    </tr>
-                </table>
-                <div class="note">
-                    也就是说：写下一个完整的组（例如 <code>D21:N35</code> 敲完 <code>]</code>）之后，音素/码区会先「让位」，
-                    因为你已经完成了一个单位；继续输入下一个字符时它们会立刻回来。
-                </div>
-            </section>
+<h2 id="boxes">4 匹配区</h2>
 
-            <!-- ================================================== -->
-            <section id="pic">
-                <h2>7 主字符隐式转换（PIC）</h2>
-                <p>默认<b>开启</b>。开启时，缓冲区中凡是与<b>音素表</b>发音相符的片段，都会在<b>入流</b>与<b>按 <kbd>Enter</kbd></b> 两个时机被自动换成该发音的<b>主字符码</b>：</p>
-                <table>
-                    <tr>
-                        <th style="width:30%">你输入</th>
-                        <th style="width:26%">缓冲区变成</th>
-                        <th>说明</th>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>nfr</code></td>
-                        <td class="k"><code>F35</code></td>
-                        <td>音素表登记 nfr → F35，故自动转换。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>bAw</code></td>
-                        <td class="k"><code>bAw</code>（不变）</td>
-                        <td>它只是<b>词条</b>的发音，不是音素，故不转换；送入正文后会判为非法并亮警戒色。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>F35-I9:f</code></td>
-                        <td class="k"><code>F35-I9:I9</code></td>
-                        <td>敲完 <code>]</code> 即转换（组闭合符也算入流触发键）。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>&lt;nfr&gt;</code></td>
-                        <td class="k"><code>&lt;nfr&gt;</code>（不变）</td>
-                        <td><code>&lt; &gt;</code> 文本区内的内容不参与转换，也不会被判非法。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>码\</code></td>
-                        <td>水平镜像（<b>只作用于紧邻的一个字符</b>）</td>
-                        <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
-                    </tr>
-                </table>
-                <p>关闭方式：设置面板取消勾选「主字符隐式转换（PIC）」。关闭后缓冲区预览也不再做转换。</p>
-            </section>
+<h3>4.1 词汇匹配（VMBox）</h3>
+<p>键入发音（如 <code>nfr</code>）时，VM 按发音前缀列出词条；键入码片段时按 MdC 匹配。每行依次是：发音、字形预览、MdC、释义。</p>
+<ul>
+    <li>候选最多显示 <b>200 条</b>，分页浏览；输入更多字母可缩小范围。</li>
+    <li>词条来自项目自有词表与 Dickson 词典派生词表（共约 7,687 条），见 <a href="#vocab">第 8 节</a>。</li>
+</ul>
 
-            <!-- ================================================== -->
-            <section id="ligdet">
-                <h2>8 连字与定符</h2>
-                <h3>8.1 连字</h3>
-                <p>在缓冲区中输入 <code>{</code>，词匹配区即列出可用连字（按连字名或按发音均可检索，例如 <code>{I10</code> 或 <code>{Dd</code>）。</p>
-                <div class="demo align-baseline">
-                    <span class="label">连字（2–3 个字符按固定相对位置合并为一个方块）：</span>
-                    <span class="mdc" data-mdc="{G39-X1}" data-pron="sAt">…</span>
-                    <span class="mdc" data-mdc="{I10-D46}" data-pron="Dd">…</span>
-                    <span class="mdc" data-mdc="{Q3-G43}" data-pron="pw">…</span>
-                    <span class="mdc" data-mdc="{X1-G43-X1}" data-pron="twt">…</span>
-                </div>
-                <p>按 <kbd>Tab</kbd> 确认后，缓冲区中会写入 <code>{名称}</code>（若前面已有内容，只替换连字那一段）。</p>
+<h3>4.2 音素 / 定符匹配（PDMBox）</h3>
+<p>键入单个字母会列出对应音素的单字符候选（含转写候选）；键入 <code>;</code> 后切换为“定符”匹配，此时列出定符清单。</p>
 
-                <h3>8.2 定符</h3>
-                <p>定符用「分号 + 名称」检索：输入 <code>;</code> 后用字母过滤，<kbd>Tab</kbd> 确认即写入对应单字符的码（分号被删除）。</p>
-                <div class="demo align-baseline">
-                    <span class="label">常用定符：</span>
-                    <span class="mdc" data-mdc="D4" data-pron=";eye">eye</span>
-                    <span class="mdc" data-mdc="A1" data-pron=";man">man</span>
-                    <span class="mdc" data-mdc="N5" data-pron=";sun">sun</span>
-                    …（名称可用英文检索，如 <code>;threshing_floor</code>）
-                </div>
-            </section>
+<h3>4.3 Gardiner Code 匹配（GMBox）</h3>
+<p>键入 <code>F35</code> 这类码时，GM 区按前缀列出候选；大小写不敏感（<code>f35</code> 与 <code>F35</code> 等价）。</p>
 
-            <!-- ================================================== -->
-            <section id="render">
-                <h2>9 正文与渲染区</h2>
-                <ul>
-                    <li>正文只接受<b>纯 MdC 渲染串</b>；<code>!</code> 可用于强制换行。</li>
-                    <li>渲染区是<b>只读</b>的（不可选中），每个符号作为一个整体参与换行，不会从中间断开。</li>
-                    <li>正文中出现无法识别的片段时：文本框转为警戒色，渲染<b>中止</b>并保留上一次的完整画面 —— 这样你在修改过程中不会看到残缺的半成品。</li>
-                    <li><b>字体缺失的码不算错误</b>：像 <code>S95</code>、<code>A133a</code> 这类<b>语法合法但字体里没有该字形</b>的码，
-                        会渲染成一个方块、框内写着码名，并占据它本该占据的位置（横排、竖叠组里都一样）。
-                        只有「不是码的串」（如发音 <code>nfr</code>、定符名 <code>;eye</code>）才会亮警戒色。</li>
-                    <li><b>四开组（Cadrat）</b>按 JSesh 的 Cadrat 模型排版，分类为<b>并置、垛叠、层叠、照</b>四种：
-        【并置 <code>A*B</code>】只有一层，层内左右并排、底边对齐；
-        【层叠 <code>A:B</code>】有多层，<b>每一层只有一个字符</b>；
-        【垛叠 <code>A*B:C:D*E</code>】有多层，<b>其中至少有一层是左右并置</b>；
-        【照 <code>A1*(t:w)</code>】一个字符<b>竖跨</b>旁边那几层的总高（像汉字「照」左边的「日」跨住右边的「刀」「口」两层）：高度取整层高，另一侧仍按层叠排。
-        组高下限为 1 em，内容超高时整体等比缩回 1 em（宽高与坐标同比），层与层之间始终留 2/18 em 细缝。</li>
-                </ul>
-                <div class="note">
-                    <b>竖排：</b>点顶部「<b>排版方向</b>」里的<b>竖排</b>即可切换。
-                    两种方向对应两种版式：<b>横排＝「吕」式</b>（编辑区在上、渲染区在下，上下两块），
-                    <b>竖排＝纵向分层</b>：页面分为<b>三栏</b>——①编辑区（缓冲区、匹配区、正文，纵向堆叠）、②<b>预览区</b>（窄条、全高，预览也改为<b>竖排</b>）、③渲染区（约占 1/3 屏宽，<b>正文输入框就在这一列顶部</b>，输入与渲染上下相邻；可用「渲染区靠左 / 靠右」调整停靠方向）。竖排时上部整体占视口高度的 90%。竖排只改变<b>正文渲染区</b>：
-                    <b>页面布局同时变为两栏</b> —— 渲染区占约 <b>1/3 屏宽</b>，可用「渲染区靠左 / 靠右」选择停靠方向；
-                    <b>窄屏（≤760px）自动回落为上下堆叠</b>。渲染本身的变化是：
-                    文字改为<b>自上而下成列</b>，<code>!</code> 分段即分列，列<b>自左向右</b>排列（先读最左一列，列内自上而下）。每列宽恒为 <b>1em</b> 且<b>不被压缩</b>——列数超出可视宽度时整体横向滚动，不会把字形挤扁；列宽随字号自适应，渲染栏内一般显示 6–7 列。<br>
-                    组内规则不变：<code>*</code> 连接的符号仍在<b>同一行</b>内左右并列，<code>:</code> 仍换到下一行，
-                    整个组仍收在 1 em 见方内（只缩不放大）。竖排中的组称为<b>水平渲染组（HRG）</b>，
-                    因为它占的是一条横带（一行）。<br>
-                    输入框、缓冲区预览与三个候选框<b>始终横排</b>，打字方式不受影响。
-                </div>
+<h3>4.4 缺字形：红色码文本</h3>
+<p>如果某个码在 jsesh-js 的字形数据里不存在（例如 Dickson 词典里印成红字的 <code>A478A</code>），CHEAV 不会画方块占位，而是按 JSesh 的约定显示<b>红色码名</b>。这与词典原书的做法一致。</p>
 
-                <h3>9.1 综合示例</h3>
-                <p>下面这段转写只用到了本节列出的语法 —— 84 个字形、5 段插入文本、1 个连字、24 个堆叠组，
-                   没有占位框，也没有警戒色：</p>
-                <div class="demo align-baseline">
-                    <span class="label">内巴蒙墓壁画 · 墓主视察牛与鹅</span>
-                    <span class="mdc" data-mdc="G20-M17-Z4a:D54-D21:G43-M17-D54*V31:X1*V1-G17-D4-S43-D46:X1-A2-AA15:D52:&lt;???&gt;-G40-W14-M17a-D58-G43:X1-K2:Z2:I9-{Q3-G43}-D21:V13:A1-&lt;...&gt;-S43-D46:X1:Z2-A1-D4:D21:I9-U4:D36:Y1-D35:N35-&lt;...&gt;-F34:Z1-S29-W19-A1:V31-O34:N37:Z9:Y1-W11:D21-G43-A2-U4:D36-D35:N35-D4:D21:I9-N35:&lt;???&gt;:&lt;???&gt;-D21:V13:A1*B1-Z3-M23-G43-D21:AA1-O34:X1*AA1:V31-M17-N35:Y3">G20-M17-Z4a:D54-D21:G43-M17-D54*V31:X1*V1-G17-D4-S43-D46:X1-A2-AA15:D52:&lt;???&gt;-G40-W14-M17a-D58-G43:X1-K2:Z2:I9-{Q3-G43}-D21:V13:A1-&lt;...&gt;-S43-D46:X1:Z2-A1-D4:D21:I9-U4:D36:Y1-D35:N35-&lt;...&gt;-F34:Z1-S29-W19-A1:V31-O34:N37:Z9:Y1-W11:D21-G43-A2-U4:D36-D35:N35-D4:D21:I9-N35:&lt;???&gt;:&lt;???&gt;-D21:V13:A1*B1-Z3-M23-G43-D21:AA1-O34:X1*AA1:V31-M17-N35:Y3</span>
-                </div>
-                <p>其中 <code>&lt;???&gt;</code> 与 <code>&lt;...&gt;</code> 是<b>插入文本</b>，用来标出原碑此处残泐或待考的位置；
-                   它们不参与字形排版，可以与码、组语法混写。</p>
-            </section>
+<h2 id="keys">5 键盘操作</h2>
 
-            <!-- ================================================== -->
-            <section id="settings">
-                <h2>10 设置面板</h2>
-                <p>页面底部「设置」可展开，改动即时生效并自动记住（写入浏览器本地存储）。</p>
-                <table>
-                    <tr>
-                        <th style="width:34%">项目</th>
-                        <th style="width:22%">默认</th>
-                        <th>说明</th>
-                    </tr>
-                    <tr>
-                        <td class="k">切换匹配区键</td>
-                        <td class="k"><kbd>Alt</kbd></td>
-                        <td>点击键帽后按新键即可改绑（<kbd>Esc</kbd> 取消）。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">选项确认键</td>
-                        <td class="k"><kbd>Tab</kbd></td>
-                        <td>确认当前候选。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">缓冲区确认键</td>
-                        <td class="k"><kbd>Enter</kbd></td>
-                        <td>缓冲区 → 正文。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">匹配区每页项数</td>
-                        <td class="k">5</td>
-                        <td>范围 1–9，超出会自动夹取。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">匹配区翻页键 / 各框选项键</td>
-                        <td class="k">← → / ↑ ↓</td>
-                        <td>可逐个改绑；同一键同时承担两种作用时，选项键优先。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">主字符隐式转换（PIC）</td>
-                        <td class="k">开</td>
-                        <td>见第 7 节。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">按键展示（录屏演示）</td>
-                        <td class="k">关</td>
-                        <td>见第 11 节；仅电脑端显示。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>码\</code></td>
-                        <td>水平镜像（<b>只作用于紧邻的一个字符</b>）</td>
-                        <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
-                    </tr>
-                </table>
-                <p>「恢复默认」按钮可一键复位全部设置。</p>
-            </section>
+<table>
+    <tr><th>按键</th><th>作用（均可在设置中改绑）</th></tr>
+    <tr><td><kbd>Alt</kbd></td><td>在三个候选区之间切换焦点（自动跳过无候选的框）</td></tr>
+    <tr><td><kbd>Tab</kbd></td><td>确认当前候选，写入 IB</td></tr>
+    <tr><td><kbd>Enter</kbd></td><td>IB → 正文</td></tr>
+    <tr><td><kbd>↑</kbd> <kbd>↓</kbd> / <kbd>←</kbd> <kbd>→</kbd></td><td>选项间移动 / 翻页</td></tr>
+    <tr><td><kbd>Backspace</kbd></td><td>IB 为空时直接删正文（无需切换焦点）</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>关闭文档浮层 / 取消当前输入焦点</td></tr>
+</table>
 
-            <!-- ================================================== -->
-            <section id="keycast">
-                <h2>11 按键展示（录屏演示）</h2>
-                <p>在设置中勾选后，视口右下角出现一块半透明浮层，实时显示你按下的键，方便录制演示视频：</p>
-                <div class="note">
-                    <b>该功能依赖可选插件 <code>js/plugin/keycast.js</code>。</b>
-                    若该文件不存在（例如线上版本未附带此插件），应用照常运行，
-                    设置面板中<b>不会</b>出现「按键展示」开关。
-                </div>
-                <ul>
-                    <li>上方竖排为<b>最近 6 次按键</b>：新键自下方插入，越靠上（越早）越透明。</li>
-                    <li>下方独立一块为<b>当前按键组合</b>（浅黄键帽）：例如按住 <kbd>Alt</kbd> 再按 <kbd>Tab</kbd>，会显示 <code>Alt</code> <code>Tab</code>。</li>
-                    <li>功能键按可读名称显示：<code>⌫ Backspace</code>、<code>← Left</code>、<code>Space</code> 等。</li>
-                    <li>浮层<b>不拦截鼠标</b>（点击可穿透），且仅在有鼠标的宽屏设备上出现。</li>
-                </ul>
-            </section>
+<h2 id="io">6 入流与出流</h2>
 
-            <!-- ================================================== -->
-            <section id="faq">
-                <h2>12 常见问题</h2>
-                <table>
-                    <tr>
-                        <th style="width:38%">现象</th>
-                        <th>原因与处理</th>
-                    </tr>
-                    <tr>
-                        <td class="k">按 <kbd>Tab</kbd> 没有反应</td>
-                        <td>焦点在缓冲区上（缓冲区用 <kbd>Enter</kbd> 确认）。先按 <kbd>Alt</kbd> 切到候选框；若三个候选框都为空，<kbd>Alt</kbd> 不会切换。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">音素 / 码区突然空了</td>
-                        <td>处于「入流」状态（刚确认了一项，或刚敲了 <code>-</code> <code>:</code> <code>]</code> <code>}</code>）。继续输入下一个字符即恢复。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">输入 <code>nfr</code> 后正文里出现 <code>F35</code></td>
-                        <td>这是 PIC 主字符隐式转换（默认开启）。想保留原样请在设置中关闭。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">正文出现红色边框</td>
-                        <td>存在无法识别的片段：可能是把发音（<code>bAw</code>）或定符名（<code>;eye</code>）直接写进了正文，或括号写错（<code>[D21:G43}</code>）。用缓冲区输入并确认可避免。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">某个字显示成方框</td>
-                        <td>字体未加载或该码位缺失。请确认 <code>fonts/NewGardiner.ttf</code> 可访问，并强制刷新（<kbd>Ctrl</kbd>+<kbd>F5</kbd>）。</td>
-                    </tr>
-                    <tr>
-                        <td class="k">改了设置想全部还原</td>
-                        <td>设置面板底部「恢复默认」。</td>
-                    </tr>
-                    <tr>
-                        <td class="k"><code>码\</code></td>
-                        <td>水平镜像（<b>只作用于紧邻的一个字符</b>）</td>
-                        <td><code>C59C\</code> → <span class="mdc" data-mdc="C59C\">C59C\</span>　<code>C59C</code> → <span class="mdc" data-mdc="C59C">C59C</span></td>
-                    </tr>
-                </table>
-            </section>
-        </main>
-    </div>
+<p>IB 的两种状态决定了候选区显示什么：</p>
+<ul>
+    <li><b>入流</b>：键入的是分隔符（<code>-</code>、<code>:</code>、<code>}</code> 等），表示“上一个单位结束，开始下一个”，焦点自动移到 VM 区；</li>
+    <li><b>出流</b>：键入普通字母/字符，按发音或码继续过滤当前单位。</li>
+</ul>
 
-    <footer>
-        CHEAV · Cyrene's Hierograph Editor and Viewer —— 使用说明。
-        开发者请见 <a href="for_developers.html">for_developers.html</a>；渲染引擎插件的独立用法与测试见
-        <a href="CPlugin_Test/index.html">CPlugin_Test</a>。
-    </footer>
+<p>两种状态下按 <kbd>Tab</kbd> 都是“确认当前候选并写入 IB”。文字内容以 <code>&lt;…&gt;</code> 输入时按原样保留，不参与码的规范化。</p>
 
-    <script>
-        // 文档中的象形文字示例：由 MdCRndr 现场渲染（.mdc 元素的 data-mdc 即 MdC 渲染串）
-        MdCRndr.init({ fontUrl: "./fonts/NewGardiner.ttf" });
+<h2 id="settings">7 设置</h2>
 
-        function renderExamples() {
-            for (const el of document.querySelectorAll(".mdc")) {
-                const mdC = el.getAttribute("data-mdc");
-                if (!mdC) continue;
-                const base = parseFloat(getComputedStyle(el).fontSize) || 17;
-                el.textContent = "";
-                const r = MdCRndr.renderText(el, mdC, Math.round(base * 1.15));
-                if (r.invalid.length) {
-                    el.style.borderBottom = "2px solid #e63946";
-                    el.title = "非法片段：" + r.invalid.join("，");
-                }
-                const pron = el.getAttribute("data-pron");
-                if (pron) {
-                    const s = document.createElement("span");
-                    s.className = "pron";
-                    s.textContent = pron;
-                    el.appendChild(s);
-                }
-                if (!el.title) el.title = (pron ? pron + " · " : "") + mdC;
+<table>
+    <tr><th>项目</th><th>说明</th></tr>
+    <tr><td>渲染引擎</td><td><b>jsesh-js</b>（默认，与 JSesh 排版一致）或 <b>内置 MdCRndr</b>（回退引擎）</td></tr>
+    <tr><td>每页项数</td><td>VM 候选每页显示条数</td></tr>
+    <tr><td>键位</td><td>确认 / 送正文 / 焦点切换 / 翻页等按键可改绑</td></tr>
+    <tr><td>排版方向</td><td>横排或竖排（竖排按列从右向左排列）</td></tr>
+</table>
+
+<p>设置保存在浏览器本地（localStorage），刷新后仍生效。</p>
+
+<h2 id="vocab">8 词汇与词典数据</h2>
+
+<p>CHEAV 3.0.0 内置约 7,687 条词条：</p>
+<ul>
+    <li>项目自有词表（<code>js/database/vocabulary.js</code>，约 227 条）；</li>
+    <li><b>Dickson 词典派生词表</b>（<code>data/dickson/vocabulary-dickson.js</code>，7,460 条）：
+        由 R. Dickson, <i>Dictionary of Middle Egyptian</i>（2006）的排版反推，字段为发音 / MdC / 英文释义 / 页码，按 (发音, MdC) 去重。</li>
+</ul>
+
+<div class="warn">
+    <b>许可：</b>Dickson 词表是词典的派生数据，按 <b>CC BY-NC-SA 2.5</b> 分发（署名 · 非商业 · 相同方式共享），
+    不属于仓库其余部分的 MIT 许可。再分发时请保留署名并以相同许可共享。详见 <code>data/dickson/README.md</code> 与 <code>NOTICE.md</code>。
+</div>
+
+<p>词条里的英文释义来自词典原文，中文释义暂缺；如需补充，可在 <code>vocabulary-dickson.js</code> 生成流程中扩展字段。</p>
+
+<h2 id="perf">9 性能与限制</h2>
+
+<ul>
+    <li><b>首屏</b>：jsesh-js 字形数据约 24 MB（6,966 个文件），首次加载会按需请求；之后由浏览器缓存。</li>
+    <li><b>输入</b>：IB 输入有 50 ms 防抖；候选封顶 200 条；7,687 条词条下单键同步耗时约 0 ms，候选字形在 ~100–150 ms 内出齐。</li>
+    <li><b>缺字形</b>：显示红色码名（与词典原书一致），不是错误；可在词表里补映射或换用存在的变体码。</li>
+    <li><b>长词</b>：VM 行内预览会按比例缩小（最多占行宽 42%），不会压到右侧文字。</li>
+</ul>
+
+<h2 id="faq">10 常见问题</h2>
+
+<h3>为什么输入后候选只显示前 200 条？</h3>
+<p>7,000+ 词条下一次匹配可能有数千个候选，全部排序会造成约 100 ms/键的延迟。CHEAV 取排序后的前 200 条并分页；继续输入会更精确。</p>
+
+<h3>为什么某些码是红色的？</h3>
+<p>该码在 jsesh-js 字形数据中不存在（例如 <code>A478A</code>）。红色码名是 JSesh 的约定写法，表示“无此字形”，不是渲染失败。</p>
+
+<h3>竖排怎么用？</h3>
+<p>在顶部切换「竖排」，或设置里改默认方向。竖排时 <code>!</code> 表示换列，列从右向左排列。</p>
+
+<h3>离线能用吗？</h3>
+<p>可以。整个项目是纯静态文件：下载仓库后直接打开 <code>index.html</code>，或起一个本地静态服务器（推荐 <code>python -m http.server 8000</code>）。</p>
+
+<h3>如何报告问题？</h3>
+<p>在 <a href="https://github.com/QuartzQuincy2019/CHEAV" target="_blank" rel="noopener">GitHub 仓库</a> 提 issue，附上：输入的 MdC、期望结果、实际截图，以及页脚的 Version / Build。</p>
+
+<div class="footer">
+    CHEAV 3.0.0 · 2026-11-19 · Quincy K. / Quartz Studio ©2019-2026 ·
+    渲染引擎 <a href="lib/jsesh/README.md" target="_top">jsesh-js</a>（CeCILL-C）
+</div>
+
+</div>
+
+<script type="module">
+    import { configureJSesh, renderMdc } from "./lib/jsesh/jsesh.js";
+    configureJSesh({ glyphsUrl: "./lib/jsesh/data/" });
+    (async function () {
+        for (const el of document.querySelectorAll("[data-mdc]")) {
+            const h = Number(el.dataset.size || 36);
+            try {
+                el.innerHTML = await renderMdc(el.dataset.mdc, { cadratHeight: h });
+            } catch (e) {
+                el.textContent = el.dataset.mdc;
             }
         }
-        renderExamples();
-    </script>
-</body>
+    })();
+</script>
 
+</body>
 </html>
