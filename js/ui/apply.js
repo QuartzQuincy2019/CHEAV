@@ -822,32 +822,33 @@ function showParseErrors(list) {
     }
 
     // ============ 王名输入（~d<Code>~<Name>，名字不含空格） ============
+    // 候选一律以「词」的形式出现在 VMBox：国王 → 名号类别 → 变体，Tab 逐级确认。
     function pharaohSectionLabel(sec) { return PH_SECTION_LABEL[sec] || sec; }
 
     function pharaohPrenomenMdc(k) {
         if (!k || typeof PharaohMatch === "undefined") return "";
-        const list = PharaohMatch.namesFor(k.id);
-        const hit = list.find(n => n.s === "Prenomen" && n.m);
+        const hit = PharaohMatch.namesFor(k.id).find(n => n.s === "Prenomen" && n.m);
         return hit ? ("<" + hit.m + ">") : "";
     }
 
-    function pharaohCurrentUnits() {
+    function pharaohUnits() {
         if (pharaoh.stage === "king") {
-            const raw = String(ib.value || "").trim();
-            return PharaohMatch.search(raw).map(k => ({
+            return PharaohMatch.search(String(ib.value || "").trim()).map(k => ({
                 kind: "pharaoh",
-                l1: PharaohMatch.displayName(k),
-                l2: "dyn " + (k.code || "?") + (k.prenomen ? " · " + k.prenomen : ""),
+                pron: PharaohMatch.displayName(k),
                 glyph: pharaohPrenomenMdc(k),
+                MdC: k.prenomen || "",
+                mean: "dyn " + (k.code || "?") + (k.from ? " · " + k.from : ""),
                 king: k
             }));
         }
         if (pharaoh.stage === "category") {
             return PharaohMatch.categoriesFor(pharaoh.king.id).map(c => ({
                 kind: "pharaoh",
-                l1: pharaohSectionLabel(c.section),
-                l2: c.count + " 条",
+                pron: pharaohSectionLabel(c.section),
                 glyph: "",
+                MdC: "",
+                mean: c.count + " 条",
                 section: c.section
             }));
         }
@@ -855,62 +856,41 @@ function showParseErrors(list) {
             .filter(n => n.s === pharaoh.section)
             .map(n => ({
                 kind: "pharaoh",
-                l1: n.t || n.n || n.m,
-                l2: n.m,
+                pron: n.t || n.n || n.m,
                 glyph: n.m,
+                MdC: n.m,
+                mean: n.g || "",
                 item: n
             }));
     }
 
     function pharaohRender() {
-        // 清掉上一阶段自建单元格
-        for (const u of pharaoh.units) if (u.el) u.el.remove();
-        pharaoh.units = [];
-        // 隐藏普通音素/定符单元
         filterUnits(pdmBox, [], [phonUnits, detUnits], null);
         filterUnits(gmBox, [], [codeUnits], null);
-        vm.list = [];
-        vm.page = 0; vm.sel = 0;
 
-        const limit = Math.max(1, visibleLimit(pdmBox));
-        pharaoh.units = pharaohCurrentUnits().slice(0, limit);
-        pharaoh.sel = Math.min(pharaoh.sel, Math.max(0, pharaoh.units.length - 1));
-        for (const u of pharaoh.units) {
-            u.el = createCellEl(u);
-            pdmBox.appendChild(u.el);
-            u.el.style.display = "";
-            if (u.glyph) paintCellGlyph(u.el);
-        }
-        pd.pool = pharaoh.units;
-        pd.visible = pharaoh.units;
-        pd.sel = pharaoh.sel;
+        const units = pharaohUnits();
+        vm.list = units;
+        vm.page = 0;
+        vm.sel = Math.min(pharaoh.sel, Math.max(0, units.length - 1));
+        pharaoh.sel = vm.sel;
+        focusBox = "VM";
 
-        const hints = {
+        const hint = {
             king: "王名 —— 输入 ~d19~RamessesII（~d 段可省略，名字不留空格）",
             category: "选择王名类别（Tab 确认）",
             variant: "选择变体（Tab 写入 IB）"
-        };
-        pdmBox.dataset.ph = hints[pharaoh.stage] || "王名";
-        pdmBox.classList.toggle("empty", pharaoh.units.length === 0);
-        focusBox = "PDM";
-        renderVM();
-        paintCells(pd, "PDM");
-        paintCells(gm, "GM");
-        vmBox.classList.toggle("focused", false);
-        pdmBox.classList.toggle("focused", true);
-        gmBox.classList.toggle("focused", false);
-        gmBox.classList.add("empty");
+        }[pharaoh.stage] || "王名";
+        vmBox.dataset.ph = hint;
+        vmBox.classList.add("pharaoh");
+        vmBox.classList.toggle("empty", units.length === 0);
+        renderAll();
     }
 
     function updatePharaohMatch(raw) {
         if (typeof PharaohMatch === "undefined") return;
-        if (!pharaoh.hintDefault) pharaoh.hintDefault = pdmBox.dataset.ph || "";
+        if (!pharaoh.hintDefault) pharaoh.hintDefault = vmBox.dataset.ph || "";
         pharaoh.active = true;
-        pdmBox.classList.add("pharaoh");
-        if (pharaoh.stage === "king") {
-            pharaoh.king = null;
-            pharaoh.section = null;
-        }
+        if (pharaoh.stage === "king") { pharaoh.king = null; pharaoh.section = null; }
         pharaohRender();
     }
 
@@ -919,19 +899,18 @@ function showParseErrors(list) {
         pharaoh.stage = "king";
         pharaoh.king = null;
         pharaoh.section = null;
-        for (const u of pharaoh.units) if (u.el) u.el.remove();
-        pharaoh.units = [];
-        pd.pool = []; pd.visible = []; pd.sel = 0;
-        pdmBox.dataset.ph = pharaoh.hintDefault || pdmBox.dataset.ph;
-        pdmBox.classList.remove("pharaoh");
+        vm.list = [];
+        vm.page = 0;
+        vm.sel = 0;
+        vmBox.dataset.ph = pharaoh.hintDefault || vmBox.dataset.ph;
+        vmBox.classList.remove("pharaoh");
         focusBox = "IB";
     }
 
     function pharaohConfirm() {
-        // 方向键改的是 pd.sel（PDMBox 的选择模型），这里必须同步取它
-        const idx = (focusBox === "PDM" ? pd.sel : pharaoh.sel);
+        const idx = focusBox === "VM" ? vm.sel : pharaoh.sel;
         pharaoh.sel = idx;
-        const u = pharaoh.units[idx];
+        const u = vm.list[idx];
         if (!u) return;
         if (pharaoh.stage === "king") {
             pharaoh.king = u.king;
@@ -951,7 +930,6 @@ function showParseErrors(list) {
         }
         let mdc = (u.item && u.item.m) || "";
         if (!mdc) return;
-        // 王位名 / 本名在王名圈里书写
         if (pharaoh.section === "Prenomen" || pharaoh.section === "Nomen" || pharaoh.section === "Prenomen + Nomen") {
             mdc = "<" + mdc + ">";
         }

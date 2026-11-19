@@ -780,12 +780,12 @@ html.DocOverlay-open body {
     pointer-events: none;
 }
 
-/* 王名输入：格子放宽，容纳英文名 + 王朝/王位名 */
-.MBox.pharaoh .mcell {
-    width: 148px;
+/* 王名输入：VMBox 里的行按「词条」显示，发音列放宽 */
+.MBox.pharaoh .c-pron {
+    min-width: 150px;
 }
-.MBox.pharaoh .mcell-l1 {
-    font-weight: 600;
+.MBox.pharaoh .c-preview {
+    min-width: 70px;
 }
 
 /* 预览：小型的象形文字显示区域（渲染引擎实时生成）
