@@ -197,6 +197,7 @@
     <tr><td><b>王名圈</b>（cartouche）</td><td><code>&lt;- … -&gt;</code>（也接受 <code>&lt; … &gt;</code>）</td><td>Prenomen（王位名）、Nomen（本名）</td></tr>
     <tr><td><b>塞拉赫</b>（serekh）</td><td><code>&lt;S- … -S&gt;</code></td><td>Horus（荷鲁斯名）</td></tr>
     <tr><td>方框</td><td><code>&lt;h1- … -h1&gt;</code></td><td>普通方框</td></tr>
+    <tr><td><b>城堡框</b>（雉堞框）</td><td><code>&lt;F- … -f&gt;</code></td><td>四角带雉堞齿的堡垒框；<b>收尾必须用小写 f</b></td></tr>
     <tr><td>圆形框</td><td><code>&lt;g- … -g&gt;</code></td><td>圆形框</td></tr>
 </table>
 
@@ -210,7 +211,7 @@
 <div class="warn">
     <b>注意：</b><code>&lt;…&gt;</code> 现在是<b>王名圈</b>，不再表示“插入文本”。旧写法 <code>F35-&lt;good&gt;</code>
     会尝试把 “good” 当成王名圈内容解析，结果不正确。文本请改用下一节的 JSesh 写法。
-    另外 <code>&lt;F- … -F&gt;</code>（城堡框）jsesh 目前不支持，会显示为红字。
+    城堡框 jsesh 支持，但收尾必须是小写 <code>f</code>（<code>&lt;F- … -f&gt;</code>）；写成大写 <code>&lt;F- … -F&gt;</code> 会解析失败、显示红字 F。
 </div>
 
 <h2 id="text">5 文本（JSesh 写法）</h2>
