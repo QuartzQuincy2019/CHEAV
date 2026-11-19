@@ -73,8 +73,8 @@ function showParseErrors(list) {
         }
     }
 
-    function previewGlyphFallback(host, mdc, size) {
-        if (typeof Glyphs !== "undefined" && Glyphs.ready) return false;
+    function previewGlyphFallback(host, mdc, size, force) {
+        if (!force && typeof Glyphs !== "undefined" && Glyphs.ready) return false;
         if (typeof JseshRender === "undefined" || !mdc) return false;
         const token = (host.__jseshTok = (host.__jseshTok || 0) + 1);
         const key = size + "|" + String(mdc);
@@ -683,7 +683,7 @@ function showParseErrors(list) {
 
             const prev = document.createElement("span");
             prev.className = "c-preview";
-            if (!previewGlyphFallback(prev, c.glyph, PREVIEW_SIZE)) {
+            if (!previewGlyphFallback(prev, c.glyph, PREVIEW_SIZE, !!c.useSvg)) {
             MdCRndr.renderText(prev, c.glyph, PREVIEW_SIZE);   // c.glyph 为 MdC 渲染串
         }
             item.appendChild(prev);
@@ -903,6 +903,7 @@ function showParseErrors(list) {
                     const framed = pharaohFrame(hit.entry.s, hit.entry.m);
                     return {
                         kind: "pharaoh",
+                        useSvg: true,
                         pron: pharaohReading(hit.entry),
                         glyph: framed,
                         MdC: framed,
@@ -916,6 +917,7 @@ function showParseErrors(list) {
                 const pre = pharaohFirstPrenomen(k);
                 return {
                     kind: "pharaoh",
+                    useSvg: true,
                     pron: pre ? pharaohReading(pre) : "/",
                     glyph: pharaohPrenomenMdc(k),
                     MdC: pre ? pharaohFrame("Prenomen", pre.m) : "",
@@ -940,6 +942,7 @@ function showParseErrors(list) {
                 const framed = pharaohFrame(n.s, n.m);
                 return {
                     kind: "pharaoh",
+                    useSvg: true,
                     pron: pharaohReading(n),
                     glyph: framed,
                     MdC: framed,
