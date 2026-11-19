@@ -27,7 +27,7 @@
             line-height: 1.85;
         }
 
-        .wrap { max-width: 900px; margin: 0 auto; padding: 28px 24px 80px; }
+        .wrap { max-width: 920px; margin: 0 auto; padding: 28px 24px 80px; }
 
         header { border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 22px; }
 
@@ -75,6 +75,17 @@
         .note { border-left: 3px solid var(--accent); background: #f2f6ff; padding: 10px 14px; margin: 14px 0; border-radius: 0 4px 4px 0; }
         .warn { border-left: 3px solid #c77a00; background: #fff8ec; padding: 10px 14px; margin: 14px 0; border-radius: 0 4px 4px 0; }
 
+        figure { margin: 18px 0; }
+        figure img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .07);
+        }
+        figcaption { color: var(--dim); font-size: 12.5px; margin-top: 6px; text-align: center; }
+
         .glyphs { display: inline-flex; align-items: center; vertical-align: middle; margin: 0 4px; }
         .glyphs svg { display: block; }
 
@@ -88,18 +99,6 @@
         .toc a { color: var(--ink); text-decoration: none; }
         .toc a:hover { color: var(--accent); text-decoration: underline; }
         .toc div { break-inside: avoid; margin: 2px 0; }
-
-
-        figure { margin: 18px 0; }
-        figure img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            border: 1px solid var(--line);
-            border-radius: 6px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, .07);
-        }
-        figcaption { color: var(--dim); font-size: 12.5px; margin-top: 6px; text-align: center; }
 
         .footer { margin-top: 46px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12.5px; }
 
@@ -117,21 +116,24 @@
 
 <header>
     <h1>CHEAV 使用说明</h1>
-    <div class="meta">Cyrene's Hierograph Editor and Viewer · <b>3.0.0</b>（2026-11-19）· jsesh-js 渲染 + 7,000+ 词汇候选</div>
+    <div class="meta">Cyrene's Hierograph Editor and Viewer · <b>3.0.0</b> · Build 3.0.14 · jsesh-js 渲染 + 7,000+ 词汇候选 + 王名输入</div>
 </header>
 
 <h2 id="toc">目录</h2>
 <div class="toc">
     <div><a href="#start">1 快速开始</a></div>
     <div><a href="#ui">2 界面一览</a></div>
-    <div><a href="#mdc">3 MdC 输入语法</a></div>
-    <div><a href="#boxes">4 匹配区</a></div>
-    <div><a href="#keys">5 键盘操作</a></div>
-    <div><a href="#io">6 入流与出流</a></div>
-    <div><a href="#settings">7 设置</a></div>
-    <div><a href="#vocab">8 词汇与词典数据</a></div>
-    <div><a href="#perf">9 性能与限制</a></div>
-    <div><a href="#faq">10 常见问题</a></div>
+    <div><a href="#quadrat">3 四开组与 MdC 语法</a></div>
+    <div><a href="#frames">4 王名框与塞拉赫</a></div>
+    <div><a href="#text">5 文本（JSesh 写法）</a></div>
+    <div><a href="#marks">6 其他记号</a></div>
+    <div><a href="#boxes">7 匹配区</a></div>
+    <div><a href="#pharaoh">8 王名输入（<code>~</code>）</a></div>
+    <div><a href="#keys">9 键盘操作</a></div>
+    <div><a href="#settings">10 设置</a></div>
+    <div><a href="#data">11 词汇与数据许可</a></div>
+    <div><a href="#perf">12 性能与限制</a></div>
+    <div><a href="#faq">13 常见问题</a></div>
 </div>
 
 <h2 id="start">1 快速开始</h2>
@@ -144,129 +146,172 @@
     <span class="glyphs" data-mdc="F35" data-size="40"></span>
 </div>
 
-<p>也可以用 Gardiner 码直接输入：<code>F35</code>、<code>N35</code>、<code>D21</code>……候选格（GM 区）会按码前缀实时过滤。</p>
+<p>也可以直接输入 Gardiner 码（<code>F35</code>、<code>N35</code>、<code>D21</code>…）或整串 MdC；候选区会实时过滤。</p>
 
 <h2 id="ui">2 界面一览</h2>
 
 <figure>
-    <img src="img/interface.png" alt="CHEAV 界面分区：缓冲区、缓冲预览、词汇匹配、声符/意符匹配、Gardiner Code 匹配、正文区、渲染区、设置面板" />
+    <img src="img/interface.png" alt="CHEAV 界面分区：缓冲区、缓冲预览、词汇匹配、音素/定符匹配、Gardiner Code 匹配、正文区、渲染区、设置面板" />
     <figcaption>CHEAV 界面分区（示意图；红框与橙字为说明标注，实际界面见 <a href="index.html" target="_top">index.html</a>）</figcaption>
 </figure>
-
 
 <table>
     <tr><th>区域</th><th>作用</th></tr>
     <tr><td><b>IB</b>（输入缓冲区）</td><td>键入发音、Gardiner 码或整串 MdC；<kbd>Enter</kbd> 送入正文</td></tr>
     <tr><td><b>IB 预览</b></td><td>实时渲染 + 规范化后的 MdC 串；解析失败时显示错误位置，不覆盖上一次的成功渲染</td></tr>
-    <tr><td><b>VMBox</b>（词匹配）</td><td>词汇与连字候选：发音 / 字形 / MdC / 释义；共约 7,687 条词条</td></tr>
-    <tr><td><b>PDMBox</b></td><td>键入字母 → 音素（单字符）；键入 <code>;</code> 后切换为定符</td></tr>
-    <tr><td><b>GMBox</b></td><td>按 Gardiner 码检索，大小写不敏感</td></tr>
+    <tr><td><b>VMBox</b>（词匹配）</td><td>词汇与连字候选；王名模式下显示国王 / 名号类别 / 王名变体</td></tr>
+    <tr><td><b>PDMBox</b></td><td>单字符：键入字母 → 音素；键入 <code>;</code> 后为定符</td></tr>
+    <tr><td><b>GMBox</b></td><td>单字符：按 Gardiner 码检索，大小写不敏感</td></tr>
     <tr><td><b>正文</b></td><td>最终文本，只接受 MdC 渲染串</td></tr>
-    <tr><td><b>渲染区</b></td><td>正文的只读渲染结果（横排 / 竖排两种方向）</td></tr>
+    <tr><td><b>渲染区</b></td><td>正文的只读渲染结果（横排 / 竖排）</td></tr>
     <tr><td><b>设置</b></td><td>键位、每页项数、渲染引擎、功能开关；改动即时生效并记住</td></tr>
 </table>
 
-<h2 id="mdc">3 MdC 输入语法</h2>
+<h2 id="quadrat">3 四开组与 MdC 语法</h2>
 
-<p>CHEAV 使用 JSesh 的 MdC（Manuel de Codage）子集。方括号表示“方块（quadrat）”，块内可再分层。</p>
+<p>圣书体的方框布局单位叫 <b>四开组</b>（quadrat）。CHEAV 使用 JSesh 的 MdC 子集：<code>-</code> 分隔两个四开组，
+<code>*</code> 在同一四开组内并列，<code>:</code> 在同一四开组内向下叠一层。</p>
 
 <table>
     <tr><th>写法</th><th>含义</th><th>示例</th></tr>
-    <tr><td><code>A-B</code></td><td>方块之间横排（分隔两个方块）</td><td><code>D58-G43</code></td></tr>
-    <tr><td><code>A*B</code></td><td>同一方块内并列</td><td><code>W24*X1</code></td></tr>
-    <tr><td><code>A:B</code></td><td>同一方块内下移一层（竖叠）</td><td><code>D21:N35</code></td></tr>
-    <tr><td><code>&amp;</code></td><td>插入连字（如 <code>I10&amp;X1</code>）</td><td><code>I10&amp;X1</code></td></tr>
-    <tr><td><code>{名称}</code></td><td><b>旧写法，已废弃</b>；仍可解析但不再推荐</td><td><code>{I10-D46}</code></td></tr>
-    <tr><td><code>#1</code>…<code>#4</code></td><td>方块象限着色（1 左上、2 右上、3 左下、4 右下）</td><td><code>#1N35</code></td></tr>
-    <tr><td><code>\</code></td><td>镜像**前一个**符号（后缀）</td><td><code>D21\</code></td></tr>
-    <tr><td><code>!</code></td><td>换行（竖排时 = 换列）</td><td><code>D21-!-D46</code></td></tr>
-    <tr><td><code>$</code></td><td>红色开关：其后的字形变红，直到再次 <code>$</code></td><td><code>$D21$</code></td></tr>
-    <tr><td><code>&lt;…&gt;</code></td><td>插入文本</td><td><code>F35-&lt;good&gt;</code></td></tr>
-    <tr><td><code>&lt;S-…-S&gt;</code></td><td>塞拉赫（serekh）</td><td><code>&lt;S-N35-S&gt;</code></td></tr>
-    <tr><td><code>&lt;h1-…-h1&gt;</code></td><td>普通方框</td><td><code>&lt;h1-N35-h1&gt;</code></td></tr>
-    <tr><td><code>&lt;F-…-F&gt;</code></td><td>城堡框</td><td><code>&lt;F-N35-F&gt;</code></td></tr>
-    <tr><td><code>&lt;g-…-g&gt;</code></td><td>圆形框</td><td><code>&lt;g-N35-g&gt;</code></td></tr>
+    <tr><td><code>A-B</code></td><td>两个<b>四开组</b>之间横排</td><td><code>D58-G43</code></td></tr>
+    <tr><td><code>A*B</code></td><td>同一四开组内并列</td><td><code>W24*X1</code></td></tr>
+    <tr><td><code>A:B</code></td><td>同一四开组内下移一层（竖叠）</td><td><code>D21:N35</code></td></tr>
+    <tr><td><code>&amp;</code></td><td>插入连字（两个符号合成一个）</td><td><code>I10&amp;X1</code></td></tr>
+    <tr><td><code>{名称}</code></td><td>旧式连字引用，<b>已废弃</b>（仍可解析，不再推荐）</td><td><code>{I10-D46}</code></td></tr>
 </table>
-
-<div class="note">
-    <b>码的写法：</b>Gardiner 码如 <code>N35</code>、<code>Aa1</code>、<code>M17A</code>；十六进制码位如 <code>1313F</code>（U+1313F）。
-    CHEAV 内部会把旧写法自动规范化（例如 <code>AA1</code> → <code>Aa1</code>、<code>Y1a</code> → <code>Y1v</code>）。
-</div>
-
-<h3>示例</h3>
 
 <div class="card demo">
     <span class="glyphs" data-mdc="D21:N35" data-size="40"></span>
     <code>D21:N35</code>
     <span class="glyphs" data-mdc="S34-N35:Aa1" data-size="40"></span>
     <code>S34-N35:Aa1</code>
-    <span class="glyphs" data-mdc="G39-X1" data-size="40"></span>
-    <code>G39-X1</code>
 </div>
 
-<h2 id="boxes">4 匹配区</h2>
+<h2 id="frames">4 王名框与塞拉赫</h2>
 
-<h3>4.1 词汇匹配（VMBox）</h3>
-<p>键入发音（如 <code>nfr</code>）时，VM 按发音前缀列出词条；键入码片段时按 MdC 匹配。每行依次是：发音、字形预览、MdC、释义。</p>
+<p>王名（法老名）按类别加框；<code>王名输入</code> 会自动套好这些框：</p>
+
+<table>
+    <tr><th>框</th><th>写法</th><th>用于</th></tr>
+    <tr><td><b>王名圈</b>（cartouche）</td><td><code>&lt;- … -&gt;</code>（也接受 <code>&lt; … &gt;</code>）</td><td>Prenomen（王位名）、Nomen（本名）</td></tr>
+    <tr><td><b>塞拉赫</b>（serekh）</td><td><code>&lt;S- … -S&gt;</code></td><td>Horus（荷鲁斯名）</td></tr>
+    <tr><td>方框</td><td><code>&lt;h1- … -h1&gt;</code></td><td>普通方框</td></tr>
+    <tr><td>圆形框</td><td><code>&lt;g- … -g&gt;</code></td><td>圆形框</td></tr>
+</table>
+
+<div class="card demo">
+    <span class="glyphs" data-mdc="<-ra-wsr-C10A-z->" data-size="40"></span>
+    <code>&lt;-ra-wsr-C10A-z-&gt;</code>
+    <span class="glyphs" data-mdc="<S-E1:D40-C2-mr-S>" data-size="40"></span>
+    <code>&lt;S-E1:D40-C2-mr-S&gt;</code>
+</div>
+
+<div class="warn">
+    <b>注意：</b><code>&lt;…&gt;</code> 现在是<b>王名圈</b>，不再表示“插入文本”。旧写法 <code>F35-&lt;good&gt;</code>
+    会尝试把 “good” 当成王名圈内容解析，结果不正确。文本请改用下一节的 JSesh 写法。
+    另外 <code>&lt;F- … -F&gt;</code>（城堡框）jsesh 目前不支持，会显示为红字。
+</div>
+
+<h2 id="text">5 文本（JSesh 写法）</h2>
+
+<p>正文中的拉丁字母、转写等文本用 <code>+</code> 段插入，最后用 <code>+s</code> 回到圣书体：</p>
+
+<table>
+    <tr><th>写法</th><th>含义</th><th>示例</th></tr>
+    <tr><td><code>+l</code> … <code>+s</code></td><td>拉丁文本（正体）</td><td><code>A1-+l hello +s-A1</code></td></tr>
+    <tr><td><code>+i</code> … <code>+s</code></td><td>斜体</td><td><code>+i italic +s</code></td></tr>
+    <tr><td><code>+b</code> … <code>+s</code></td><td>粗体</td><td><code>+b bold +s</code></td></tr>
+    <tr><td><code>+t</code> … <code>+s</code></td><td>转写文本（埃及学字符）</td><td><code>+t anx +s</code></td></tr>
+    <tr><td><code>++</code></td><td>注释（不可见）</td><td><code>++ note</code></td></tr>
+</table>
+
+<div class="card demo">
+    <span class="glyphs" data-mdc="A1-+l hi +s-A1" data-size="40"></span>
+    <code>A1-+l hi +s-A1</code>
+    <span class="glyphs" data-mdc="+t anx +s" data-size="40"></span>
+    <code>+t anx +s</code>
+</div>
+
+<h2 id="marks">6 其他记号</h2>
+
+<table>
+    <tr><th>写法</th><th>含义</th></tr>
+    <tr><td><code>#1</code> … <code>#4</code></td><td>四开组象限着色（1 左上、2 右上、3 左下、4 右下）</td></tr>
+    <tr><td><code>/</code> <code>//</code> <code>h/</code> <code>v/</code></td><td>阴影块（整格 / 四分之一 / 横条 / 竖条）</td></tr>
+    <tr><td><code>\</code></td><td>镜像**前一个**符号（后缀）</td></tr>
+    <tr><td><code>!</code></td><td>换行；竖排模式下表示换列</td></tr>
+    <tr><td><code>$</code></td><td>红色开关：其后的字形变红，直到再次 <code>$</code></td></tr>
+</table>
+
+<h2 id="boxes">7 匹配区</h2>
+
+<h3>7.1 VMBox（词匹配）</h3>
+<p>键入发音（如 <code>nfr</code>）按发音前缀列词；键入码片段按 MdC 匹配。每行是：发音 / 字形预览 / MdC / 释义。
+候选最多 200 条（分页），继续输入可缩小范围。</p>
+
+<h3>7.2 PDMBox（音素 / 定符，单字符）</h3>
+<p>键入单个字母列出音素单字符；键入 <code>;</code> 后切换为定符匹配。PDM 只用于单字符。</p>
+
+<h3>7.3 GMBox（Gardiner 码，单字符）</h3>
+<p>键入 <code>F35</code> 这类码时按前缀列出候选；大小写不敏感。GM 只用于单字符。</p>
+
+<h2 id="pharaoh">8 王名输入（<code>~</code>）</h2>
+
+<p>在 IB 里以 <code>~</code> 开头。语法：</p>
+
+<div class="card">
+<pre><code>~d&lt;DynastyCode&gt;~n&lt;Category&gt;~&lt;Name&gt;</code></pre>
+</div>
+
 <ul>
-    <li>候选最多显示 <b>200 条</b>，分页浏览；输入更多字母可缩小范围。</li>
-    <li>词条来自项目自有词表与 Dickson 词典派生词表（共约 7,687 条），见 <a href="#vocab">第 8 节</a>。</li>
+    <li><code>~d</code> 段可选：两位王朝号（<code>01</code>–<code>31</code>）或时期代号
+        <code>pd</code>（前王朝）、<code>ed</code>（早王朝）、<code>ok</code>（古王国）、<code>fi</code>（第一中间期）、
+        <code>mk</code>（中王国）、<code>si</code>（第二中间期）、<code>nk</code>（新王国）、<code>ti</code>（第三中间期）、
+        <code>lp</code>（晚期）、<code>ag</code>（阿吉德）、<code>pt</code>（托勒密）、<code>ro</code>（罗马）、
+        <code>ab</code>（阿拜多斯）、<code>un</code>（未定位）；</li>
+    <li><code>~n</code> 段可选：<code>no</code> Nomen、<code>nn</code> Nebty、<code>np</code> Prenomen、
+        <code>nh</code> Horus、<code>ng</code> Golden Horus；</li>
+    <li><b>姓名必需</b>，且<b>名字里不留空格</b>（<code>RamessesII</code>，不是 <code>Ramesses II</code>）；</li>
+    <li><code>~d</code> 与 <code>~n</code> <b>顺序任意</b>；罗马数字与阿拉伯数字等价（<code>Ramesses3</code> = <code>RamessesIII</code>）。</li>
 </ul>
 
-<h3>4.2 音素 / 定符匹配（PDMBox）</h3>
-<p>键入单个字母会列出对应音素的单字符候选（含转写候选）；键入 <code>;</code> 后切换为“定符”匹配，此时列出定符清单。</p>
+<p><b>浏览模式：</b></p>
+<ul>
+    <li>只给朝代（<code>~d19~</code>）：列出该朝代各法老的 Horus 名（每王代表名一条）；</li>
+    <li>只给类别（<code>~nh~</code>、<code>~np~</code>…）：先列著名法老（图坦卡蒙、拉美西斯二世、塞提一世、
+        阿蒙霍特普三世、图特摩斯三世、克利奥帕特拉七世等）在该类别的名；</li>
+    <li>朝代 + 类别 + 国王名（<code>~d19~nh~RamessesII</code>）：展开该国王该类的全部变体。</li>
+</ul>
 
-<h3>4.3 Gardiner Code 匹配（GMBox）</h3>
-<p>键入 <code>F35</code> 这类码时，GM 区按前缀列出候选；大小写不敏感（<code>f35</code> 与 <code>F35</code> 等价）。</p>
+<p><b>VM 行三列：</b>左 = 拟合MdC读音（如 <code>wsr-mAat-ra</code>）；中 = 带框的 MdC；右 = 国王 · 类别 · 王朝。
+若该名没有拟合MdC读音（希腊/罗马名），左列显示 <code>/</code>。</p>
 
-<h3>4.4 王名输入（<code>~</code>）</h3>
-<p>可选的 <code>~n</code> 段用于限定名号类别：<code>no</code>=Nomen、<code>nn</code>=Nebty、<code>np</code>=Prenomen、
-<code>nh</code>=Horus、<code>ng</code>=Golden Horus。例如 <code>~np~RamessesII</code>、<code>~d19~np~RamessesII</code>；
-<code>~d</code> 与 <code>~n</code> 两段**顺序任意**，都可省略，姓名必需。</p>
-<p>在 IB 里以 <code>~</code> 开头：<code>~d19~RamessesII</code>。候选在 <b>VM 词区</b>以词条形式列出（PDM/GM 是单字符区，不参与王名）。其中 <code>~d19~</code> 是可选朝代段
-（<code>19</code> = 第十九王朝，也可用 <code>pt</code> 托勒密、<code>ro</code> 罗马、<code>nk</code> 新王国等），
-<code>RamessesII</code> 是必需的姓名，<b>名字里不留空格</b>。也可以直接输入王名本身（如 <code>~Usermaatra</code>），候选会直接列出该王名的全部变体。</p>
-<p>浏览模式：只给朝代（如 <code>~d19~</code>）→ 列出该朝代各法老的 Horus 名；只给类别（如 <code>~nh~</code>、<code>~np~</code>）→ 先列出著名法老（图坦卡蒙、拉美西斯二世、塞提一世、阿蒙霍特普三世、图特摩斯三世、克利奥帕特拉七世等）在该类别的名；朝代 + 类别 + 国王名（如 <code>~d19~nh~RamessesII</code>）→ 展开该国王该类的全部变体。</p>
-<p>VM 行的三列：<b>左</b>＝拟合MdC读音（如 <code>wsr-mAat-ra</code>），<b>中</b>＝带框 MdC，<b>右</b>＝国王 · 类别 · 王朝。若该名没有拟合MdC读音（如希腊/罗马名 <i>Diadoumenianos</i>），左列显示 <code>/</code>。</p>
-<p>写入国名时自动加框：<b>Horus</b> → <code>&lt;S-…-S&gt;</code> 塞拉赫；<b>Prenomen / Nomen</b> → <code>&lt;-…-&gt;</code> 王名圈；Nebty、Golden Horus 等不加框。</p>
-<ol>
-    <li><kbd>Tab</kbd> 选中国王（如 Ramesses II）；</li>
-    <li><kbd>Tab</kbd> 选择五类名号之一（Horus / Nebty / Golden Horus / Prenomen / Nomen）；</li>
-    <li><kbd>Tab</kbd> 选择该类的具体变体，MdC 串写入 IB（Prenomen / Nomen 自动加王名圈）。</li>
-</ol>
-<p>其他写法：<code>~RamessesIII</code>（不带朝代）、<code>~dpt~PtolemyI</code>、<code>~dnk~ThutmoseIII</code>、
-<code>~KingTut</code>（别名）。数字支持罗马数字与阿拉伯数字，<code>II</code> 与 <code>III</code> 严格区分。</p>
+<p><b>操作：</b><kbd>Tab</kbd> 选国王（或直接选王名）→ 选类别 → 选变体；Prenomen / Nomen 自动套王名圈，
+Horus 自动套塞拉赫。候选超过 40 页时只显示前 40 页（分页栏标注「仅前 40 页」）。</p>
 
-<h3>4.4 缺字形：红色码文本</h3>
-<p>如果某个码在 jsesh-js 的字形数据里不存在（例如 Dickson 词典里印成红字的 <code>A478A</code>），CHEAV 不会画方块占位，而是按 JSesh 的约定显示<b>红色码名</b>。这与词典原书的做法一致。</p>
+<div class="card demo">
+    <span class="glyphs" data-mdc="<-ra-wsr-C10A-z->" data-size="40"></span>
+    <span class="mdc">~np~RamessesII</span>
+</div>
 
-<h2 id="keys">5 键盘操作</h2>
+<h2 id="keys">9 键盘操作</h2>
 
 <table>
     <tr><th>按键</th><th>作用（均可在设置中改绑）</th></tr>
     <tr><td><kbd>Alt</kbd></td><td>在三个候选区之间切换焦点（自动跳过无候选的框）</td></tr>
     <tr><td><kbd>Tab</kbd></td><td>确认当前候选，写入 IB</td></tr>
     <tr><td><kbd>Enter</kbd></td><td>IB → 正文</td></tr>
-    <tr><td><kbd>↑</kbd> <kbd>↓</kbd> / <kbd>←</kbd> <kbd>→</kbd></td><td>选项间移动 / 翻页</td></tr>
+    <tr><td><kbd>↑</kbd> <kbd>↓</kbd> / <kbd>←</kbd> <kbd>→</kbd></td><td>选项间移动 / 翻页（VM 用上下，PDM / GM 用左右）</td></tr>
     <tr><td><kbd>Backspace</kbd></td><td>IB 为空时直接删正文（无需切换焦点）</td></tr>
-    <tr><td><kbd>Esc</kbd></td><td>关闭文档浮层 / 取消当前输入焦点</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>关闭文档浮层</td></tr>
 </table>
 
-<h2 id="io">6 入流与出流</h2>
-
-<p>IB 的两种状态决定了候选区显示什么：</p>
-<ul>
-    <li><b>入流</b>：键入的是分隔符（<code>-</code>、<code>:</code>、<code>}</code> 等），表示“上一个单位结束，开始下一个”，焦点自动移到 VM 区；</li>
-    <li><b>出流</b>：键入普通字母/字符，按发音或码继续过滤当前单位。</li>
-</ul>
-
-<p>两种状态下按 <kbd>Tab</kbd> 都是“确认当前候选并写入 IB”。文字内容以 <code>&lt;…&gt;</code> 输入时按原样保留，不参与码的规范化。</p>
-
-<h2 id="settings">7 设置</h2>
+<h2 id="settings">10 设置</h2>
 
 <table>
     <tr><th>项目</th><th>说明</th></tr>
-    <tr><td>渲染引擎</td><td><b>jsesh-js</b>（默认，与 JSesh 排版一致）或 <b>内置 MdCRndr</b>（回退引擎）</td></tr>
+    <tr><td>渲染引擎</td><td><b>jsesh-js</b>（默认，与 JSesh 排版一致）或内置 MdCRndr（回退）</td></tr>
     <tr><td>每页项数</td><td>VM 候选每页显示条数</td></tr>
     <tr><td>键位</td><td>确认 / 送正文 / 焦点切换 / 翻页等按键可改绑</td></tr>
     <tr><td>排版方向</td><td>横排或竖排（竖排按列从右向左排列）</td></tr>
@@ -274,51 +319,52 @@
 
 <p>设置保存在浏览器本地（localStorage），刷新后仍生效。</p>
 
-<h2 id="vocab">8 词汇与词典数据</h2>
+<h2 id="data">11 词汇与数据许可</h2>
 
-<p>CHEAV 3.0.0 内置约 7,687 条词条：</p>
+<p>CHEAV 3.0.0 内置约 7,687 条词条，以及 382 位法老的 2,333 条王名：</p>
+
 <ul>
     <li>项目自有词表（<code>js/database/vocabulary.js</code>，约 227 条）；</li>
-    <li><b>Dickson 词典派生词表</b>（<code>data/dickson/vocabulary-dickson.js</code>，7,460 条）：
-        由 R. Dickson, <i>Dictionary of Middle Egyptian</i>（2006）的排版反推，字段为发音 / MdC / 英文释义 / 页码，按 (发音, MdC) 去重。</li>
+    <li><b>Dickson 词典派生词表</b>（<code>data/dickson/</code>，7,460 条；CC BY-NC-SA 2.5）；</li>
+    <li><b>pharaoh.se 王表</b>（<code>data/pharaohs/</code>；CC BY 4.0，需署名）。</li>
 </ul>
 
 <div class="warn">
-    <b>许可：</b>Dickson 词表是词典的派生数据，按 <b>CC BY-NC-SA 2.5</b> 分发（署名 · 非商业 · 相同方式共享），
-    不属于仓库其余部分的 MIT 许可。再分发时请保留署名并以相同许可共享。详见 <code>data/dickson/README.md</code> 与 <code>NOTICE.md</code>。
+    <b>许可边界：</b>代码为 MIT；<code>data/dickson/</code> 为 CC BY-NC-SA 2.5（署名 · 非商业 · 相同方式共享），
+    <code>data/pharaohs/</code> 为 CC BY 4.0（署名）；jsesh-js 为 CeCILL-C。详见 <code>NOTICE.md</code> 与各目录 README。
 </div>
 
-<p>词条里的英文释义来自词典原文，中文释义暂缺；如需补充，可在 <code>vocabulary-dickson.js</code> 生成流程中扩展字段。</p>
-
-<h2 id="perf">9 性能与限制</h2>
+<h2 id="perf">12 性能与限制</h2>
 
 <ul>
-    <li><b>首屏</b>：jsesh-js 字形数据约 24 MB（6,966 个文件），首次加载会按需请求；之后由浏览器缓存。</li>
-    <li><b>输入</b>：IB 输入有 50 ms 防抖；候选封顶 200 条；7,687 条词条下单键同步耗时约 0 ms，候选字形在 ~100–150 ms 内出齐。</li>
-    <li><b>缺字形</b>：显示红色码名（与词典原书一致），不是错误；可在词表里补映射或换用存在的变体码。</li>
-    <li><b>长词</b>：VM 行内预览会按比例缩小（最多占行宽 42%），不会压到右侧文字。</li>
-    <li><b>候选分页</b>：候选超过 40 页时只显示前 40 页（分页栏标注「仅前 40 页」）。</li>
+    <li><b>首屏</b>：jsesh-js 字形数据约 24 MB，首次加载按需请求，之后由浏览器缓存。</li>
+    <li><b>输入</b>：IB 输入有 50 ms 防抖；普通词条封顶 200 条；7,687 条词条下单键同步约 0 ms。</li>
+    <li><b>预览</b>：所有词条预览（普通词条与王名词条）一律用 jsesh SVG，不使用 NewGardiner 字体。</li>
+    <li><b>候选分页</b>：候选超过 40 页时只显示前 40 页。</li>
+    <li><b>缺字形</b>：显示红色码名（JSesh 约定），不是错误；如 <code>A478A</code>。</li>
+    <li><b>残损记号</b>：<code>[ra]</code>、<code>[jt]</code> 会去掉方括号按复原文字渲染；
+        <code>D&amp;(…)</code> 这类括号连字 jsesh 不支持，会标注并留空预览。</li>
 </ul>
 
-<h2 id="faq">10 常见问题</h2>
-
-<h3>为什么输入后候选只显示前 200 条？</h3>
-<p>7,000+ 词条下一次匹配可能有数千个候选，全部排序会造成约 100 ms/键的延迟。CHEAV 取排序后的前 200 条并分页；继续输入会更精确。</p>
+<h2 id="faq">13 常见问题</h2>
 
 <h3>为什么某些码是红色的？</h3>
-<p>该码在 jsesh-js 字形数据中不存在（例如 <code>A478A</code>）。红色码名是 JSesh 的约定写法，表示“无此字形”，不是渲染失败。</p>
+<p>该码在 jsesh 字形数据中不存在（例如 <code>A478A</code>），红色码名表示“无此字形”，不是渲染失败。</p>
+
+<h3>为什么王名候选左列是 “/”？</h3>
+<p>该名没有拟合MdC读音（如希腊/罗马名 <i>Diadoumenianos</i>）。拟合MdC读音要求只用 MdC 字母，出现 e / o 即视为无。</p>
+
+<h3>为什么文本不能再用 <code>&lt;good&gt;</code>？</h3>
+<p><code>&lt;…&gt;</code> 现在是王名圈。请用 JSesh 写法：<code>+l good +s</code>（拉丁文本）或 <code>+t … +s</code>（转写）。</p>
 
 <h3>竖排怎么用？</h3>
-<p>在顶部切换「竖排」，或设置里改默认方向。竖排时 <code>!</code> 表示换列，列从右向左排列。</p>
+<p>顶部切换「竖排」，或设置里改默认方向。竖排时 <code>!</code> 表示换列，列从右向左排列。</p>
 
 <h3>离线能用吗？</h3>
-<p>可以。整个项目是纯静态文件：下载仓库后直接打开 <code>index.html</code>，或起一个本地静态服务器（推荐 <code>python -m http.server 8000</code>）。</p>
-
-<h3>如何报告问题？</h3>
-<p>在 <a href="https://github.com/QuartzQuincy2019/CHEAV" target="_blank" rel="noopener">GitHub 仓库</a> 提 issue，附上：输入的 MdC、期望结果、实际截图，以及页脚的 Version / Build。</p>
+<p>可以。纯静态文件：下载仓库后直接打开 <code>index.html</code>，或起本地静态服务器（推荐 <code>python -m http.server 8000</code>）。</p>
 
 <div class="footer">
-    CHEAV 3.0.0 · 2026-11-19 · Quincy K. / Quartz Studio ©2019-2026 ·
+    CHEAV 3.0.0 · Build 3.0.14 · Quincy K. / Quartz Studio ©2019-2026 ·
     渲染引擎 <a href="lib/jsesh/README.md" target="_top">jsesh-js</a>（CeCILL-C）
 </div>
 
@@ -329,7 +375,7 @@
     configureJSesh({ glyphsUrl: "./lib/jsesh/data/" });
     (async function () {
         for (const el of document.querySelectorAll("[data-mdc]")) {
-            const h = Number(el.dataset.size || 36);
+            const h = Number(el.dataset.size || 40);
             try {
                 el.innerHTML = await renderMdc(el.dataset.mdc, { cadratHeight: h });
             } catch (e) {
