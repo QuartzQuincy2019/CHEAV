@@ -688,16 +688,9 @@ function showParseErrors(list) {
         const glyph = document.createElement("span");
         glyph.className = "mcell-glyph";
         cell.dataset.mdc = u.glyph || "";
-        // 单字符候选格走"缩略图"渲染路径（Thumbs，见 js/ui/thumbs.js）：
-        // 只画一个字形，输出 inline-block，与四开组/行层的定位体系无关，天然可居中。
-        if (previewGlyphFallback(glyph, u.glyph, PREVIEW_SIZE)) {
-            glyph.classList.add("thumb-box");
-        } else if (typeof Thumbs !== "undefined" && Thumbs.render) {
-            glyph.classList.add("thumb-box");
-            Thumbs.render(glyph, u.glyph, PREVIEW_SIZE);
-        } else {
-            MdCRndr.renderText(glyph, u.glyph, PREVIEW_SIZE);   // u.glyph 为 MdC 渲染串
-        }
+        // 字形**延迟到可见时**再画（paintCellGlyph）：buildPools 会预建 8,000+ 个单元，
+        // 若在此处就渲染，缺少本地 glyfs 时会瞬间发起几千个 jsesh 渲染请求，
+        // 页面直接卡死（GitHub Pages 上的表现）。
         cell.appendChild(glyph);
         // 两行下标：定宽 wrap 内放不定宽标签 → 超长文本（如定符名）循环滚动
         const l1wrap = document.createElement("span");
@@ -736,6 +729,23 @@ function showParseErrors(list) {
         for (const u of codeUnits) { u.el = createCellEl(u); gmBox.appendChild(u.el); }
     }
 
+    /** 首次可见时再渲染候选格字形（每个格只画一次）。 */
+    function paintCellGlyph(cell) {
+        if (!cell || cell.dataset.glyphPainted === "1") return;
+        const glyph = cell.querySelector(".mcell-glyph");
+        if (!glyph) return;
+        cell.dataset.glyphPainted = "1";
+        const mdc = cell.dataset.mdc || "";
+        if (previewGlyphFallback(glyph, mdc, PREVIEW_SIZE)) {
+            glyph.classList.add("thumb-box");
+        } else if (typeof Thumbs !== "undefined" && Thumbs.render) {
+            glyph.classList.add("thumb-box");
+            Thumbs.render(glyph, mdc, PREVIEW_SIZE);
+        } else {
+            MdCRndr.renderText(glyph, mdc, PREVIEW_SIZE);   // 为 MdC 渲染串
+        }
+    }
+
     function visibleLimit(container) {
         const W = container.clientWidth || 0;
         if (!W) return 8;
@@ -762,7 +772,10 @@ function showParseErrors(list) {
             }
             if (!u.el) continue;
             u.el.style.display = show ? "" : "none";
-            if (show) visible.push(u);
+            if (show) {
+                paintCellGlyph(u.el);              // 首次显示时才渲染字形
+                visible.push(u);
+            }
         }
         container.classList.toggle("empty", visible.length === 0);
         return visible;
