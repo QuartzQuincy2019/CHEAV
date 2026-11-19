@@ -883,9 +883,29 @@ function showParseErrors(list) {
         return hit ? ("<-" + hit.m + "->") : "";
     }
 
+    /**
+     * 站点 MdC 里的残损/复原记号：`[ra]`、`[jt]`，以及 `D&(t:N16)` 这类写法，
+     * jsesh 的 MdC 语法不接受（`[` 在 JSesh 里是语文学标记）。
+     * 渲染/写入前去掉方括号（按复原文字处理；`[[ … ]]` 是 JSesh 合法语法，保留），
+     * 并把 `&(…)` 归一为 `&…`。
+     */
+    function pharaohSanitizeMdc(mdc) {
+        let s = String(mdc || "");
+        // 1) 残损/复原方括号：[ra]、[jt]；`[[ … ]]` 是 JSesh 合法语文学语法，保留
+        if (!(s.indexOf("[[") >= 0 && s.indexOf("]]") >= 0)) {
+            s = s.replace(/[\[\]]/g, "");
+        }
+        // 2) `D&(t:N16)` → `D&t:N16`
+        s = s.replace(/&\(([^)]*)\)/g, "&$1");
+        // 3) 站点数据里偶发的中途 < / >（王名圈由 pharaohFrame 统一追加）
+        s = s.replace(/[<>]/g, "");
+        return s;
+    }
+
     /** 王名框：Horus → 塞拉赫；Prenomen/Nomen → 王名圈；其余不加框。 */
     function pharaohFrame(section, mdc) {
         if (!mdc) return "";
+        mdc = pharaohSanitizeMdc(mdc);
         if (section === "Horus") return "<S-" + mdc + "-S>";
         if (section === "Prenomen" || section === "Nomen" || section === "Prenomen + Nomen") {
             return "<-" + mdc + "->";
