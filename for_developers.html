@@ -266,7 +266,7 @@ mergeWordCandidates([...])    // 合并 + 按 insert 去重 + 排序</code></pre
 </table>
 
 <h2 id="pharaoh">4.5 王名检索（PharaohMatch）</h2>
-<p><code>js/engine/pharaoh-match.js</code> 提供王名检索；数据在 <code>data/pharaohs/</code>（pharaoh.se，CC BY 4.0）。王名候选统一渲染在 <b>VMBox</b>（词条形式），PDM/GM 仍只显示单字符。写入时按类别加框：<code>Horus</code> → <code>&lt;S-…-S&gt;</code>，<code>Prenomen</code>/<code>Nomen</code> → <code>&lt;-…-&gt;</code>，其余不加框。</p>
+<p><code>js/engine/pharaoh-match.js</code> 提供王名检索；数据在 <code>data/pharaohs/</code>（pharaoh.se，CC BY 4.0）。王名候选统一渲染在 <b>VMBox</b>（词条形式：左列＝由转写 1:1 折叠出的拟合MdC读音，右列＝国王 · 类别 · 王朝），PDM/GM 仍只显示单字符。写入时按类别加框：<code>Horus</code> → <code>&lt;S-…-S&gt;</code>，<code>Prenomen</code>/<code>Nomen</code> → <code>&lt;-…-&gt;</code>，其余不加框。</p>
 <table>
     <tr><th>成员</th><th>说明</th></tr>
     <tr><td><code>PharaohMatch.search(q)</code></td><td><code>~d19~RamessesII</code> / <code>~Ramesses3</code> / <code>19th dynasty Ramesses</code></td></tr>

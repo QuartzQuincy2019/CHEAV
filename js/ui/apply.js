@@ -825,6 +825,48 @@ function showParseErrors(list) {
     // 候选一律以「词」的形式出现在 VMBox：国王 → 名号类别 → 变体，Tab 逐级确认。
     function pharaohSectionLabel(sec) { return PH_SECTION_LABEL[sec] || sec; }
 
+    // 拟合读音（带变音符的转写）→ 拟合MdC读音（JSesh 可接受的 ASCII 写法的 1:1 折叠）
+    const PH_FOLD = {
+        "\uA722": "A", "\uA723": "A",   // Ꜣ ꜣ（埃及学 alef）
+        "\uA724": "a", "\uA725": "a",   // Ꜥ ꜥ（埃及学 ain）
+        "\uA7BD": "i", "\u0131": "i",   // ꞽ ı
+        "\u1E2B": "x", "\u1E96": "X",   // ḫ ẖ
+        "\u0161": "S", "\u1E6F": "T",   // š ṯ
+        "\u1E0F": "D", "\u1E25": "H"    // ḏ ḥ
+    };
+    const PH_FOLD_RE = /[\uA722\uA723\uA724\uA725\uA7BD\u0131\u1E2B\u1E96\u0161\u1E6F\u1E0F\u1E25]/g;
+    function pharaohFitMdc(reading) {
+        return String(reading || "")
+            .replace(PH_FOLD_RE, ch => PH_FOLD[ch] || ch)
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+
+    const PH_DYNASTY_ZH = {
+        pd: "前王朝", ed: "早王朝", ok: "古王国", fi: "第一中间期", mk: "中王国",
+        si: "第二中间期", nk: "新王国", ti: "第三中间期", lp: "晚期",
+        ag: "阿吉德", pt: "托勒密", ro: "罗马", ab: "阿拜多斯", un: "未定位"
+    };
+    const PH_CN_NUM = ["零","一","二","三","四","五","六","七","八","九","十",
+                       "十一","十二","十三","十四","十五","十六","十七","十八","十九","二十",
+                       "二十一","二十二","二十三","二十四","二十五","二十六","二十七","二十八","二十九","三十","三十一"];
+    function pharaohDynastyZh(code) {
+        if (!code) return "";
+        if (/^\d{1,2}$/.test(code)) {
+            const n = parseInt(code, 10);
+            return "第" + (PH_CN_NUM[n] || n) + "王朝";
+        }
+        return PH_DYNASTY_ZH[code] || code;
+    }
+
+    function pharaohNameInfo(king, section) {
+        return PharaohMatch.displayName(king) + " · " + pharaohSectionLabel(section) +
+               " · " + pharaohDynastyZh(king.code);
+    }
+
+    function pharaohFirstPrenomen(king) {
+        return PharaohMatch.namesFor(king.id).find(n => n.s === "Prenomen" && n.m) || null;
+    }
+
     function pharaohPrenomenMdc(k) {
         if (!k || typeof PharaohMatch === "undefined") return "";
         const hit = PharaohMatch.namesFor(k.id).find(n => n.s === "Prenomen" && n.m);
@@ -846,25 +888,30 @@ function showParseErrors(list) {
             // 先按「王名本身」查：全部 2,333 条王名都在候选映射里
             const entries = PharaohMatch.searchEntries(String(ib.value || "").trim());
             if (entries.length) {
-                return entries.map(hit => ({
-                    kind: "pharaoh",
-                    pron: hit.entry.t || hit.entry.n || hit.entry.m,
-                    glyph: pharaohFrame(hit.entry.s, hit.entry.m),
-                    MdC: pharaohFrame(hit.entry.s, hit.entry.m),
-                    mean: PharaohMatch.displayName(hit.king) + " · " + pharaohSectionLabel(hit.entry.s) +
-                          (hit.king.prenomen ? " · " + hit.king.prenomen : ""),
-                    entry: hit.entry,
-                    king: hit.king
-                }));
+                return entries.map(hit => {
+                    const framed = pharaohFrame(hit.entry.s, hit.entry.m);
+                    return {
+                        kind: "pharaoh",
+                        pron: pharaohFitMdc(hit.entry.t) || hit.entry.n || "",
+                        glyph: framed,
+                        MdC: framed,
+                        mean: pharaohNameInfo(hit.king, hit.entry.s),
+                        entry: hit.entry,
+                        king: hit.king
+                    };
+                });
             }
-            return PharaohMatch.search(String(ib.value || "").trim()).map(k => ({
-                kind: "pharaoh",
-                pron: PharaohMatch.displayName(k),
-                glyph: pharaohPrenomenMdc(k),
-                MdC: k.prenomen || "",
-                mean: "dyn " + (k.code || "?") + (k.from ? " · " + k.from : ""),
-                king: k
-            }));
+            return PharaohMatch.search(String(ib.value || "").trim()).map(k => {
+                const pre = pharaohFirstPrenomen(k);
+                return {
+                    kind: "pharaoh",
+                    pron: pre ? pharaohFitMdc(pre.t) : "",
+                    glyph: pharaohPrenomenMdc(k),
+                    MdC: pre ? pharaohFrame("Prenomen", pre.m) : "",
+                    mean: pharaohNameInfo(k, "Prenomen"),
+                    king: k
+                };
+            });
         }
         if (pharaoh.stage === "category") {
             return PharaohMatch.categoriesFor(pharaoh.king.id).map(c => ({
@@ -878,14 +925,17 @@ function showParseErrors(list) {
         }
         return PharaohMatch.namesFor(pharaoh.king.id)
             .filter(n => n.s === pharaoh.section)
-            .map(n => ({
-                kind: "pharaoh",
-                pron: n.t || n.n || n.m,
-                glyph: pharaohFrame(n.s, n.m),
-                MdC: pharaohFrame(n.s, n.m),
-                mean: n.g || "",
-                item: n
-            }));
+            .map(n => {
+                const framed = pharaohFrame(n.s, n.m);
+                return {
+                    kind: "pharaoh",
+                    pron: pharaohFitMdc(n.t) || n.n || "",
+                    glyph: framed,
+                    MdC: framed,
+                    mean: pharaohNameInfo(pharaoh.king, n.s) + (n.g ? " · " + n.g : ""),
+                    item: n
+                };
+            });
     }
 
     function pharaohRender() {
