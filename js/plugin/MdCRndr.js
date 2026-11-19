@@ -960,17 +960,19 @@ function makeUnsupported(code, size, mirror) {
         if (mirror) { el.style.transform = "scaleX(-1)"; el.classList.add("mir"); }
         return el;
     }
+    // 缺字形：按 jsesh / JSesh 的约定画**红色码文本**（不是方块占位框）
     const box = document.createElement("span");
     box.className = options.unsupportedClass;
     box.textContent = code;
-    box.title = code + "（字体不含此字形）";
-    const side = size * 0.92;                       // 方块边长：略小于 1em，留出间隙
-    box.style.width = px(side) + "px";
-    box.style.height = px(side) + "px";
-    // 内文比例：以 0.62em/字符 估算，保证整串码名都装进框内（0.90em 可用宽度），
-    // 短码不超过 0.32em，长码自动缩小。
-    const scale = Math.min(0.32, 0.90 / (0.62 * Math.max(code.length, 1)));
-    box.style.fontSize = px(size * scale) + "px";
+    box.title = code + "（无此字形）";
+    box.style.fontSize = px(size * 0.42) + "px";
+    box.style.lineHeight = "1";
+    box.style.color = "#c00000";
+    box.style.fontWeight = "bold";
+    box.style.fontFamily = '"Times New Roman", Times, serif';
+    box.style.whiteSpace = "nowrap";
+    box.style.display = "inline-block";
+    box.style.verticalAlign = "baseline";
     if (mirror) { box.style.transform = "scaleX(-1)"; box.classList.add("mir"); }
     return box;
 }
@@ -2065,20 +2067,14 @@ function splitLines(tree) {
             + '    white-space: pre;\n'
             + '}\n\n'
             + '.' + options.unsupportedClass + ' {\n'
-            + '    display: inline-flex;\n'                  // 方块占位：码名居中
-            + '    align-items: center;\n'
-            + '    justify-content: center;\n'
-            + '    box-sizing: border-box;\n'
-            + '    vertical-align: baseline;\n'              // 与普通字符同坐基线
-            + '    border: 1px solid #b4b4b4;\n'
-            + '    border-radius: 2px;\n'
-            + '    background: #f7f7f7;\n'
-            + '    color: #555;\n'
-            + '    font-family: Consolas, "Courier New", monospace;\n'
-            + '    line-height: 1;\n'
-            + '    white-space: nowrap;\n'
-            + '    overflow: hidden;\n'
-            + '}\n\n'
+        + '    display: inline-block;\n'                  // 缺字形：红色码文本（jsesh 风格）
+        + '    vertical-align: baseline;\n'
+        + '    color: #c00000;\n'
+        + '    font-weight: bold;\n'
+        + '    font-family: "Times New Roman", Times, serif;\n'
+        + '    line-height: 1;\n'
+        + '    white-space: nowrap;\n'
+        + '}\n\n'
             + '.' + options.vtextClass + ' {\n'
             + '    display: inline-flex;\n'
             + '    flex-direction: row;\n'          // 列自左向右（字形朝前，不镜像时按左→右）

@@ -1154,6 +1154,14 @@ function showParseErrors(list) {
     // 以及组闭合符 "}"（敲完即视为该单位输入结束）。
     const INFLOW_KEYS = /^[-:}]$/;
 
+    /** 立即清掉候选区/字符区的选中高亮（防抖窗口内不残留上一轮的选中项）。 */
+    function clearSelectionHighlight() {
+        const sel = "#VMBox .candidate.selected, #VMBox .candidate.current, .mcell.selected, .mcell.current";
+        document.querySelectorAll(sel).forEach(function (el) {
+            el.classList.remove("selected", "current");
+        });
+    }
+
     // IB 输入防抖：连续键入时只对最后一次做匹配/渲染（词条多时单次排序可达 ~100 ms）
     const IB_INPUT_DEBOUNCE_MS = 50;
     let ibInputTimer = 0;
@@ -1169,6 +1177,10 @@ function showParseErrors(list) {
         } else if (typing) {
             inflow = false;
         }
+
+        // 先清掉上一轮的高亮/选中索引，避免防抖窗口里还显示"最后一项被选中"
+        vm.sel = 0; pd.sel = 0; gm.sel = 0;
+        clearSelectionHighlight();
 
         const run = function () {
             updateMatch();     // 按最新状态统一匹配一次（避免先匹配后切态导致 PDM/GM 空白）
@@ -1190,7 +1202,14 @@ function showParseErrors(list) {
     ib.addEventListener("input", onInput);
     ib.addEventListener("keydown", onKeyDown);
     // 点击各区域：仅切换选中焦点（框内项目已在 mousedown 阶段自行处理并阻止冒泡）
-    ib.addEventListener("mousedown", () => { if (focusBox !== "IB") { focusBox = "IB"; renderAll(); } });
+    ib.addEventListener("mousedown", () => {
+        if (focusBox !== "IB") {
+            focusBox = "IB";
+            vm.sel = 0; pd.sel = 0; gm.sel = 0;
+            clearSelectionHighlight();
+            renderAll();
+        }
+    });
     vmBox.addEventListener("mousedown", () => { if (focusBox !== "VM") { focusBox = "VM"; renderAll(); } });
     pdmBox.addEventListener("mousedown", () => { if (focusBox !== "PDM") { focusBox = "PDM"; renderAll(); } });
     gmBox.addEventListener("mousedown", () => { if (focusBox !== "GM") { focusBox = "GM"; renderAll(); } });
