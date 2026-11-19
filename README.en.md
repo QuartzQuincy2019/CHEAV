@@ -9,16 +9,17 @@ open `index.html` and you are ready to go.
 > **Try it online: <https://quartzquincy2019.github.io/CHEAV/>**
 > (hosted on GitHub Pages; see below for local use)
 
-- Version: **3.0.0** (since 2025-12-27)
-- Latest: **3.0.0** (2026-11-19)
+- Version: **3.1.0** (since 2025-12-27)
+- Latest: **3.1.0** (2026-11-19)
 - Author: **Quincy K. / Quartz Studio ©2019-2026**
 - The rendering engine is a single-file plugin, [`js/plugin/MdCRndr.js`](js/plugin/MdCRndr.js), that can be
   embedded in other projects on its own
 
 ---
 
-## Version 3.0.0 (2026-11-19)
+## Version 3.1.0 (2026-11-19)
 
+- **Royal names**: new `~d<Code>~n<Category>~<Name>` input, 382 pharaohs / 2,333 royal names, automatic serekh / cartouche, VM rows with fitted-MdC reading, framed MdC and king info, 40-page cap.
 - Rendering now uses **jsesh-js** (the official JSesh TypeScript port under CeCILL-C) for the body,
   previews and candidate thumbnails; the built-in MdCRndr remains as a fallback.
   Unavailable glyphs are drawn as red code text.
