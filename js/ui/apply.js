@@ -901,14 +901,17 @@ function showParseErrors(list) {
     }
 
     let previewPending = false;
+    const previewTried = new Set();          // 已经尝试预载过的码（失败的不再重试，避免无限递归）
     async function refreshPreviewToSvg(tree) {
         if (previewPending) return;
         if (typeof Glyphs === "undefined" || !Glyphs.ready) return;
-        const missing = codesInTree(tree).filter(c => !Glyphs.tried(c));
+        const missing = codesInTree(tree).filter(c => !Glyphs.tried(c) && !previewTried.has(c));
         if (!missing.length) return;
+        for (const c of missing) previewTried.add(c);
         previewPending = true;
         try { await Glyphs.preload(missing); } finally { previewPending = false; }
-        updateIBPreview();
+        // 只有真正补到了字形才重绘（否则 updateIBPreview 会再次触发本函数 → 递归）
+        if (missing.some(c => Glyphs.tried(c))) updateIBPreview();
     }
 
     let vmSvgPending = false;
