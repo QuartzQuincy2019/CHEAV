@@ -39,6 +39,15 @@ Unicode 源数据（`Unikemet.txt`）与由其生成的对照表（`jsesh-unicod
 该目录**不属于**本仓库的 MIT 代码部分；MIT 仅适用于其余源码与文档。
 许可全文见 [`data/dickson/LICENSE`](data/dickson/LICENSE)。
 
+## 一之三、许可边界：`data/pharaohs/`（王表索引）
+
+`data/pharaohs/` 是 [pharaoh.se](https://pharaoh.se/)（Peter Lundström）王表数据的派生索引，
+按 **CC BY 4.0** 分发：再分发时须署名并附许可链接。
+
+- 来源：<https://pharaoh.se/>
+- 许可：<https://creativecommons.org/licenses/by/4.0/>
+- 该目录不属于本仓库的 MIT 代码部分。
+
 ## 二、明确**未**包含的第三方素材
 
 以下素材**不属于**本仓库的分发内容（均存放于仓库外 `..\..\_external_CHEAV\`，
