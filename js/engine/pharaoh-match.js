@@ -202,7 +202,13 @@
             baseHits = (BASE_KEY[nameKey] || []).filter(function (k) { return matchCode(k, code); });
         }
         var out = exact.length ? exact : baseHits;
-        if (!exact.length && !baseHits.length && !nameKey) out = pool;
+        if (!out.length && nameKey) {
+            var seen = Object.create(null);
+            searchEntries(raw).forEach(function (hit) {
+                if (!seen[hit.king.id]) { seen[hit.king.id] = 1; out.push(hit.king); }
+            });
+        }
+        if (!out.length && !nameKey) out = pool;
         out.sort(function (a, b) {
             if (a.dyn !== b.dyn) return a.dyn - b.dyn;
             if (a.order !== b.order) return a.order - b.order;
@@ -212,6 +218,45 @@
     }
 
     function displayName(k) { return k.num ? (k.base + " " + toRoman(k.num)) : k.name; }
+
+    /**
+     * 按「王名本身」检索：把每位国王的全部 2,333 条王名（名称 / 转写 / MdC）
+     * 都作为候选键。返回 [{ king, entry }]，entry = { s, n, t, g, m }。
+     */
+    function searchEntries(query) {
+        init();
+        var raw = String(query == null ? "" : query);
+        var t = parseTilde(raw);
+        var code, nameQ;
+        if (t) { code = t.code; nameQ = key(t.name); }
+        else {
+            var scope = parseScope(raw);
+            var parts = splitNumeral(scope.rest);
+            code = scope.code;
+            nameQ = key(parts.name);
+        }
+        if (!nameQ) return [];
+        var pool = KINGS.filter(function (k) { return matchCode(k, code); });
+        var out = [];
+        for (var i = 0; i < pool.length; i++) {
+            var king = pool[i];
+            var list = namesFor(king.id);
+            for (var j = 0; j < list.length; j++) {
+                var e = list[j];
+                var kn = key(e.n), kt = key(e.t), km = key(e.m);
+                var exact = (kn === nameQ || kt === nameQ || km === nameQ);
+                var prefix = !exact && (kn.indexOf(nameQ) === 0 || kt.indexOf(nameQ) === 0);
+                if (exact || prefix) out.push({ king: king, entry: e, exact: exact });
+            }
+        }
+        out.sort(function (a, b) {
+            if (a.exact !== b.exact) return a.exact ? -1 : 1;
+            if (a.king.dyn !== b.king.dyn) return a.king.dyn - b.king.dyn;
+            if (a.king.order !== b.king.order) return a.king.order - b.king.order;
+            return 0;
+        });
+        return out;
+    }
 
     function namesFor(id) {
         var all = global.PHARAOH_NAMES || {};
@@ -237,6 +282,7 @@
             return { tilde: false, code: s.code, name: p.name, num: p.num };
         },
         displayName: displayName,
+        searchEntries: searchEntries,
         namesFor: namesFor,
         categoriesFor: categoriesFor,
         byId: function (id) { init(); return BY_ID[id] || null; },

@@ -828,11 +828,35 @@ function showParseErrors(list) {
     function pharaohPrenomenMdc(k) {
         if (!k || typeof PharaohMatch === "undefined") return "";
         const hit = PharaohMatch.namesFor(k.id).find(n => n.s === "Prenomen" && n.m);
-        return hit ? ("<" + hit.m + ">") : "";
+        return hit ? ("<-" + hit.m + "->") : "";
+    }
+
+    /** 王名框：Horus → 塞拉赫；Prenomen/Nomen → 王名圈；其余不加框。 */
+    function pharaohFrame(section, mdc) {
+        if (!mdc) return "";
+        if (section === "Horus") return "<S-" + mdc + "-S>";
+        if (section === "Prenomen" || section === "Nomen" || section === "Prenomen + Nomen") {
+            return "<-" + mdc + "->";
+        }
+        return mdc;
     }
 
     function pharaohUnits() {
         if (pharaoh.stage === "king") {
+            // 先按「王名本身」查：全部 2,333 条王名都在候选映射里
+            const entries = PharaohMatch.searchEntries(String(ib.value || "").trim());
+            if (entries.length) {
+                return entries.map(hit => ({
+                    kind: "pharaoh",
+                    pron: hit.entry.t || hit.entry.n || hit.entry.m,
+                    glyph: pharaohFrame(hit.entry.s, hit.entry.m),
+                    MdC: pharaohFrame(hit.entry.s, hit.entry.m),
+                    mean: PharaohMatch.displayName(hit.king) + " · " + pharaohSectionLabel(hit.entry.s) +
+                          (hit.king.prenomen ? " · " + hit.king.prenomen : ""),
+                    entry: hit.entry,
+                    king: hit.king
+                }));
+            }
             return PharaohMatch.search(String(ib.value || "").trim()).map(k => ({
                 kind: "pharaoh",
                 pron: PharaohMatch.displayName(k),
@@ -857,8 +881,8 @@ function showParseErrors(list) {
             .map(n => ({
                 kind: "pharaoh",
                 pron: n.t || n.n || n.m,
-                glyph: n.m,
-                MdC: n.m,
+                glyph: pharaohFrame(n.s, n.m),
+                MdC: pharaohFrame(n.s, n.m),
                 mean: n.g || "",
                 item: n
             }));
@@ -912,6 +936,19 @@ function showParseErrors(list) {
         pharaoh.sel = idx;
         const u = vm.list[idx];
         if (!u) return;
+        // 直接命中某条王名（无需再选类别）
+        if (u.entry) {
+            const mdc = pharaohFrame(u.entry.s, u.entry.m);
+            if (!mdc) return;
+            ib.value = mdc;
+            ib.selectionStart = ib.selectionEnd = mdc.length;
+            pharaohExit();
+            inflow = false;
+            updateMatch();
+            updateIBPreview();
+            renderAll();
+            return;
+        }
         if (pharaoh.stage === "king") {
             pharaoh.king = u.king;
             pharaoh.stage = "category";
@@ -928,11 +965,8 @@ function showParseErrors(list) {
             renderAll();
             return;
         }
-        let mdc = (u.item && u.item.m) || "";
+        const mdc = pharaohFrame(u.item && u.item.s, u.item && u.item.m);
         if (!mdc) return;
-        if (pharaoh.section === "Prenomen" || pharaoh.section === "Nomen" || pharaoh.section === "Prenomen + Nomen") {
-            mdc = "<" + mdc + ">";
-        }
         ib.value = mdc;
         ib.selectionStart = ib.selectionEnd = mdc.length;
         pharaohExit();
